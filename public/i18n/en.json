@@ -1,0 +1,16 @@
+{
+  "brand": "Mare",
+  "parentsTeachers": "Parents & teachers",
+  "heroTitle": "Mare's Story Corner",
+  "heroSub": "Pick a story. The wood is listening.",
+  "moreStoriesSoon": "More stories soon",
+  "clubMare": "Club Mare",
+  "clubMareSub": "New stories, just for members",
+  "maresShop": "Mare's Shop",
+  "maresShopSub": "Bring the wood home",
+  "signInPrompt": "You'll need to sign in as a parent or teacher first.",
+  "signIn": "Sign in",
+  "notNow": "Not now",
+  "loadError": "The wood is quiet right now \u2014 try refreshing in a moment.",
+  "hiName": "Hi, {name}"
+}

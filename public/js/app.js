@@ -12,13 +12,35 @@
     }
   }
 
-  function bookCoverEl(book) {
+  // Cover art: prefer a real uploaded image (splash_icon_key, via R2),
+  // then a bundled static cover shipped with the app for books we
+  // already have finished art for, then fall back to a generated
+  // typographic cover so a brand-new book never looks broken. Bundled
+  // covers are keyed by group_slug, not the locale-specific slug —
+  // 'mare' covers both mare/mare-nl until Dutch cover art exists too.
+  const BUNDLED_COVERS = { mare: '/images/mare-front-cover.jpg' };
+
+  async function bookCoverEl(book) {
     const cover = document.createElement('div');
-    if (book.splash_icon_key) {
+    const bundled = BUNDLED_COVERS[book.group_slug || book.slug];
+    if (book.splash_icon_key || bundled) {
       cover.className = 'book-cover';
       const img = document.createElement('img');
       img.alt = '';
-      img.src = `/api/playback-url?key=${encodeURIComponent(book.splash_icon_key)}`;
+      if (book.splash_icon_key) {
+        // /api/playback-url returns { url }, not the image itself —
+        // resolve it first rather than pointing img.src straight at the
+        // JSON endpoint.
+        try {
+          const res = await fetch(`/api/playback-url?key=${encodeURIComponent(book.splash_icon_key)}`);
+          const data = await res.json();
+          img.src = data.url;
+        } catch {
+          img.src = bundled || '';
+        }
+      } else {
+        img.src = bundled;
+      }
       cover.appendChild(img);
     } else {
       // No artwork uploaded yet — a generated typographic cover so this
@@ -33,20 +55,20 @@
     return cover;
   }
 
-  function renderBooks(books) {
+  async function renderBooks(books) {
     grid.innerHTML = '';
-    books.forEach(book => {
+    for (const book of books) {
       const card = document.createElement('button');
       card.type = 'button';
       card.className = 'book-card';
-      card.appendChild(bookCoverEl(book));
+      card.appendChild(await bookCoverEl(book));
       const ribbon = document.createElement('div');
       ribbon.className = 'book-ribbon';
       ribbon.textContent = book.title;
       card.appendChild(ribbon);
       card.addEventListener('click', () => openBook(book));
       grid.appendChild(card);
-    });
+    }
 
     // "More stories coming soon" — a locked slot so the shelf reads as
     // ongoing rather than finished, matching "more to come" from the brief.
@@ -59,7 +81,7 @@
     locked.appendChild(lockedCover);
     const lockedLabel = document.createElement('div');
     lockedLabel.className = 'book-ribbon';
-    lockedLabel.textContent = 'More stories soon';
+    lockedLabel.textContent = window.MareI18n.t('moreStoriesSoon');
     locked.appendChild(lockedLabel);
     grid.appendChild(locked);
   }
@@ -67,7 +89,10 @@
   async function openBook(book) {
     const user = await checkSession();
     if (!user) return showLoginPrompt();
-    window.location.href = `/reader.html?book=${encodeURIComponent(book.slug)}`;
+    // Carry the current locale through to the reader explicitly — the
+    // reader will also have its own book/chapter/scene rows scoped to
+    // this exact locale-specific book id, so this isn't just cosmetic.
+    window.location.href = `/reader.html?book=${encodeURIComponent(book.slug)}&lang=${window.MareI18n.locale}`;
   }
 
   function showLoginPrompt() {
@@ -89,24 +114,33 @@
     window.location.href = '/merchandise.html';
   });
 
+  function setupLangSwitch() {
+    const buttons = document.querySelectorAll('#lang-switch .lang-btn');
+    buttons.forEach(btn => {
+      const lang = btn.getAttribute('data-lang');
+      btn.classList.toggle('active', lang === window.MareI18n.locale);
+      btn.addEventListener('click', () => window.MareI18n.switchLocale(lang));
+    });
+  }
+
   async function init() {
+    await window.MareI18n.ready; // i18n.js applies data-i18n text itself; wait so t() below is safe too
+    setupLangSwitch();
+
     try {
-      const res = await fetch('/api/splash');
+      const res = await fetch(`/api/splash?lang=${window.MareI18n.locale}`);
       const data = await res.json();
-      renderBooks(data.books || []);
+      await renderBooks(data.books || []);
     } catch {
-      grid.innerHTML = '<p>The wood is quiet right now — try refreshing in a moment.</p>';
+      grid.innerHTML = `<p>${window.MareI18n.t('loadError')}</p>`;
     }
 
     const user = await checkSession();
     if (user) {
-      const actions = document.getElementById('topbar-actions');
-      actions.innerHTML = '';
-      const link = document.createElement('a');
+      const link = document.getElementById('account-link');
       link.href = user.role === 'teacher' ? '/teacher.html' : '/account.html';
-      link.className = 'btn-ghost';
-      link.textContent = user.name ? `Hi, ${user.name}` : 'Account';
-      actions.appendChild(link);
+      link.removeAttribute('data-i18n');
+      link.textContent = user.name ? window.MareI18n.t('hiName', { name: user.name }) : 'Account';
     }
   }
 

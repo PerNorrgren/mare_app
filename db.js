@@ -44,6 +44,7 @@ async function getDb() {
     name TEXT NOT NULL,
     email_opt_in INTEGER NOT NULL DEFAULT 0,
     email_frequency TEXT DEFAULT 'weekly', -- 'daily' | 'weekly'
+    preferred_locale TEXT NOT NULL DEFAULT 'en', -- for future locale-aware emails/UI persistence
     created_at TEXT DEFAULT (datetime('now'))
   )`);
 
@@ -65,6 +66,7 @@ async function getDb() {
     password_hash TEXT NOT NULL,
     name TEXT NOT NULL,
     school TEXT,
+    preferred_locale TEXT NOT NULL DEFAULT 'en',
     created_at TEXT DEFAULT (datetime('now'))
   )`);
 
@@ -88,6 +90,8 @@ async function getDb() {
     id TEXT PRIMARY KEY,
     title TEXT NOT NULL,
     slug TEXT UNIQUE NOT NULL,
+    group_slug TEXT NOT NULL DEFAULT '', -- links locale variants of the same book together (e.g. 'mare' for both mare/mare-nl)
+    locale TEXT NOT NULL DEFAULT 'en', -- 'en' | 'nl' — each locale is its own full book row: chapters/scenes/art genuinely differ per language, not just swapped text (Dutch images have Dutch in-image text)
     description TEXT,
     splash_icon_key TEXT, -- R2 key, large splash-page icon
     sort_order INTEGER NOT NULL DEFAULT 0,
@@ -256,11 +260,35 @@ async function getDb() {
     sent_date_str TEXT NOT NULL -- dedup key, e.g. '2026-08-20'
   )`);
 
-  const bookCount = get(`SELECT COUNT(*) as c FROM books`)?.c || 0;
-  if (bookCount === 0) {
-    run(`INSERT INTO books (id, title, slug, description, sort_order) VALUES (?,?,?,?,0)`,
-      [uuid(), 'Mare and the Whispering Woods of Words',
-       'mare', 'Mare finds a path into a wood where the trees remember every word ever spoken.']);
+  // ── Migration: the 'locale'/'group_slug' columns on books didn't exist
+  // in the first two deployed versions of this app — CREATE TABLE IF NOT
+  // EXISTS above only applies to a brand-new database, so a live Railway
+  // deploy that already booted once needs these added explicitly. Wrapped
+  // in try/catch because a fresh database (where the CREATE TABLE above
+  // already included these columns) will correctly fail here with
+  // "duplicate column" — that failure is expected and safe to ignore.
+  try { db.run(`ALTER TABLE books ADD COLUMN locale TEXT NOT NULL DEFAULT 'en'`); } catch {}
+  try { db.run(`ALTER TABLE books ADD COLUMN group_slug TEXT NOT NULL DEFAULT ''`); } catch {}
+  try { db.run(`ALTER TABLE parents ADD COLUMN preferred_locale TEXT NOT NULL DEFAULT 'en'`); } catch {}
+  try { db.run(`ALTER TABLE teachers ADD COLUMN preferred_locale TEXT NOT NULL DEFAULT 'en'`); } catch {}
+  // Backfill: any book row from before group_slug existed (or with the
+  // column's own default '') gets its own slug as its group — correct
+  // for the original single-locale 'mare' row, and harmless for anything
+  // already set correctly.
+  run(`UPDATE books SET group_slug = slug WHERE group_slug IS NULL OR group_slug = ''`);
+
+  // ── Seed content — keyed by slug (idempotent) rather than a row-count
+  // check, so re-running this after adding a new locale or a new book
+  // later doesn't require touching this function's logic each time. ──
+  if (!get(`SELECT id FROM books WHERE slug = 'mare'`)) {
+    run(`INSERT INTO books (id, title, slug, group_slug, locale, description, sort_order) VALUES (?,?,?,?,?,?,0)`,
+      [uuid(), 'Mare and the Whispering Woods of Words', 'mare', 'mare', 'en',
+       'Mare finds a path into a wood where the trees remember every word ever spoken.']);
+  }
+  if (!get(`SELECT id FROM books WHERE slug = 'mare-nl'`)) {
+    run(`INSERT INTO books (id, title, slug, group_slug, locale, description, sort_order) VALUES (?,?,?,?,?,?,0)`,
+      [uuid(), 'Mare en het fluisterbos van woorden', 'mare-nl', 'mare', 'nl',
+       'Mare vindt een pad naar een bos waar de bomen elk woord onthouden dat ooit is gezegd.']);
   }
 
   save();
@@ -349,16 +377,40 @@ function createAdmin({ email, passwordHash, name }) {
 function getActiveBooks() {
   return all(`SELECT * FROM books WHERE active = 1 ORDER BY sort_order, created_at`);
 }
+
+// Returns one book per group_slug, in the requested locale where that
+// translation exists, otherwise falling back to 'en', otherwise
+// whatever locale is available — so a book never vanishes from the
+// splash page just because its Dutch (or next language's) content
+// hasn't been written yet.
+function getActiveBooksForLocale(locale) {
+  const rows = all(`SELECT * FROM books WHERE active = 1 ORDER BY sort_order, created_at`);
+  const byGroup = new Map();
+  for (const row of rows) {
+    const key = row.group_slug || row.slug;
+    if (!byGroup.has(key)) byGroup.set(key, []);
+    byGroup.get(key).push(row);
+  }
+  const result = [];
+  for (const variants of byGroup.values()) {
+    const match = variants.find(b => b.locale === locale)
+      || variants.find(b => b.locale === 'en')
+      || variants[0];
+    result.push(match);
+  }
+  result.sort((a, b) => a.sort_order - b.sort_order);
+  return result;
+}
 function getAllBooks() {
   return all(`SELECT * FROM books ORDER BY sort_order, created_at`);
 }
 function getBookBySlug(slug) {
   return get(`SELECT * FROM books WHERE slug = ?`, [slug]);
 }
-function createBook({ title, slug, description, splashIconKey }) {
+function createBook({ title, slug, description, splashIconKey, locale, groupSlug }) {
   const id = uuid();
-  run(`INSERT INTO books (id, title, slug, description, splash_icon_key) VALUES (?,?,?,?,?)`,
-    [id, title, slug, description || null, splashIconKey || null]);
+  run(`INSERT INTO books (id, title, slug, group_slug, locale, description, splash_icon_key) VALUES (?,?,?,?,?,?,?)`,
+    [id, title, slug, groupSlug || slug, locale || 'en', description || null, splashIconKey || null]);
   return id;
 }
 function getChaptersByBook(bookId) {
@@ -511,7 +563,7 @@ module.exports = {
   getChildrenByParent, createChild,
   getTeacherByEmail, createTeacher,
   getAdminByEmail, createAdmin,
-  getActiveBooks, getAllBooks, getBookBySlug, createBook,
+  getActiveBooks, getActiveBooksForLocale, getAllBooks, getBookBySlug, createBook,
   getChaptersByBook, createChapter,
   getScenesByChapter, createScene, setSceneImage, setSceneNarrationAudio,
   replaceNarrationSentences, getNarrationSentences, updateNarrationSentenceTiming,

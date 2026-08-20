@@ -28,6 +28,30 @@ const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY;
 const stripe = STRIPE_SECRET_KEY ? new Stripe(STRIPE_SECRET_KEY) : null;
 
 // ─────────────────────────────────────────────────────────────────────
+// LOCALE — English and Dutch to start (the book's two published
+// editions). Adding a language later means adding it here, adding a
+// public/i18n/<locale>.json file, and adding the book rows for it —
+// nothing else in this list needs to change.
+// ─────────────────────────────────────────────────────────────────────
+const SUPPORTED_LOCALES = ['en', 'nl'];
+const DEFAULT_LOCALE = 'en';
+
+// Resolution order: explicit ?lang= query param (wins, since a person
+// actively choosing a language should never be second-guessed) → saved
+// mare_locale cookie → browser Accept-Language → default.
+function resolveLocale(req) {
+  const fromQuery = req.query?.lang;
+  if (fromQuery && SUPPORTED_LOCALES.includes(fromQuery)) return fromQuery;
+  const fromCookie = req.cookies?.mare_locale;
+  if (fromCookie && SUPPORTED_LOCALES.includes(fromCookie)) return fromCookie;
+  const acceptLang = (req.headers['accept-language'] || '').toLowerCase();
+  for (const loc of SUPPORTED_LOCALES) {
+    if (acceptLang.includes(loc)) return loc;
+  }
+  return DEFAULT_LOCALE;
+}
+
+// ─────────────────────────────────────────────────────────────────────
 // AUTH — Parent / Teacher / Admin, fully separate accounts from per_bot
 // ─────────────────────────────────────────────────────────────────────
 
@@ -100,8 +124,11 @@ app.post('/api/children', auth.requireAuthApi(['parent']), (req, res) => {
 // ─────────────────────────────────────────────────────────────────────
 
 app.get('/api/splash', (req, res) => {
+  const locale = resolveLocale(req);
+  res.cookie('mare_locale', locale, { maxAge: 365 * 24 * 60 * 60 * 1000, sameSite: 'lax' });
   res.json({
-    books: db.getActiveBooks(),
+    locale,
+    books: db.getActiveBooksForLocale(locale),
     hasClubMare: true,
     hasMerchandise: true,
   });

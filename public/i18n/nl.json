@@ -1,0 +1,16 @@
+{
+  "brand": "Mare",
+  "parentsTeachers": "Ouders & leraren",
+  "heroTitle": "Mare's Verhalenhoek",
+  "heroSub": "Kies een verhaal. Het bos luistert.",
+  "moreStoriesSoon": "Binnenkort meer verhalen",
+  "clubMare": "Club Mare",
+  "clubMareSub": "Nieuwe verhalen, alleen voor leden",
+  "maresShop": "Mare's Winkel",
+  "maresShopSub": "Haal het bos in huis",
+  "signInPrompt": "Je moet eerst inloggen als ouder of leraar.",
+  "signIn": "Inloggen",
+  "notNow": "Niet nu",
+  "loadError": "Het bos is nu stil \u2014 probeer het zo nog eens.",
+  "hiName": "Hoi, {name}"
+}
