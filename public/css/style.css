@@ -1,0 +1,264 @@
+:root {
+  --paper: #F6EFDD;
+  --paper-deep: #EFE4C9;
+  --ink: #2B2620;
+  --forest: #2F4A3E;
+  --moss: #6E8F6B;
+  --honey: #E2A33E;
+  --berry: #8B4B5C;
+  --card-shadow: 0 6px 0 rgba(43, 38, 32, 0.12), 0 10px 20px rgba(43, 38, 32, 0.10);
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--paper);
+  background-image: radial-gradient(circle at 20% 10%, rgba(110,143,107,0.08), transparent 40%),
+                     radial-gradient(circle at 85% 30%, rgba(226,163,62,0.10), transparent 45%);
+  color: var(--ink);
+  font-family: 'Quicksand', sans-serif;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+h1, h2 {
+  font-family: 'Fraunces', serif;
+  font-weight: 600;
+  margin: 0;
+}
+
+/* ── Topbar ── */
+.topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px clamp(20px, 5vw, 56px) 0;
+}
+.brand { display: flex; align-items: center; gap: 8px; color: var(--forest); }
+.brand-mark { display: flex; }
+.brand-word {
+  font-family: 'Fraunces', serif;
+  font-weight: 600;
+  font-size: 1.3rem;
+  letter-spacing: 0.02em;
+}
+.btn-ghost {
+  font-family: 'Quicksand', sans-serif;
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: var(--forest);
+  background: transparent;
+  border: 1.5px solid var(--forest);
+  border-radius: 999px;
+  padding: 8px 18px;
+  cursor: pointer;
+  text-decoration: none;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.btn-ghost:hover { background: var(--forest); color: var(--paper); }
+
+.btn-primary {
+  font-family: 'Quicksand', sans-serif;
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: var(--paper);
+  background: var(--honey);
+  border: none;
+  border-radius: 999px;
+  padding: 10px 22px;
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-block;
+}
+
+/* ── Hero ── */
+.hero {
+  text-align: center;
+  padding: clamp(24px, 6vw, 56px) 20px 8px;
+}
+.hero h1 {
+  font-size: clamp(2rem, 5vw, 3rem);
+  color: var(--forest);
+}
+.hero-sub {
+  margin: 10px 0 0;
+  font-size: 1.05rem;
+  color: var(--moss);
+  font-weight: 600;
+}
+
+/* ── Shelf / book grid ── */
+.shelf {
+  flex: 1;
+  padding: clamp(16px, 4vw, 40px) clamp(20px, 6vw, 64px);
+}
+.shelf-grid {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: clamp(20px, 3vw, 36px);
+  max-width: 1100px;
+  margin: 0 auto;
+}
+.book-card { width: 200px; flex-shrink: 0; }
+
+.book-card {
+  position: relative;
+  border: none;
+  background: none;
+  padding: 0;
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+  color: inherit;
+}
+.book-cover {
+  aspect-ratio: 3 / 4;
+  border-radius: 14px;
+  box-shadow: var(--card-shadow);
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+.book-card:hover .book-cover,
+.book-card:focus-visible .book-cover {
+  transform: translateY(-4px);
+}
+.book-cover::before {
+  /* spine shadow */
+  content: '';
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 14px;
+  background: linear-gradient(to right, rgba(0,0,0,0.22), transparent);
+  z-index: 2;
+}
+.book-cover img {
+  width: 100%; height: 100%; object-fit: cover; display: block;
+}
+.book-cover.generated {
+  background: linear-gradient(160deg, var(--forest), #1d332a);
+  display: flex;
+  align-items: flex-end;
+  padding: 18px;
+}
+.book-cover.generated .gen-title {
+  font-family: 'Fraunces', serif;
+  font-weight: 600;
+  color: var(--paper);
+  font-size: 1.15rem;
+  line-height: 1.25;
+}
+.book-ribbon {
+  margin-top: 10px;
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: var(--forest);
+}
+.book-card:focus-visible {
+  outline: 3px solid var(--honey);
+  outline-offset: 4px;
+  border-radius: 14px;
+}
+
+.book-card.locked .book-cover {
+  box-shadow: none;
+  border: 2px dashed rgba(43,38,32,0.25);
+  background: var(--paper-deep);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(43,38,32,0.4);
+}
+.book-card.locked { cursor: default; }
+.book-card.locked .book-ribbon { color: rgba(43,38,32,0.4); }
+
+/* ── Extras row (Club Mare / Shop) ── */
+.extras {
+  display: flex;
+  gap: 20px;
+  justify-content: center;
+  flex-wrap: wrap;
+  padding: 8px 20px clamp(40px, 6vw, 64px);
+}
+.extra-tile {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border: none;
+  border-radius: 999px;
+  padding: 14px 26px;
+  cursor: pointer;
+  font-family: 'Quicksand', sans-serif;
+  text-align: left;
+  box-shadow: var(--card-shadow);
+  transition: transform 0.15s ease;
+}
+.extra-tile:hover { transform: translateY(-2px); }
+.extra-club { background: var(--berry); color: var(--paper); }
+.extra-shop { background: var(--forest); color: var(--paper); }
+.extra-icon { display: flex; flex-shrink: 0; }
+.extra-label { font-weight: 700; font-size: 1rem; display: block; }
+.extra-sub { font-weight: 500; font-size: 0.78rem; opacity: 0.85; display: block; }
+
+/* ── Wood horizon footer (signature element) ── */
+.wood-horizon {
+  position: relative;
+  height: 100px;
+  margin-top: -20px;
+  overflow: hidden;
+}
+.horizon-svg { width: 100%; height: 100%; display: block; }
+.firefly {
+  position: absolute;
+  width: 5px; height: 5px;
+  border-radius: 50%;
+  background: var(--honey);
+  box-shadow: 0 0 8px 2px rgba(226,163,62,0.8);
+  animation: drift 7s ease-in-out infinite;
+  opacity: 0.9;
+}
+.f1 { left: 15%; top: 30%; animation-delay: 0s; }
+.f2 { left: 42%; top: 55%; animation-delay: 1.6s; }
+.f3 { left: 68%; top: 25%; animation-delay: 3.1s; }
+.f4 { left: 85%; top: 50%; animation-delay: 4.4s; }
+
+@keyframes drift {
+  0%, 100% { transform: translate(0, 0); opacity: 0.5; }
+  50% { transform: translate(8px, -12px); opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .firefly { animation: none; opacity: 0.7; }
+  .book-cover, .extra-tile { transition: none; }
+}
+
+/* ── Modal ── */
+.modal-backdrop {
+  position: fixed; inset: 0;
+  background: rgba(43,38,32,0.45);
+  display: flex; align-items: center; justify-content: center;
+  padding: 20px;
+  z-index: 10;
+}
+.modal-backdrop[hidden] { display: none; }
+.modal-card {
+  background: var(--paper);
+  border-radius: 16px;
+  padding: 28px;
+  max-width: 340px;
+  text-align: center;
+  box-shadow: var(--card-shadow);
+}
+.modal-card p {
+  margin: 0 0 20px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.modal-actions { display: flex; gap: 12px; justify-content: center; }
+
+@media (max-width: 480px) {
+  .topbar { flex-direction: column; gap: 10px; align-items: flex-start; }
+}

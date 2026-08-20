@@ -256,6 +256,13 @@ async function getDb() {
     sent_date_str TEXT NOT NULL -- dedup key, e.g. '2026-08-20'
   )`);
 
+  const bookCount = get(`SELECT COUNT(*) as c FROM books`)?.c || 0;
+  if (bookCount === 0) {
+    run(`INSERT INTO books (id, title, slug, description, sort_order) VALUES (?,?,?,?,0)`,
+      [uuid(), 'Mare and the Whispering Woods of Words',
+       'mare', 'Mare finds a path into a wood where the trees remember every word ever spoken.']);
+  }
+
   save();
   return db;
 }
