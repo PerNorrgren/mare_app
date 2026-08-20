@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mare — Sign in</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/style.css">
+<link rel="stylesheet" href="/css/day.css">
+</head>
+<body class="day">
+
+<header class="topbar">
+  <a href="/" class="brand" style="text-decoration:none;">
+    <span class="brand-mark" aria-hidden="true">
+      <svg viewBox="0 0 40 40" width="28" height="28"><path d="M20 4c-7 0-13 6-13 14 0 9 8 15 13 18 5-3 13-9 13-18 0-8-6-14-13-14z" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="20" cy="17" r="3" fill="currentColor"/></svg>
+    </span>
+    <span class="brand-word" data-i18n="brand">Mare</span>
+  </a>
+  <nav class="topbar-actions">
+    <div class="lang-switch" id="lang-switch" aria-label="Language">
+      <button type="button" class="lang-btn" data-lang="en">EN</button>
+      <button type="button" class="lang-btn" data-lang="nl">NL</button>
+    </div>
+    <a href="/" class="btn-ghost" data-i18n="backToStories">Back to stories</a>
+  </nav>
+</header>
+
+<main class="auth-main">
+  <div class="auth-card">
+
+    <div class="role-switch" id="role-switch">
+      <button type="button" class="role-btn active" data-role="parent" data-i18n="tabParent">Parent</button>
+      <button type="button" class="role-btn" data-role="teacher" data-i18n="tabTeacher">Teacher</button>
+    </div>
+
+    <h1 id="auth-heading" data-i18n="authHeadingLogin">Sign in</h1>
+    <p class="auth-sub" id="auth-sub" data-i18n="subParentLogin">See what Mare's been up to, and manage your family's account.</p>
+
+    <div class="mode-switch">
+      <button type="button" class="mode-btn active" data-mode="login" data-i18n="modeLogin">Log in</button>
+      <button type="button" class="mode-btn" data-mode="signup" data-i18n="modeSignup">Create account</button>
+    </div>
+
+    <form id="auth-form" novalidate>
+      <div class="field signup-only" hidden>
+        <label for="f-name" data-i18n="fieldName">Name</label>
+        <input type="text" id="f-name" name="name" autocomplete="name">
+      </div>
+      <div class="field signup-only teacher-only" hidden>
+        <label for="f-school" data-i18n="fieldSchool">School (optional)</label>
+        <input type="text" id="f-school" name="school" autocomplete="organization">
+      </div>
+      <div class="field">
+        <label for="f-email" data-i18n="fieldEmail">Email</label>
+        <input type="email" id="f-email" name="email" autocomplete="email" required>
+      </div>
+      <div class="field">
+        <label for="f-password" data-i18n="fieldPassword">Password</label>
+        <input type="password" id="f-password" name="password" autocomplete="current-password" required>
+      </div>
+      <div class="field signup-only" hidden>
+        <label for="f-confirm" data-i18n="fieldConfirmPassword">Confirm password</label>
+        <input type="password" id="f-confirm" name="confirm" autocomplete="new-password">
+      </div>
+
+      <p class="form-error" id="form-error" hidden></p>
+
+      <button type="submit" class="btn-primary btn-full" id="submit-btn" data-i18n="submitLogin">Log in</button>
+    </form>
+
+  </div>
+</main>
+
+<script src="/js/i18n.js"></script>
+<script src="/js/login.js"></script>
+</body>
+</html>

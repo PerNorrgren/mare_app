@@ -59,6 +59,7 @@ app.post('/api/parent/signup', async (req, res) => {
   try {
     const { email, password, name } = req.body || {};
     if (!email || !password || !name) return res.status(400).json({ error: 'Missing fields' });
+    if (password.length < 8) return res.status(400).json({ error: 'Password must be at least 8 characters' });
     if (db.getParentByEmail(email)) return res.status(409).json({ error: 'Email already registered' });
     const hash = await auth.hashPassword(password);
     const id = db.createParent({ email, passwordHash: hash, name });
@@ -78,6 +79,23 @@ app.post('/api/parent/login', async (req, res) => {
   const token = auth.createToken(result);
   res.cookie(auth.COOKIE_NAME, token, auth.COOKIE_OPTIONS);
   res.json({ ok: true });
+});
+
+app.post('/api/teacher/signup', async (req, res) => {
+  try {
+    const { email, password, name, school } = req.body || {};
+    if (!email || !password || !name) return res.status(400).json({ error: 'Missing fields' });
+    if (password.length < 8) return res.status(400).json({ error: 'Password must be at least 8 characters' });
+    if (db.getTeacherByEmail(email)) return res.status(409).json({ error: 'Email already registered' });
+    const hash = await auth.hashPassword(password);
+    const id = db.createTeacher({ email, passwordHash: hash, name, school });
+    const token = auth.createToken({ role: 'teacher', id, name, email });
+    res.cookie(auth.COOKIE_NAME, token, auth.COOKIE_OPTIONS);
+    res.json({ ok: true, id });
+  } catch (e) {
+    console.error('teacher signup failed', e);
+    res.status(500).json({ error: 'Signup failed' });
+  }
 });
 
 app.post('/api/teacher/login', async (req, res) => {
