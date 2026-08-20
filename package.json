@@ -1,0 +1,22 @@
+{
+  "name": "mare-app",
+  "version": "0.1.0",
+  "description": "Mare and the Whispering Woods of Words — companion reading app (splash, read-along, Mare, Club Mare, merchandise)",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.600.0",
+    "@aws-sdk/s3-request-presigner": "^3.600.0",
+    "bcryptjs": "^2.4.3",
+    "cookie-parser": "^1.4.6",
+    "express": "^4.18.2",
+    "jsonwebtoken": "^9.0.2",
+    "node-cron": "^4.5.0",
+    "node-fetch": "^2.7.0",
+    "sql.js": "^1.14.1",
+    "stripe": "^14.0.0",
+    "uuid": "^9.0.1"
+  }
+}
