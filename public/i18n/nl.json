@@ -1,6 +1,7 @@
 {
   "brand": "Mare",
   "parentsTeachers": "Ouders & leraren",
+  "parentNavLabel": "Ouder",
   "heroTitle": "Mare's Verhalenhoek",
   "heroSub": "Kies een verhaal. Het bos luistert.",
   "moreStoriesSoon": "Binnenkort meer verhalen",
@@ -14,6 +15,7 @@
   "loadError": "Het bos is nu stil \u2014 probeer het zo nog eens.",
   "hiName": "Hoi, {name}",
   "backToStories": "Terug naar verhalen",
+  "backToTeacher": "Terug naar Mare in de klas",
   "tabParent": "Ouder",
   "tabTeacher": "Leraar",
   "modeLogin": "Inloggen",

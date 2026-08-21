@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Mare — Sign in</title>
+<title>Mare — Teacher sign in</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet">
@@ -24,7 +24,7 @@
       <button type="button" class="lang-btn" data-lang="en">EN</button>
       <button type="button" class="lang-btn" data-lang="nl">NL</button>
     </div>
-    <a href="/" class="btn-ghost" data-i18n="backToStories">Back to stories</a>
+    <a href="/teacher.html" class="btn-ghost" data-i18n="backToTeacher">Back to Mare in the Classroom</a>
   </nav>
 </header>
 
@@ -32,7 +32,7 @@
   <div class="auth-card">
 
     <h1 id="auth-heading" data-i18n="authHeadingLogin">Sign in</h1>
-    <p class="auth-sub" id="auth-sub" data-i18n="subParentLogin">See what Mare's been up to, and manage your family's account.</p>
+    <p class="auth-sub" id="auth-sub" data-i18n="subTeacherLogin">Sign in to your teacher account.</p>
 
     <div class="mode-switch">
       <button type="button" class="mode-btn active" data-mode="login" data-i18n="modeLogin">Log in</button>
@@ -43,6 +43,10 @@
       <div class="field signup-only" hidden>
         <label for="f-name" data-i18n="fieldName">Name</label>
         <input type="text" id="f-name" name="name" autocomplete="name">
+      </div>
+      <div class="field signup-only" hidden>
+        <label for="f-school" data-i18n="fieldSchool">School (optional)</label>
+        <input type="text" id="f-school" name="school" autocomplete="organization">
       </div>
       <div class="field">
         <label for="f-email" data-i18n="fieldEmail">Email</label>
@@ -66,6 +70,6 @@
 </main>
 
 <script src="/js/i18n.js"></script>
-<script src="/js/login.js"></script>
+<script src="/js/teacher-login.js"></script>
 </body>
 </html>

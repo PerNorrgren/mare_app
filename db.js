@@ -127,7 +127,8 @@ async function getDb() {
   // never overwrites anything an admin has since edited or deleted.
   const PAGE_SEED = [
     { label: 'Story Corner (splash)', url: '/', kind: 'internal', status: 'live', description: "The public landing page — book shelf, Club Mare and Shop tiles.", sortOrder: 0 },
-    { label: 'Sign in / create account', url: '/login.html', kind: 'internal', status: 'live', description: 'Parent and teacher login + signup, role and mode selectable.', sortOrder: 10 },
+    { label: 'Sign in / create account (Parent)', url: '/login.html', kind: 'internal', status: 'live', description: 'Parent-only login + signup. Teachers use their own separate page (see below).', sortOrder: 10 },
+    { label: 'Teacher sign in / create account', url: '/teacher-login.html', kind: 'internal', status: 'live', description: 'Dedicated teacher login + signup, separate from the parent page.', sortOrder: 15 },
     { label: 'For Teachers', url: '/teacher.html', kind: 'internal', status: 'live', description: 'Public teacher splash when signed out; resources + What\u2019s New hub when signed in as a teacher.', sortOrder: 20 },
     { label: 'Admin', url: '/admin.html', kind: 'internal', status: 'live', description: 'Staff login and dashboard (this page).', sortOrder: 30 },
     { label: 'Reader', url: '/reader.html', kind: 'internal', status: 'planned', description: 'The audio-follows-text reading experience — not built yet, the core still-open piece.', sortOrder: 40 },

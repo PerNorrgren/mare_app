@@ -1,6 +1,7 @@
 {
   "brand": "Mare",
   "parentsTeachers": "Parents & teachers",
+  "parentNavLabel": "Parent",
   "heroTitle": "Mare's Story Corner",
   "heroSub": "Pick a story. The wood is listening.",
   "moreStoriesSoon": "More stories soon",
@@ -14,6 +15,7 @@
   "loadError": "The wood is quiet right now \u2014 try refreshing in a moment.",
   "hiName": "Hi, {name}",
   "backToStories": "Back to stories",
+  "backToTeacher": "Back to Mare in the Classroom",
   "tabParent": "Parent",
   "tabTeacher": "Teacher",
   "modeLogin": "Log in",

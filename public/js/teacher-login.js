@@ -1,6 +1,7 @@
 (function () {
-  // Parent-only login/signup. Teacher accounts now use their own dedicated
-  // page (teacher-login.html) — see that file's teacher-login.js.
+  // Teacher-only login/signup, its own page (separate from the parent
+  // login at login.html — Per asked for these to be split rather than a
+  // shared page with a role switch).
   const state = { mode: 'login' };
 
   async function checkSession() {
@@ -19,7 +20,7 @@
     document.getElementById('auth-heading').textContent =
       t(state.mode === 'login' ? 'authHeadingLogin' : 'authHeadingSignup');
     document.getElementById('auth-sub').textContent =
-      t(state.mode === 'login' ? 'subParentLogin' : 'subParentSignup');
+      t(state.mode === 'login' ? 'subTeacherLogin' : 'subTeacherSignup');
   }
 
   function applyMode() {
@@ -61,8 +62,6 @@
     document.getElementById('form-error').hidden = true;
   }
 
-  // Server error strings -> translation keys, so a person on the Dutch
-  // page never sees a raw English error message.
   const SERVER_ERROR_MAP = {
     'Invalid email or password': 'errorInvalidCredentials',
     'Email already registered': 'errorEmailTaken',
@@ -77,14 +76,15 @@
     const email = document.getElementById('f-email').value.trim();
     const password = document.getElementById('f-password').value;
     const name = document.getElementById('f-name').value.trim();
+    const school = document.getElementById('f-school').value.trim();
     const confirm = document.getElementById('f-confirm').value;
 
     if (state.mode === 'signup' && password !== confirm) {
       return showError('errorPasswordMismatch');
     }
 
-    const endpoint = `/api/parent/${state.mode}`;
-    const body = state.mode === 'signup' ? { email, password, name } : { email, password };
+    const endpoint = `/api/teacher/${state.mode}`;
+    const body = state.mode === 'signup' ? { email, password, name, school } : { email, password };
 
     const submitBtn = document.getElementById('submit-btn');
     submitBtn.disabled = true;
@@ -101,7 +101,7 @@
         submitBtn.disabled = false;
         return;
       }
-      window.location.href = '/';
+      window.location.href = '/teacher.html';
     } catch {
       showError('errorGeneric');
       submitBtn.disabled = false;
@@ -113,7 +113,8 @@
     setupLangSwitch();
     setupModeSwitch();
 
-    // Deep link support — /login.html?mode=signup preselects signup mode.
+    // Deep link support — /teacher-login.html?mode=signup (used by the
+    // "Create a teacher account" CTA on teacher.html's public view).
     const params = new URLSearchParams(window.location.search);
     if (params.get('mode') === 'signup') {
       state.mode = 'signup';
@@ -123,8 +124,9 @@
     applyMode();
     document.getElementById('auth-form').addEventListener('submit', handleSubmit);
 
-    // Already signed in? No reason to show a login form. A teacher session
-    // here (e.g. an old bookmark) still gets routed to their own hub.
+    // Already signed in as a teacher? Straight to the hub. Signed in as a
+    // parent on this device? Send them to the parent side rather than
+    // showing a teacher form they can't use.
     const user = await checkSession();
     if (user) window.location.href = user.role === 'teacher' ? '/teacher.html' : '/';
   }
