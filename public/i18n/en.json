@@ -36,5 +36,26 @@
   "errorPasswordTooShort": "Password needs to be at least 8 characters.",
   "errorMissingFields": "Please fill in all fields.",
   "errorPasswordMismatch": "Those passwords don't match.",
-  "errorGeneric": "Something went wrong \u2014 please try again."
+  "errorGeneric": "Something went wrong \u2014 please try again.",
+
+  "teacherHeroTitle": "Mare in the Classroom",
+  "teacherHeroSub": "A read-along companion that helps children slow down, notice their bodies, and feel steadier \u2014 built to sit alongside what you're already doing.",
+  "teacherBenefit1Title": "Ready to use",
+  "teacherBenefit1Desc": "Guided reading sessions with narration, gentle activities, and discussion prompts \u2014 no extra prep.",
+  "teacherBenefit2Title": "Built on real practice",
+  "teacherBenefit2Desc": "Grounded in the FELT\u00b7FIBRE framework for nervous-system regulation, not a generic story app.",
+  "teacherBenefit3Title": "A growing toolkit",
+  "teacherBenefit3Desc": "Sign in for lesson guides, printable handouts, and classroom tools \u2014 all in one place.",
+  "teacherCtaSignIn": "Sign in",
+  "teacherCtaSignUp": "Create a teacher account",
+  "teacherWelcome": "Welcome back, {name}",
+  "teacherHubSub": "Everything for your classroom, in one place.",
+  "teacherResourcesTitle": "Documents & tools",
+  "teacherResourcesEmpty": "Nothing here yet \u2014 check back soon.",
+  "teacherWhatsNewTitle": "What's new",
+  "teacherSignOut": "Sign out",
+  "resourceCategoryDocument": "Document",
+  "resourceCategoryTool": "Tool",
+  "resourceCategoryLink": "Link",
+  "resourceOpen": "Open"
 }

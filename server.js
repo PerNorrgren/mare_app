@@ -113,7 +113,7 @@ app.post('/api/admin/login', async (req, res) => {
   if (!result) return res.status(401).json({ error: 'Invalid email or password' });
   const token = auth.createToken(result);
   res.cookie(auth.COOKIE_NAME, token, auth.COOKIE_OPTIONS);
-  res.json({ ok: true });
+  res.json({ ok: true, role: result.role });
 });
 
 app.post('/api/logout', (req, res) => {
@@ -180,7 +180,7 @@ app.get('/api/activities/book/:bookId', (req, res) => {
 // as per_bot). Admin-only.
 // ─────────────────────────────────────────────────────────────────────
 
-app.post('/api/admin/upload-url', auth.requireAuthApi(['admin']), async (req, res) => {
+app.post('/api/admin/upload-url', auth.requireAuthApi(['admin', 'support']), async (req, res) => {
   try {
     const { key, contentType } = req.body || {};
     if (!key || !contentType) return res.status(400).json({ error: 'key and contentType required' });
@@ -250,7 +250,7 @@ app.get('/api/mare/menu', (req, res) => {
 // separate front-end piece — this is the processing endpoint).
 // ─────────────────────────────────────────────────────────────────────
 
-app.post('/api/admin/scenes/:id/sync-narration', auth.requireAuthApi(['admin']), async (req, res) => {
+app.post('/api/admin/scenes/:id/sync-narration', auth.requireAuthApi(['admin', 'support']), async (req, res) => {
   try {
     const sceneId = req.params.id;
     const { audioKey } = req.body || {};
@@ -316,7 +316,7 @@ app.post('/api/admin/scenes/:id/sync-narration', auth.requireAuthApi(['admin']),
 });
 
 // Manual nudge after review, before publish.
-app.patch('/api/admin/sentences/:id', auth.requireAuthApi(['admin']), (req, res) => {
+app.patch('/api/admin/sentences/:id', auth.requireAuthApi(['admin', 'support']), (req, res) => {
   const { startMs, endMs } = req.body || {};
   db.updateNarrationSentenceTiming(req.params.id, startMs, endMs);
   res.json({ ok: true });
@@ -419,48 +419,50 @@ app.get('/api/whats-new', auth.requireAuthApi(['parent', 'teacher']), (req, res)
 // course/comms/facilitator admin exists in this app at all.
 // ─────────────────────────────────────────────────────────────────────
 
-app.get('/api/admin/books', auth.requireAuthApi(['admin']), (req, res) => res.json({ books: db.getAllBooks() }));
-app.post('/api/admin/books', auth.requireAuthApi(['admin']), (req, res) => {
+app.get('/api/admin/books', auth.requireAuthApi(['admin', 'support']), (req, res) => res.json({ books: db.getAllBooks() }));
+app.post('/api/admin/books', auth.requireAuthApi(['admin', 'support']), (req, res) => {
   const { title, slug, description, splashIconKey } = req.body || {};
   if (!title || !slug) return res.status(400).json({ error: 'title and slug required' });
   const id = db.createBook({ title, slug, description, splashIconKey });
   res.json({ ok: true, id });
 });
 
-app.post('/api/admin/chapters', auth.requireAuthApi(['admin']), (req, res) => {
+app.post('/api/admin/chapters', auth.requireAuthApi(['admin', 'support']), (req, res) => {
   const { bookId, title, sortOrder } = req.body || {};
   const id = db.createChapter(bookId, title, sortOrder);
   res.json({ ok: true, id });
 });
 
-app.post('/api/admin/scenes', auth.requireAuthApi(['admin']), (req, res) => {
+app.post('/api/admin/scenes', auth.requireAuthApi(['admin', 'support']), (req, res) => {
   const { chapterId, kind, sortOrder } = req.body || {};
   const id = db.createScene(chapterId, kind, sortOrder);
   res.json({ ok: true, id });
 });
-app.patch('/api/admin/scenes/:id/image', auth.requireAuthApi(['admin']), (req, res) => {
+app.patch('/api/admin/scenes/:id/image', auth.requireAuthApi(['admin', 'support']), (req, res) => {
   db.setSceneImage(req.params.id, req.body.imageKey);
   res.json({ ok: true });
 });
 
-app.post('/api/admin/hotspots', auth.requireAuthApi(['admin']), (req, res) => {
+app.post('/api/admin/hotspots', auth.requireAuthApi(['admin', 'support']), (req, res) => {
   const { sceneId, x, y, w, h, type, payload } = req.body || {};
   const id = db.createHotspot(sceneId, { x, y, w, h, type, payload });
   res.json({ ok: true, id });
 });
 
-app.post('/api/admin/audio-cues', auth.requireAuthApi(['admin']), (req, res) => {
+app.post('/api/admin/audio-cues', auth.requireAuthApi(['admin', 'support']), (req, res) => {
   const { sceneId, kind, audioKey, startMs, volume, loop } = req.body || {};
   const id = db.createAudioCue(sceneId, { kind, audioKey, startMs, volume, loop });
   res.json({ ok: true, id });
 });
 
-app.post('/api/admin/activities', auth.requireAuthApi(['admin']), (req, res) => {
+app.post('/api/admin/activities', auth.requireAuthApi(['admin', 'support']), (req, res) => {
   const { bookId, chapterId, type, title, payload } = req.body || {};
   const id = db.createActivity({ bookId, chapterId, type, title, payload });
   res.json({ ok: true, id });
 });
 
+// Products/payments — admin only, never support, per Per's scoping of the
+// support role (content + helping parents/teachers, no payment settings).
 app.post('/api/admin/products', auth.requireAuthApi(['admin']), (req, res) => {
   const { name, description, priceCents, currency, imageKey, variantOptions, stock } = req.body || {};
   const id = db.uuid();
@@ -471,10 +473,77 @@ app.post('/api/admin/products', auth.requireAuthApi(['admin']), (req, res) => {
   res.json({ ok: true, id });
 });
 
-app.post('/api/admin/whats-new', auth.requireAuthApi(['admin']), (req, res) => {
+app.post('/api/admin/whats-new', auth.requireAuthApi(['admin', 'support']), (req, res) => {
   const { audience, title, body, linkType, linkValue } = req.body || {};
   const id = db.createWhatsNew({ audience, title, body, linkType, linkValue });
   res.json({ ok: true, id });
+});
+
+// ─────────────────────────────────────────────────────────────────────
+// STAFF ACCOUNTS — admin only. Creating an admin/support account is
+// deliberately not self-service (no public signup for these roles) —
+// only an existing admin can create another one from inside the dashboard.
+// ─────────────────────────────────────────────────────────────────────
+
+app.get('/api/admin/staff', auth.requireAuthApi(['admin']), (req, res) => {
+  res.json({ staff: db.getAllStaff() });
+});
+app.post('/api/admin/staff', auth.requireAuthApi(['admin']), async (req, res) => {
+  try {
+    const { email, password, name, role } = req.body || {};
+    if (!email || !password || !name) return res.status(400).json({ error: 'Missing fields' });
+    if (password.length < 8) return res.status(400).json({ error: 'Password must be at least 8 characters' });
+    if (db.getAdminByEmail(email)) return res.status(409).json({ error: 'Email already registered' });
+    const hash = await auth.hashPassword(password);
+    const id = db.createAdmin({ email, passwordHash: hash, name, role: role === 'support' ? 'support' : 'admin' });
+    res.json({ ok: true, id });
+  } catch (e) {
+    console.error('staff create failed', e);
+    res.status(500).json({ error: 'Could not create account' });
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────
+// PARENT / TEACHER DIRECTORY — read-only lookup so support and admin can
+// help someone troubleshoot ("what email did you sign up with", "is your
+// account actually there"). No editing here on purpose — that's a
+// separate, more deliberate decision for later, not bundled into this pass.
+// ─────────────────────────────────────────────────────────────────────
+
+app.get('/api/admin/parents', auth.requireAuthApi(['admin', 'support']), (req, res) => {
+  res.json({ parents: db.getAllParentsDirectory() });
+});
+app.get('/api/admin/teachers', auth.requireAuthApi(['admin', 'support']), (req, res) => {
+  res.json({ teachers: db.getAllTeachersDirectory() });
+});
+
+// ─────────────────────────────────────────────────────────────────────
+// TEACHER RESOURCES — documents/tools/links shown in the teacher hub.
+// Admin/support manage them here; teachers read them via the public
+// endpoint below.
+// ─────────────────────────────────────────────────────────────────────
+
+app.get('/api/admin/teacher-resources', auth.requireAuthApi(['admin', 'support']), (req, res) => {
+  res.json({ resources: db.getAllTeacherResources() });
+});
+app.post('/api/admin/teacher-resources', auth.requireAuthApi(['admin', 'support']), (req, res) => {
+  const { title, description, category, fileKey, externalUrl, sortOrder } = req.body || {};
+  if (!title) return res.status(400).json({ error: 'title required' });
+  const id = db.createTeacherResource({ title, description, category, fileKey, externalUrl, sortOrder });
+  res.json({ ok: true, id });
+});
+app.patch('/api/admin/teacher-resources/:id', auth.requireAuthApi(['admin', 'support']), (req, res) => {
+  const ok = db.updateTeacherResource(req.params.id, req.body || {});
+  if (!ok) return res.status(404).json({ error: 'Not found' });
+  res.json({ ok: true });
+});
+app.delete('/api/admin/teacher-resources/:id', auth.requireAuthApi(['admin', 'support']), (req, res) => {
+  db.deleteTeacherResource(req.params.id);
+  res.json({ ok: true });
+});
+
+app.get('/api/teacher/resources', auth.requireAuthApi(['teacher']), (req, res) => {
+  res.json({ resources: db.getActiveTeacherResources() });
 });
 
 // ─────────────────────────────────────────────────────────────────────

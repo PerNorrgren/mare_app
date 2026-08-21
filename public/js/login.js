@@ -116,7 +116,7 @@
         submitBtn.disabled = false;
         return;
       }
-      window.location.href = '/';
+      window.location.href = state.role === 'teacher' ? '/teacher.html' : '/';
     } catch {
       showError('errorGeneric');
       submitBtn.disabled = false;
@@ -128,12 +128,29 @@
     setupLangSwitch();
     setupRoleSwitch();
     setupModeSwitch();
+
+    // Deep link support — /login.html?role=teacher (used by the teacher
+    // splash page's sign-in/sign-up CTAs) preselects the Teacher tab and
+    // signup mode rather than leaving someone to find it themselves.
+    const params = new URLSearchParams(window.location.search);
+    const wantRole = params.get('role');
+    if (wantRole === 'teacher') {
+      state.role = 'teacher';
+      document.querySelectorAll('#role-switch .role-btn').forEach(b =>
+        b.classList.toggle('active', b.getAttribute('data-role') === 'teacher'));
+    }
+    const wantMode = params.get('mode');
+    if (wantMode === 'signup') {
+      state.mode = 'signup';
+      document.querySelectorAll('.mode-switch .mode-btn').forEach(b =>
+        b.classList.toggle('active', b.getAttribute('data-mode') === 'signup'));
+    }
     applyMode();
     document.getElementById('auth-form').addEventListener('submit', handleSubmit);
 
     // Already signed in? No reason to show a login form.
     const user = await checkSession();
-    if (user) window.location.href = '/';
+    if (user) window.location.href = user.role === 'teacher' ? '/teacher.html' : '/';
   }
 
   init();

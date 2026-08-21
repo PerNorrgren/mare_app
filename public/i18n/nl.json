@@ -36,5 +36,26 @@
   "errorPasswordTooShort": "Het wachtwoord moet minstens 8 tekens lang zijn.",
   "errorMissingFields": "Vul alle velden in.",
   "errorPasswordMismatch": "De wachtwoorden komen niet overeen.",
-  "errorGeneric": "Er ging iets mis \u2014 probeer het opnieuw."
+  "errorGeneric": "Er ging iets mis \u2014 probeer het opnieuw.",
+
+  "teacherHeroTitle": "Mare in de klas",
+  "teacherHeroSub": "Een meeleesmaatje dat kinderen helpt vertragen, hun lichaam op te merken en zich steviger te voelen \u2014 gemaakt om aan te sluiten bij wat je al doet.",
+  "teacherBenefit1Title": "Direct te gebruiken",
+  "teacherBenefit1Desc": "Begeleide leessessies met verteller, rustige activiteiten en gesprekspunten \u2014 geen extra voorbereiding nodig.",
+  "teacherBenefit2Title": "Gebaseerd op echte praktijk",
+  "teacherBenefit2Desc": "Gebaseerd op het FELT\u00b7FIBRE-raamwerk voor zenuwstelselregulatie, geen algemene verhalen-app.",
+  "teacherBenefit3Title": "Een groeiende toolkit",
+  "teacherBenefit3Desc": "Log in voor lesgidsen, printbare werkbladen en klastools \u2014 allemaal op \u00e9\u00e9n plek.",
+  "teacherCtaSignIn": "Inloggen",
+  "teacherCtaSignUp": "Maak een lerarenaccount aan",
+  "teacherWelcome": "Welkom terug, {name}",
+  "teacherHubSub": "Alles voor je klas, op \u00e9\u00e9n plek.",
+  "teacherResourcesTitle": "Documenten & tools",
+  "teacherResourcesEmpty": "Nog niets hier \u2014 kom snel terug.",
+  "teacherWhatsNewTitle": "Wat is er nieuw",
+  "teacherSignOut": "Uitloggen",
+  "resourceCategoryDocument": "Document",
+  "resourceCategoryTool": "Tool",
+  "resourceCategoryLink": "Link",
+  "resourceOpen": "Openen"
 }

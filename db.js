@@ -70,14 +70,34 @@ async function getDb() {
     created_at TEXT DEFAULT (datetime('now'))
   )`);
 
-  // ── Admin — Per's own login, separate role, same table shape as
-  // per_bot's facilitator/admin pattern kept minimal since this app has
-  // no facilitator concept at all. ──
+  // ── Admin — Per's own login, plus 'support' as a second staff role on
+  // the same table (same login flow, same accounts list) rather than a
+  // separate table — support is admin-lite (content + helping parents/
+  // teachers), not a different kind of account. role column distinguishes
+  // 'admin' (full, including products/payments) from 'support' (everything
+  // except products/payments — enforced route-by-route in server.js). ──
   db.run(`CREATE TABLE IF NOT EXISTS admins (
     id TEXT PRIMARY KEY,
     email TEXT UNIQUE NOT NULL,
     password_hash TEXT NOT NULL,
     name TEXT NOT NULL,
+    role TEXT NOT NULL DEFAULT 'admin', -- 'admin' | 'support'
+    created_at TEXT DEFAULT (datetime('now'))
+  )`);
+  try { db.run(`ALTER TABLE admins ADD COLUMN role TEXT NOT NULL DEFAULT 'admin'`); } catch {}
+
+  // ── Teacher resources — documents/tools/links shown in the teacher hub
+  // (public/teacher.html once logged in). Admin and support can both
+  // manage this (it's content, not payments). ──
+  db.run(`CREATE TABLE IF NOT EXISTS teacher_resources (
+    id TEXT PRIMARY KEY,
+    title TEXT NOT NULL,
+    description TEXT,
+    category TEXT NOT NULL DEFAULT 'document', -- 'document' | 'tool' | 'link'
+    file_key TEXT, -- R2 key, for category='document'
+    external_url TEXT, -- for category='tool' | 'link'
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    active INTEGER NOT NULL DEFAULT 1,
     created_at TEXT DEFAULT (datetime('now'))
   )`);
 
@@ -362,15 +382,27 @@ function createTeacher({ email, passwordHash, name, school }) {
   return id;
 }
 
-// ── Admins ──
+// ── Admins / Support (same table, role column distinguishes them) ──
 function getAdminByEmail(email) {
   return get(`SELECT * FROM admins WHERE email = ?`, [email.toLowerCase().trim()]);
 }
-function createAdmin({ email, passwordHash, name }) {
+function createAdmin({ email, passwordHash, name, role }) {
   const id = uuid();
-  run(`INSERT INTO admins (id, email, password_hash, name) VALUES (?,?,?,?)`,
-    [id, email.toLowerCase().trim(), passwordHash, name]);
+  run(`INSERT INTO admins (id, email, password_hash, name, role) VALUES (?,?,?,?,?)`,
+    [id, email.toLowerCase().trim(), passwordHash, name, role === 'support' ? 'support' : 'admin']);
   return id;
+}
+function getAllStaff() {
+  return all(`SELECT id, email, name, role, created_at FROM admins ORDER BY role, created_at`);
+}
+
+// ── Directory lookups for support/admin to help troubleshoot parent and
+// teacher accounts. password_hash deliberately excluded from these. ──
+function getAllParentsDirectory() {
+  return all(`SELECT id, email, name, email_opt_in, email_frequency, preferred_locale, created_at FROM parents ORDER BY created_at DESC`);
+}
+function getAllTeachersDirectory() {
+  return all(`SELECT id, email, name, school, preferred_locale, created_at FROM teachers ORDER BY created_at DESC`);
 }
 
 // ── Books / chapters / scenes ──
@@ -534,6 +566,39 @@ function addOrderItem(orderId, productId, variant, qty, priceCents) {
     [uuid(), orderId, productId, JSON.stringify(variant || {}), qty, priceCents]);
 }
 
+// ── Teacher resources ──
+function getActiveTeacherResources() {
+  return all(`SELECT * FROM teacher_resources WHERE active = 1 ORDER BY sort_order, created_at`);
+}
+function getAllTeacherResources() {
+  return all(`SELECT * FROM teacher_resources ORDER BY sort_order, created_at`);
+}
+function createTeacherResource({ title, description, category, fileKey, externalUrl, sortOrder }) {
+  const id = uuid();
+  run(`INSERT INTO teacher_resources (id, title, description, category, file_key, external_url, sort_order) VALUES (?,?,?,?,?,?,?)`,
+    [id, title, description || null, category || 'document', fileKey || null, externalUrl || null, sortOrder || 0]);
+  return id;
+}
+function updateTeacherResource(id, { title, description, category, fileKey, externalUrl, sortOrder, active }) {
+  const existing = get(`SELECT * FROM teacher_resources WHERE id = ?`, [id]);
+  if (!existing) return false;
+  run(`UPDATE teacher_resources SET title=?, description=?, category=?, file_key=?, external_url=?, sort_order=?, active=? WHERE id=?`,
+    [
+      title ?? existing.title,
+      description ?? existing.description,
+      category ?? existing.category,
+      fileKey ?? existing.file_key,
+      externalUrl ?? existing.external_url,
+      sortOrder ?? existing.sort_order,
+      active === undefined ? existing.active : (active ? 1 : 0),
+      id,
+    ]);
+  return true;
+}
+function deleteTeacherResource(id) {
+  run(`DELETE FROM teacher_resources WHERE id = ?`, [id]);
+}
+
 // ── What's New ──
 function getWhatsNew(audience) {
   return all(`SELECT * FROM whats_new WHERE active = 1 AND (audience = ? OR audience = 'both') ORDER BY published_at DESC`,
@@ -562,7 +627,10 @@ module.exports = {
   getParentByEmail, createParent, setParentEmailPrefs,
   getChildrenByParent, createChild,
   getTeacherByEmail, createTeacher,
-  getAdminByEmail, createAdmin,
+  getAdminByEmail, createAdmin, getAllStaff,
+  getAllParentsDirectory, getAllTeachersDirectory,
+  getActiveTeacherResources, getAllTeacherResources,
+  createTeacherResource, updateTeacherResource, deleteTeacherResource,
   getActiveBooks, getActiveBooksForLocale, getAllBooks, getBookBySlug, createBook,
   getChaptersByBook, createChapter,
   getScenesByChapter, createScene, setSceneImage, setSceneNarrationAudio,

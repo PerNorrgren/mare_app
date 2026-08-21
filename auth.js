@@ -50,12 +50,16 @@ async function loginTeacher(email, password) {
   return { role: 'teacher', id: teacher.id, name: teacher.name, email: teacher.email };
 }
 
+// Returns role as the real staff role ('admin' or 'support') straight from
+// the DB row — these are two distinct top-level auth roles, not a nested
+// permission flag, so requireAuth(['admin']) vs requireAuth(['admin','support'])
+// on each route is what actually enforces support's reduced access.
 async function loginAdmin(email, password) {
   const admin = db.getAdminByEmail(email);
   if (!admin) return null;
   const valid = await verifyPassword(password, admin.password_hash);
   if (!valid) return null;
-  return { role: 'admin', id: admin.id, name: admin.name, email: admin.email };
+  return { role: admin.role === 'support' ? 'support' : 'admin', id: admin.id, name: admin.name, email: admin.email };
 }
 
 // ── Middleware: require auth (redirect, for page routes) ──

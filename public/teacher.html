@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mare — For Teachers</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/style.css">
+<link rel="stylesheet" href="/css/day.css">
+</head>
+<body class="day">
+
+<header class="topbar">
+  <a href="/" class="brand" style="text-decoration:none;">
+    <span class="brand-mark" aria-hidden="true">
+      <svg viewBox="0 0 40 40" width="28" height="28"><path d="M20 4c-7 0-13 6-13 14 0 9 8 15 13 18 5-3 13-9 13-18 0-8-6-14-13-14z" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="20" cy="17" r="3" fill="currentColor"/></svg>
+    </span>
+    <span class="brand-word" data-i18n="brand">Mare</span>
+  </a>
+  <nav class="topbar-actions">
+    <div class="lang-switch" id="lang-switch" aria-label="Language">
+      <button type="button" class="lang-btn" data-lang="en">EN</button>
+      <button type="button" class="lang-btn" data-lang="nl">NL</button>
+    </div>
+    <a href="/" class="btn-ghost" data-i18n="backToStories">Back to stories</a>
+  </nav>
+</header>
+
+<main>
+
+  <!-- ── Public view — shown to anyone not signed in as a teacher ── -->
+  <section id="public-view" hidden>
+    <div class="hero">
+      <h1 data-i18n="teacherHeroTitle">Mare in the Classroom</h1>
+      <p class="hero-sub" data-i18n="teacherHeroSub">A read-along companion that helps children slow down, notice their bodies, and feel steadier — built to sit alongside what you're already doing.</p>
+    </div>
+
+    <div class="benefit-grid">
+      <div class="benefit-card">
+        <h3 data-i18n="teacherBenefit1Title">Ready to use</h3>
+        <p data-i18n="teacherBenefit1Desc">Guided reading sessions with narration, gentle activities, and discussion prompts — no extra prep.</p>
+      </div>
+      <div class="benefit-card">
+        <h3 data-i18n="teacherBenefit2Title">Built on real practice</h3>
+        <p data-i18n="teacherBenefit2Desc">Grounded in the FELT·FIBRE framework for nervous-system regulation, not a generic story app.</p>
+      </div>
+      <div class="benefit-card">
+        <h3 data-i18n="teacherBenefit3Title">A growing toolkit</h3>
+        <p data-i18n="teacherBenefit3Desc">Sign in for lesson guides, printable handouts, and classroom tools — all in one place.</p>
+      </div>
+    </div>
+
+    <div class="teacher-cta-row">
+      <a href="/login.html?role=teacher&mode=signup" class="btn-primary" data-i18n="teacherCtaSignUp">Create a teacher account</a>
+      <a href="/login.html?role=teacher" class="btn-ghost" data-i18n="teacherCtaSignIn">Sign in</a>
+    </div>
+  </section>
+
+  <!-- ── Logged-in hub — shown once a teacher session is confirmed ── -->
+  <section id="hub-view" hidden>
+    <div class="hero">
+      <h1 id="hub-welcome" data-i18n="teacherWelcome">Welcome back</h1>
+      <p class="hero-sub" data-i18n="teacherHubSub">Everything for your classroom, in one place.</p>
+    </div>
+
+    <div class="hub-section" id="whats-new-section" hidden>
+      <h2 data-i18n="teacherWhatsNewTitle">What's new</h2>
+      <div class="whats-new-list" id="whats-new-list"></div>
+    </div>
+
+    <div class="hub-section">
+      <h2 data-i18n="teacherResourcesTitle">Documents & tools</h2>
+      <div class="resource-grid" id="resource-grid">
+        <p class="hub-empty" id="resource-empty" data-i18n="teacherResourcesEmpty" hidden>Nothing here yet — check back soon.</p>
+      </div>
+    </div>
+
+    <div class="teacher-cta-row">
+      <button type="button" class="btn-ghost" id="sign-out-btn" data-i18n="teacherSignOut">Sign out</button>
+    </div>
+  </section>
+
+</main>
+
+<footer class="wood-horizon" aria-hidden="true">
+  <svg viewBox="0 0 1200 140" preserveAspectRatio="none" class="horizon-svg">
+    <path d="M0,140 L0,80 C60,40 90,100 150,70 C210,40 240,90 300,60 C360,30 390,95 450,65 C510,35 540,100 600,70 C660,40 690,90 750,60 C810,30 840,95 900,65 C960,35 990,100 1050,70 C1110,40 1140,90 1200,60 L1200,140 Z" fill="#1D3327"/>
+    <path d="M0,140 L0,100 C80,70 120,120 200,95 C280,70 320,115 400,90 C480,65 520,120 600,95 C680,70 720,115 800,90 C880,65 920,120 1000,95 C1080,70 1120,115 1200,90 L1200,140 Z" fill="#0B1712"/>
+  </svg>
+</footer>
+
+<script src="/js/i18n.js"></script>
+<script src="/js/teacher.js"></script>
+</body>
+</html>

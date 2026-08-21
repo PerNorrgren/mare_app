@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mare — Admin</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/style.css">
+<link rel="stylesheet" href="/css/day.css">
+</head>
+<body class="day">
+
+<header class="topbar">
+  <a href="/" class="brand" style="text-decoration:none;">
+    <span class="brand-mark" aria-hidden="true">
+      <svg viewBox="0 0 40 40" width="28" height="28"><path d="M20 4c-7 0-13 6-13 14 0 9 8 15 13 18 5-3 13-9 13-18 0-8-6-14-13-14z" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="20" cy="17" r="3" fill="currentColor"/></svg>
+    </span>
+    <span class="brand-word">Mare Admin</span>
+  </a>
+  <nav class="topbar-actions" id="topbar-actions">
+    <span class="role-pill admin" id="who-pill" hidden></span>
+    <button type="button" class="btn-ghost" id="sign-out-btn" hidden>Sign out</button>
+  </nav>
+</header>
+
+<main>
+
+  <!-- ── Login ── -->
+  <section class="auth-main" id="login-view">
+    <div class="auth-card">
+      <h1>Admin sign in</h1>
+      <p class="auth-sub">Staff accounts only — admin and support.</p>
+      <form id="admin-login-form" novalidate>
+        <div class="field">
+          <label for="f-email">Email</label>
+          <input type="email" id="f-email" name="email" autocomplete="email" required>
+        </div>
+        <div class="field">
+          <label for="f-password">Password</label>
+          <input type="password" id="f-password" name="password" autocomplete="current-password" required>
+        </div>
+        <p class="form-error" id="form-error" hidden></p>
+        <button type="submit" class="btn-primary btn-full" id="submit-btn">Sign in</button>
+      </form>
+    </div>
+  </section>
+
+  <!-- ── Dashboard ── -->
+  <section class="admin-shell" id="dashboard-view" hidden>
+    <div class="admin-tabs" id="admin-tabs">
+      <button type="button" class="admin-tab active" data-tab="overview">Overview</button>
+      <button type="button" class="admin-tab" data-tab="resources">Teacher Resources</button>
+      <button type="button" class="admin-tab" data-tab="directory">Parents &amp; Teachers</button>
+      <button type="button" class="admin-tab admin-only-tab" data-tab="staff" hidden>Staff Accounts</button>
+    </div>
+
+    <!-- Overview -->
+    <div class="admin-panel active" id="panel-overview">
+      <div class="admin-card">
+        <h2>Content library</h2>
+        <p class="admin-card-sub">Books, chapters, scenes, hotspots, activities, and merchandise already have working API endpoints from earlier builds. A dedicated content-management UI for those is the natural next piece — not built in this pass, which focused on teacher access, the support role, and staff/account visibility.</p>
+        <p class="admin-empty-note" id="book-count-note">Loading book count…</p>
+      </div>
+      <div class="admin-card admin-only-tab" id="products-note-card" hidden>
+        <h2>Products &amp; payments</h2>
+        <p class="admin-card-sub">Product and Stripe checkout settings are admin-only by design — support accounts can't see or change these.</p>
+      </div>
+    </div>
+
+    <!-- Teacher resources -->
+    <div class="admin-panel" id="panel-resources">
+      <div class="admin-card">
+        <h2>Add a resource</h2>
+        <p class="admin-card-sub">Shows up immediately in the teacher hub once saved.</p>
+        <form id="resource-form">
+          <div class="admin-form-row">
+            <div class="field">
+              <label for="r-title">Title</label>
+              <input type="text" id="r-title" required>
+            </div>
+            <div class="field">
+              <label for="r-category">Type</label>
+              <select id="r-category">
+                <option value="document">Document</option>
+                <option value="tool">Tool</option>
+                <option value="link">Link</option>
+              </select>
+            </div>
+          </div>
+          <div class="field">
+            <label for="r-description">Description (optional)</label>
+            <input type="text" id="r-description">
+          </div>
+          <div class="field" id="r-url-field">
+            <label for="r-url">Link / tool URL</label>
+            <input type="url" id="r-url" placeholder="https://…">
+          </div>
+          <div class="field" id="r-file-field" hidden>
+            <label for="r-file">Document file</label>
+            <input type="file" id="r-file">
+            <p class="admin-empty-note" id="r-upload-status"></p>
+          </div>
+          <p class="form-error" id="resource-error" hidden></p>
+          <button type="submit" class="btn-primary" id="resource-submit-btn">Add resource</button>
+        </form>
+      </div>
+      <div class="admin-card">
+        <h2>Existing resources</h2>
+        <div id="resource-list"><p class="admin-empty-note">Loading…</p></div>
+      </div>
+    </div>
+
+    <!-- Directory -->
+    <div class="admin-panel" id="panel-directory">
+      <div class="admin-card">
+        <h2>Parents</h2>
+        <p class="admin-card-sub">Read-only — for helping someone confirm what's on file.</p>
+        <div id="parents-table"><p class="admin-empty-note">Loading…</p></div>
+      </div>
+      <div class="admin-card">
+        <h2>Teachers</h2>
+        <p class="admin-card-sub">Read-only — for helping someone confirm what's on file.</p>
+        <div id="teachers-table"><p class="admin-empty-note">Loading…</p></div>
+      </div>
+    </div>
+
+    <!-- Staff (admin only) -->
+    <div class="admin-panel" id="panel-staff">
+      <div class="admin-card">
+        <h2>Add a staff account</h2>
+        <p class="admin-card-sub">Support accounts can manage content and help parents/teachers, but never see products or payments.</p>
+        <form id="staff-form">
+          <div class="admin-form-row">
+            <div class="field">
+              <label for="s-name">Name</label>
+              <input type="text" id="s-name" required>
+            </div>
+            <div class="field">
+              <label for="s-role">Role</label>
+              <select id="s-role">
+                <option value="support">Support</option>
+                <option value="admin">Admin</option>
+              </select>
+            </div>
+          </div>
+          <div class="admin-form-row">
+            <div class="field">
+              <label for="s-email">Email</label>
+              <input type="email" id="s-email" required>
+            </div>
+            <div class="field">
+              <label for="s-password">Password</label>
+              <input type="password" id="s-password" required minlength="8">
+            </div>
+          </div>
+          <p class="form-error" id="staff-error" hidden></p>
+          <button type="submit" class="btn-primary">Create account</button>
+        </form>
+      </div>
+      <div class="admin-card">
+        <h2>Existing staff</h2>
+        <div id="staff-table"><p class="admin-empty-note">Loading…</p></div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<script src="/js/admin.js"></script>
+</body>
+</html>
