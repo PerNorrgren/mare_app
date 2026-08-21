@@ -380,3 +380,14 @@ body.day .lang-btn:not(.active):hover { background: rgba(22,48,92,0.06); }
 
 .acc-danger-btn { color: #A33B3B; border-color: rgba(163,59,59,0.3); }
 .acc-danger-btn:hover { background: rgba(163,59,59,0.08); border-color: #A33B3B; }
+
+/* ── Marketing tab ── */
+.mkt-platform-check { display: inline-flex; align-items: center; gap: 6px; font-size: 0.85rem; color: var(--navy); margin-right: 14px; margin-bottom: 10px; cursor: pointer; }
+#mkt-source { width: 100%; font-family: 'Quicksand', sans-serif; font-size: 0.9rem; padding: 11px 14px; border-radius: 10px; border: 1.5px solid rgba(22,48,92,0.2); background: var(--cloud); color: var(--navy); resize: vertical; margin-bottom: 4px; }
+#marketing-generate-btn { margin-top: 10px; margin-bottom: 4px; }
+.mkt-result-card { background: var(--cloud); border-radius: 12px; padding: 14px 16px; margin-top: 14px; }
+.mkt-result-platform { font-weight: 700; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.03em; color: var(--navy-soft); margin-bottom: 6px; display: flex; justify-content: space-between; align-items: center; }
+.mkt-result-text { white-space: pre-wrap; font-size: 0.88rem; color: var(--navy); line-height: 1.5; }
+.mkt-history-item { border-bottom: 1px solid rgba(22,48,92,0.08); padding: 12px 0; }
+.mkt-history-source { font-size: 0.82rem; color: var(--navy-soft); margin-bottom: 6px; }
+.mkt-history-item:last-child { border-bottom: none; }

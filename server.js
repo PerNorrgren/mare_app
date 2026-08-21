@@ -795,6 +795,104 @@ app.get('/api/whats-new', auth.requireAuthApi(['parent', 'teacher']), (req, res)
 });
 
 // ─────────────────────────────────────────────────────────────────────
+// SOCIAL LINKS — public read (site footer), admin+support manage
+// ─────────────────────────────────────────────────────────────────────
+
+app.get('/api/social-links', (req, res) => {
+  res.json({ links: db.getActiveSocialLinks() });
+});
+app.get('/api/admin/social-links', auth.requireAuthApi(['admin', 'support']), (req, res) => {
+  res.json({ links: db.getAllSocialLinks() });
+});
+app.post('/api/admin/social-links', auth.requireAuthApi(['admin', 'support']), (req, res) => {
+  const { platform, url, label, sortOrder } = req.body || {};
+  if (!platform || !url) return res.status(400).json({ error: 'platform and url required' });
+  const id = db.createSocialLink({ platform, url, label, sortOrder });
+  res.json({ ok: true, id });
+});
+app.patch('/api/admin/social-links/:id', auth.requireAuthApi(['admin', 'support']), (req, res) => {
+  const ok = db.updateSocialLink(req.params.id, req.body || {});
+  if (!ok) return res.status(404).json({ error: 'Not found' });
+  res.json({ ok: true });
+});
+app.delete('/api/admin/social-links/:id', auth.requireAuthApi(['admin', 'support']), (req, res) => {
+  db.deleteSocialLink(req.params.id);
+  res.json({ ok: true });
+});
+
+// ─────────────────────────────────────────────────────────────────────
+// MARKETING — "reformat for social": paste content, get platform-ready
+// posts an admin copies and posts by hand. No auto-posting integration
+// exists — same deliberate boundary as per_bot's own version of this
+// tool. See prompts.js buildMarketingPrompt for the full design notes,
+// in particular why {{SIGNUP_LINK}} is a token the model writes rather
+// than a real URL it could hallucinate.
+// ─────────────────────────────────────────────────────────────────────
+
+app.post('/api/admin/marketing/generate', auth.requireAuthApi(['admin', 'support']), async (req, res) => {
+  try {
+    const { sourceText, platforms, includeCta } = req.body || {};
+    if (!sourceText || !sourceText.trim()) return res.status(400).json({ error: 'Paste some source content first' });
+    const requestedPlatforms = (Array.isArray(platforms) ? platforms : []).filter(p => prompts.MARKETING_PLATFORM_KEYS.includes(p));
+    if (!requestedPlatforms.length) return res.status(400).json({ error: 'Choose at least one platform' });
+    if (!anthropic) return res.status(503).json({ error: 'Marketing generation is not configured' });
+
+    const systemPrompt = prompts.buildMarketingPrompt(!!includeCta);
+    const response = await anthropic.messages.create({
+      model: TALK_MODEL,
+      max_tokens: 1200,
+      system: systemPrompt,
+      messages: [{ role: 'user', content: `SOURCE CONTENT:\n${sourceText}\n\nPLATFORMS: ${requestedPlatforms.join(', ')}` }],
+    });
+    const raw = (response.content || []).filter(b => b.type === 'text').map(b => b.text).join('\n').trim();
+
+    let results;
+    try {
+      results = JSON.parse(raw);
+    } catch (e) {
+      console.error('marketing generate — model did not return valid JSON:', raw);
+      return res.status(502).json({ error: 'Mare\u2019s marketing generator returned something unexpected \u2014 try again.' });
+    }
+
+    // Substitute the real signup link server-side — the model only ever
+    // wrote the literal token, never an actual URL.
+    const signupUrl = `${process.env.APP_URL || ''}/`;
+    for (const platform of Object.keys(results)) {
+      if (typeof results[platform] === 'string') {
+        results[platform] = results[platform].split('{{SIGNUP_LINK}}').join(signupUrl);
+      }
+    }
+
+    db.createMarketingPost({
+      sourceText,
+      platforms: requestedPlatforms,
+      results,
+      includedCta: !!includeCta,
+      createdById: req.user.id,
+      createdByRole: req.user.role,
+    });
+
+    res.json({ ok: true, results });
+  } catch (e) {
+    console.error('marketing generate failed', e);
+    res.status(500).json({ error: 'Could not generate posts right now \u2014 try again in a moment.' });
+  }
+});
+
+app.get('/api/admin/marketing/history', auth.requireAuthApi(['admin', 'support']), (req, res) => {
+  const rows = db.getMarketingHistory(30).map(r => ({
+    ...r,
+    platforms: JSON.parse(r.platforms_json),
+    results: JSON.parse(r.results_json),
+  }));
+  res.json({ history: rows });
+});
+app.delete('/api/admin/marketing/history/:id', auth.requireAuthApi(['admin', 'support']), (req, res) => {
+  db.deleteMarketingPost(req.params.id);
+  res.json({ ok: true });
+});
+
+// ─────────────────────────────────────────────────────────────────────
 // ADMIN — content CRUD (books/chapters/scenes/hotspots/activities/
 // products/whats-new). Kept intentionally minimal here — no
 // course/comms/facilitator admin exists in this app at all.

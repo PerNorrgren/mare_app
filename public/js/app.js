@@ -123,9 +123,39 @@
     });
   }
 
+  // Short glyph per platform for the circular footer icons — avoids
+  // needing exact brand logo SVGs for every platform while still
+  // reading as intentional rather than a placeholder.
+  const SOCIAL_GLYPH = { instagram: 'IG', facebook: 'FB', tiktok: 'TT', youtube: '▶', linkedin: 'in', threads: '@', x: 'X', other: '↗' };
+
+  async function loadSocialFooter() {
+    const footer = document.getElementById('social-footer');
+    if (!footer) return;
+    try {
+      const res = await fetch('/api/social-links');
+      const data = await res.json();
+      const links = data.links || [];
+      if (!links.length) { footer.hidden = true; return; }
+      footer.innerHTML = '';
+      links.forEach(l => {
+        const a = document.createElement('a');
+        a.href = l.url;
+        a.target = '_blank';
+        a.rel = 'noopener';
+        a.setAttribute('aria-label', l.label || l.platform);
+        a.textContent = SOCIAL_GLYPH[l.platform] || l.platform.slice(0, 2).toUpperCase();
+        footer.appendChild(a);
+      });
+      footer.hidden = false;
+    } catch {
+      footer.hidden = true;
+    }
+  }
+
   async function init() {
     await window.MareI18n.ready; // i18n.js applies data-i18n text itself; wait so t() below is safe too
     setupLangSwitch();
+    loadSocialFooter();
 
     try {
       const res = await fetch(`/api/splash?lang=${window.MareI18n.locale}`);

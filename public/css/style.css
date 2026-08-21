@@ -297,3 +297,31 @@ h1, h2 {
 @media (max-width: 480px) {
   .topbar { flex-direction: column; gap: 10px; align-items: flex-start; }
 }
+
+/* ── Social footer — small row of links to Mare's own accounts, shown
+   on public night-theme pages when at least one active link exists
+   (populated from /api/social-links; hidden entirely otherwise). ── */
+.social-footer {
+  display: flex;
+  justify-content: center;
+  gap: 14px;
+  padding: 18px 20px 32px;
+  flex-wrap: wrap;
+}
+.social-footer[hidden] { display: none; }
+.social-footer a {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(243,236,217,0.25);
+  color: rgba(243,236,217,0.65);
+  font-family: 'Quicksand', sans-serif;
+  font-weight: 700;
+  font-size: 0.8rem;
+  text-decoration: none;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+.social-footer a:hover { border-color: var(--gold); color: var(--gold); }

@@ -57,6 +57,7 @@
       <button type="button" class="admin-tab active" data-tab="overview" data-i18n="adminTabOverview">Overview</button>
       <button type="button" class="admin-tab" data-tab="resources" data-i18n="adminTabResources">Teacher Resources</button>
       <button type="button" class="admin-tab" data-tab="pages" data-i18n="adminTabPages">Pages</button>
+      <button type="button" class="admin-tab" data-tab="marketing" data-i18n="adminTabMarketing">Marketing</button>
       <button type="button" class="admin-tab" data-tab="directory" data-i18n="adminTabDirectory">Parents &amp; Teachers</button>
       <button type="button" class="admin-tab admin-only-tab" data-tab="staff" hidden data-i18n="adminTabStaff">Staff Accounts</button>
     </div>
@@ -161,6 +162,69 @@
       <div class="admin-card">
         <h2 data-i18n="adminPagesExistingTitle">All pages</h2>
         <div id="pages-list"><p class="admin-empty-note" data-i18n="adminLoading">Loading…</p></div>
+      </div>
+    </div>
+
+    <!-- Marketing -->
+    <div class="admin-panel" id="panel-marketing">
+      <div class="admin-card">
+        <h2 data-i18n="adminSocialLinksTitle">Social links</h2>
+        <p class="admin-card-sub" data-i18n="adminSocialLinksDesc">Mare's own accounts — shown in the site footer.</p>
+        <form id="social-link-form">
+          <div class="admin-form-row">
+            <div class="field">
+              <label for="sl-platform" data-i18n="adminFieldPlatform">Platform</label>
+              <select id="sl-platform">
+                <option value="instagram">Instagram</option>
+                <option value="facebook">Facebook</option>
+                <option value="tiktok">TikTok</option>
+                <option value="youtube">YouTube</option>
+                <option value="linkedin">LinkedIn</option>
+                <option value="threads">Threads</option>
+                <option value="x">X</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="sl-label" data-i18n="adminFieldLabelOptional">Label (optional)</label>
+              <input type="text" id="sl-label" placeholder="@marethestorycorner">
+            </div>
+          </div>
+          <div class="field">
+            <label for="sl-url" data-i18n="adminFieldUrl">URL or path</label>
+            <input type="url" id="sl-url" placeholder="https://\u2026" required>
+          </div>
+          <p class="form-error" id="social-link-error" hidden></p>
+          <button type="submit" class="btn-primary" id="social-link-submit-btn" data-i18n="adminAddSocialLink">Add link</button>
+        </form>
+      </div>
+      <div class="admin-card">
+        <h2 data-i18n="adminSocialLinksExistingTitle">Existing links</h2>
+        <div id="social-links-list"><p class="admin-empty-note" data-i18n="adminLoading">Loading…</p></div>
+      </div>
+
+      <div class="admin-card">
+        <h2 data-i18n="adminMarketingGenTitle">Generate social posts</h2>
+        <p class="admin-card-sub" data-i18n="adminMarketingGenDesc">Paste a What's New item, a resource description, or any short piece of copy \u2014 get platform-ready posts to copy and post by hand. Nothing is posted automatically.</p>
+        <div class="field">
+          <label for="mkt-source" data-i18n="adminMarketingSource">Source content</label>
+          <textarea id="mkt-source" rows="4" placeholder="Paste source content here\u2026"></textarea>
+        </div>
+        <div class="admin-form-row">
+          <label class="mkt-platform-check"><input type="checkbox" class="mkt-platform" value="facebook" checked> Facebook</label>
+          <label class="mkt-platform-check"><input type="checkbox" class="mkt-platform" value="instagram" checked> Instagram</label>
+          <label class="mkt-platform-check"><input type="checkbox" class="mkt-platform" value="linkedin"> LinkedIn</label>
+          <label class="mkt-platform-check"><input type="checkbox" class="mkt-platform" value="threads"> Threads</label>
+        </div>
+        <label class="mkt-platform-check"><input type="checkbox" id="mkt-include-cta" checked> <span data-i18n="adminMarketingIncludeCta">Include a hook + link to the app</span></label>
+        <p class="form-error" id="marketing-error" hidden></p>
+        <button type="button" class="btn-primary" id="marketing-generate-btn" data-i18n="adminGenerate">\u2728 Generate</button>
+        <div id="marketing-results"></div>
+      </div>
+
+      <div class="admin-card">
+        <h2 data-i18n="adminMarketingHistoryTitle">Past posts</h2>
+        <div id="marketing-history-list"><p class="admin-empty-note" data-i18n="adminLoading">Loading…</p></div>
       </div>
     </div>
 

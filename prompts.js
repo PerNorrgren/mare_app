@@ -77,6 +77,52 @@ function openingLineFor(locale) {
   return MARE_OPENING_LINE[locale] || MARE_OPENING_LINE.en;
 }
 
+// ── Marketing — "reformat for social" ──
+// Same job as per_bot's own MESSAGE_BUILDER_PROMPT (paste source content,
+// get platform-ready copy an admin posts by hand — no auto-posting
+// integration exists here either), but written fresh for Mare's brand:
+// this is parent/teacher-facing marketing copy about a children's
+// reading app, not Per Norrgren's own voice promoting a mindfulness
+// platform. The one piece of real engineering carried over deliberately:
+// the model is told to write the literal token {{SIGNUP_LINK}} rather
+// than an actual URL, and the server substitutes the real link
+// afterward — this means the model can never hallucinate or mangle a
+// link, and the link stays correct even if it changes later.
+
+const MARKETING_PLATFORM_KEYS = ['facebook', 'instagram', 'linkedin', 'threads'];
+
+const MARKETING_VOICE_RULES = `VOICE RULES:
+- Warm and inviting, never salesy or hyped. No "amazing", "revolutionary", "game-changing", no exclamation-mark stacking.
+- Plain language — this is marketing copy for parents and teachers, not a technical pitch. No jargon about "nervous-system regulation" or clinical framing; if the underlying method needs a nod, describe what it FEELS like for a child (slowing down, noticing feelings, feeling steadier) rather than naming the mechanism.
+- Grounded in the actual book: Mare and the Whispering Woods of Words, a story about a girl who finds a path into a wood where the trees remember every word ever spoken.
+- Never make promises about outcomes ("will fix", "guaranteed to help") — invite curiosity instead of claiming a result.
+- No urgency tactics (countdown language, "don't miss out", fake scarcity).
+- Culturally universal — no single country's holidays or idioms.`;
+
+const MARKETING_PLATFORM_SHAPES = `WHAT CHANGES PER PLATFORM — the underlying message and voice stay the same; only shape, length, and framing adapt to how people actually read each platform:
+- facebook: conversational, roughly 40-80 words, can open with a short relatable line about bedtime/reading/big feelings before the core message. No hashtag block.
+- linkedin: written for teachers and education-adjacent professionals — slightly more considered register without becoming corporate, roughly 60-100 words, fine to end on a single grounded observation. No hashtags, no emoji.
+- instagram: short, natural line breaks, roughly 30-60 words, ends with 4-6 lowercase hashtags relevant to children's books/reading/family wellbeing (e.g. #childrensbooks #bedtimestory #kidsandfeelings) — never generic spam tags.
+- threads: same register as Instagram but as a single short paragraph, roughly 30-50 words, at most 1-2 hashtags.`;
+
+const MARKETING_CTA_INSTRUCTIONS = `EVERY post also needs a hook and a close, on top of the platform-specific shape above:
+- OPENING HOOK: a short, specific first line that stops a scroll — about the book, the wood, or a feeling a child might have, not about the app as a product. Still bound by the voice rules above.
+- CLOSING INVITATION: after the reformatted message, a short closing line inviting the reader to explore Mare's Story Corner, then the literal token {{SIGNUP_LINK}} on its own line — write it exactly as {{SIGNUP_LINK}}, never invent or describe a URL.
+- On Instagram/Threads, hashtags come after the closing invitation and its link token, not before.`;
+
+function buildMarketingPrompt(includeCta) {
+  return `You repurpose short-form Mare app content (a What's New item, a resource description, a short piece of copy) into platform-ready social media posts for parents and teachers considering the app. Whoever runs this posts manually to each platform — you are producing text to copy and paste, not publishing anything yourself.
+
+${MARKETING_VOICE_RULES}
+
+${MARKETING_PLATFORM_SHAPES}
+
+${includeCta ? MARKETING_CTA_INSTRUCTIONS : ''}
+
+INPUT: you will be given the source content and a list of platforms to produce.
+OUTPUT FORMAT: respond with ONLY a JSON object. Keys are exactly the platform names requested (lowercase, e.g. "facebook", "linkedin", "instagram", "threads"). Values are the finished post text as a single string (use \\n for any line breaks within a value). No preamble, no markdown fences, no commentary — just the raw JSON object.`;
+}
+
 // ── System prompt builder ──
 // Called once per Talk session (see server.js) — the whole prompt is
 // static per session, no per-turn rebuilding needed since there's no
@@ -106,4 +152,6 @@ module.exports = {
   MARE_CORE,
   MARE_SAFETY,
   buildMareSystemPrompt,
+  MARKETING_PLATFORM_KEYS,
+  buildMarketingPrompt,
 };

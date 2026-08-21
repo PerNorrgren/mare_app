@@ -93,6 +93,8 @@
     loadResources();
     loadPages();
     loadDirectory();
+    loadSocialLinks();
+    loadMarketingHistory();
     if (isAdmin) loadStaff();
   }
 
@@ -333,6 +335,177 @@
     }
   }
 
+  // ── Marketing: social links ──
+  const PLATFORM_LABEL = { instagram: 'Instagram', facebook: 'Facebook', tiktok: 'TikTok', youtube: 'YouTube', linkedin: 'LinkedIn', threads: 'Threads', x: 'X', other: 'Other' };
+
+  function setupSocialLinkForm() {
+    document.getElementById('social-link-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      clearError('social-link-error');
+      const submitBtn = document.getElementById('social-link-submit-btn');
+      submitBtn.disabled = true;
+      try {
+        const platform = document.getElementById('sl-platform').value;
+        const label = document.getElementById('sl-label').value.trim();
+        const url = document.getElementById('sl-url').value.trim();
+        if (!url) throw new Error(t('adminErrorAddUrl'));
+        await api('/api/admin/social-links', { method: 'POST', body: JSON.stringify({ platform, label, url }) });
+        document.getElementById('social-link-form').reset();
+        await loadSocialLinks();
+      } catch (err) {
+        showError('social-link-error', err.message || t('adminErrorSavePage'));
+      } finally {
+        submitBtn.disabled = false;
+      }
+    });
+  }
+
+  async function loadSocialLinks() {
+    const container = document.getElementById('social-links-list');
+    try {
+      const data = await api('/api/admin/social-links');
+      const links = data.links || [];
+      if (!links.length) {
+        container.innerHTML = `<p class="admin-empty-note">${escapeHtml(t('adminNoSocialLinksYet'))}</p>`;
+        return;
+      }
+      container.innerHTML = '';
+      const table = document.createElement('table');
+      table.className = 'admin-table';
+      table.innerHTML = `<thead><tr><th>${t('adminFieldPlatform')}</th><th>${t('adminFieldUrl')}</th><th></th></tr></thead>`;
+      const tbody = document.createElement('tbody');
+      links.forEach(l => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${escapeHtml(PLATFORM_LABEL[l.platform] || l.platform)}${l.label ? `<br><span class="admin-empty-note">${escapeHtml(l.label)}</span>` : ''}</td>
+          <td><a href="${escapeHtml(l.url)}" target="_blank" rel="noopener">${escapeHtml(l.url)}</a></td>
+        `;
+        const actionsTd = document.createElement('td');
+        const actions = document.createElement('div');
+        actions.className = 'admin-resource-actions';
+        const toggleBtn = document.createElement('button');
+        toggleBtn.type = 'button';
+        toggleBtn.textContent = l.active ? t('adminHide') : t('adminShow');
+        toggleBtn.addEventListener('click', async () => {
+          await api(`/api/admin/social-links/${l.id}`, { method: 'PATCH', body: JSON.stringify({ active: l.active ? 0 : 1 }) });
+          loadSocialLinks();
+        });
+        actions.appendChild(toggleBtn);
+        const deleteBtn = document.createElement('button');
+        deleteBtn.type = 'button';
+        deleteBtn.className = 'danger';
+        deleteBtn.textContent = t('adminDelete');
+        deleteBtn.addEventListener('click', async () => {
+          if (!confirm(t('adminConfirmDelete', { name: PLATFORM_LABEL[l.platform] || l.platform }))) return;
+          await api(`/api/admin/social-links/${l.id}`, { method: 'DELETE' });
+          loadSocialLinks();
+        });
+        actions.appendChild(deleteBtn);
+        actionsTd.appendChild(actions);
+        tr.appendChild(actionsTd);
+        tbody.appendChild(tr);
+      });
+      table.appendChild(tbody);
+      container.appendChild(table);
+    } catch {
+      container.innerHTML = `<p class="admin-empty-note">${escapeHtml(t('adminCouldNotLoadSocialLinks'))}</p>`;
+    }
+  }
+
+  // ── Marketing: generate social posts ──
+  function setupMarketingGenerator() {
+    document.getElementById('marketing-generate-btn').addEventListener('click', async () => {
+      clearError('marketing-error');
+      const source = document.getElementById('mkt-source').value.trim();
+      const platforms = Array.from(document.querySelectorAll('.mkt-platform:checked')).map(el => el.value);
+      const includeCta = document.getElementById('mkt-include-cta').checked;
+      const resultsEl = document.getElementById('marketing-results');
+      const btn = document.getElementById('marketing-generate-btn');
+      if (!source) return showError('marketing-error', t('adminErrorSourceRequired'));
+      if (!platforms.length) return showError('marketing-error', t('adminErrorPlatformRequired'));
+      btn.disabled = true;
+      resultsEl.innerHTML = `<p class="admin-empty-note">${escapeHtml(t('adminGenerating'))}</p>`;
+      try {
+        const data = await api('/api/admin/marketing/generate', { method: 'POST', body: JSON.stringify({ sourceText: source, platforms, includeCta }) });
+        renderMarketingResults(resultsEl, data.results);
+        loadMarketingHistory();
+      } catch (err) {
+        resultsEl.innerHTML = '';
+        showError('marketing-error', err.message || t('adminErrorGenerateFailed'));
+      } finally {
+        btn.disabled = false;
+      }
+    });
+  }
+
+  function renderMarketingResults(container, results) {
+    container.innerHTML = '';
+    Object.keys(results).forEach(platform => {
+      const card = document.createElement('div');
+      card.className = 'mkt-result-card';
+      const header = document.createElement('div');
+      header.className = 'mkt-result-platform';
+      const label = document.createElement('span');
+      label.textContent = PLATFORM_LABEL[platform] || platform;
+      header.appendChild(label);
+      const copyBtn = document.createElement('button');
+      copyBtn.type = 'button';
+      copyBtn.className = 'btn-ghost btn-sm';
+      copyBtn.textContent = t('adminCopy');
+      copyBtn.addEventListener('click', async () => {
+        try {
+          await navigator.clipboard.writeText(results[platform]);
+          copyBtn.textContent = t('adminCopied');
+          setTimeout(() => { copyBtn.textContent = t('adminCopy'); }, 1800);
+        } catch { /* clipboard permission denied — text is still visible to select manually */ }
+      });
+      header.appendChild(copyBtn);
+      card.appendChild(header);
+      const text = document.createElement('div');
+      text.className = 'mkt-result-text';
+      text.textContent = results[platform];
+      card.appendChild(text);
+      container.appendChild(card);
+    });
+  }
+
+  async function loadMarketingHistory() {
+    const container = document.getElementById('marketing-history-list');
+    try {
+      const data = await api('/api/admin/marketing/history');
+      const history = data.history || [];
+      if (!history.length) {
+        container.innerHTML = `<p class="admin-empty-note">${escapeHtml(t('adminNoMarketingHistoryYet'))}</p>`;
+        return;
+      }
+      container.innerHTML = '';
+      history.forEach(item => {
+        const row = document.createElement('div');
+        row.className = 'mkt-history-item';
+        const source = document.createElement('div');
+        source.className = 'mkt-history-source';
+        source.textContent = item.source_text.length > 140 ? item.source_text.slice(0, 140) + '…' : item.source_text;
+        row.appendChild(source);
+        const resultsWrap = document.createElement('div');
+        renderMarketingResults(resultsWrap, item.results);
+        row.appendChild(resultsWrap);
+        const deleteBtn = document.createElement('button');
+        deleteBtn.type = 'button';
+        deleteBtn.className = 'btn-ghost btn-sm';
+        deleteBtn.style.marginTop = '8px';
+        deleteBtn.textContent = t('adminDelete');
+        deleteBtn.addEventListener('click', async () => {
+          await api(`/api/admin/marketing/history/${item.id}`, { method: 'DELETE' });
+          loadMarketingHistory();
+        });
+        row.appendChild(deleteBtn);
+        container.appendChild(row);
+      });
+    } catch {
+      container.innerHTML = `<p class="admin-empty-note">${escapeHtml(t('adminCouldNotLoadHistory'))}</p>`;
+    }
+  }
+
   // ── Directory ──
   async function loadDirectory() {
     try {
@@ -437,6 +610,8 @@
     setupLoginForm();
     setupResourceForm();
     setupPageForm();
+    setupSocialLinkForm();
+    setupMarketingGenerator();
     setupStaffForm();
 
     const user = await checkSession();

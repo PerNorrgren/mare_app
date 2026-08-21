@@ -242,6 +242,39 @@ async function getDb() {
     ended_at TEXT
   )`);
 
+  // ── Social links — Mare's own account URLs (Facebook, Instagram,
+  // etc.), shown in the public site footer and manageable from the
+  // admin Marketing tab. Separate from the app_pages directory
+  // deliberately: app_pages is an internal reference list for staff,
+  // this is public-facing brand presence — different audience, and
+  // conflating the two would bury the socials admin actually wants
+  // prominent inside a generic "pages" list. ──
+  db.run(`CREATE TABLE IF NOT EXISTS social_links (
+    id TEXT PRIMARY KEY,
+    platform TEXT NOT NULL, -- 'facebook' | 'instagram' | 'tiktok' | 'linkedin' | 'threads' | 'x' | 'youtube' | 'other'
+    url TEXT NOT NULL,
+    label TEXT, -- optional override, e.g. '@marethestorycorner' — falls back to the platform name if blank
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    active INTEGER NOT NULL DEFAULT 1,
+    created_at TEXT DEFAULT (datetime('now'))
+  )`);
+
+  // ── Marketing post history — every "reformat for social" generation,
+  // kept so admin/support can find something they generated before
+  // rather than regenerating from scratch. Mirrors per_bot's own
+  // message-builder History modal. results_json shape:
+  // { platform: postText, ... } — same keys as MARKETING_PLATFORM_KEYS. ──
+  db.run(`CREATE TABLE IF NOT EXISTS marketing_posts (
+    id TEXT PRIMARY KEY,
+    source_text TEXT NOT NULL,
+    platforms_json TEXT NOT NULL,
+    results_json TEXT NOT NULL,
+    included_cta INTEGER NOT NULL DEFAULT 0,
+    created_by_id TEXT,
+    created_by_role TEXT,
+    created_at TEXT DEFAULT (datetime('now'))
+  )`);
+
   // ── Books, chapters, scenes ──
   // A "scene" is one image (chapter opening or chapter ending) plus its
   // own narration audio, its own sentence timings, its own hotspots, and
@@ -954,6 +987,51 @@ function endTalkSession(id) {
   run(`UPDATE talk_sessions SET ended_at = datetime('now') WHERE id = ?`, [id]);
 }
 
+// ── Social links ──
+function getActiveSocialLinks() {
+  return all(`SELECT * FROM social_links WHERE active = 1 ORDER BY sort_order, created_at`);
+}
+function getAllSocialLinks() {
+  return all(`SELECT * FROM social_links ORDER BY sort_order, created_at`);
+}
+function createSocialLink({ platform, url, label, sortOrder }) {
+  const id = uuid();
+  run(`INSERT INTO social_links (id, platform, url, label, sort_order) VALUES (?,?,?,?,?)`,
+    [id, platform, url, label || null, sortOrder || 0]);
+  return id;
+}
+function updateSocialLink(id, { platform, url, label, sortOrder, active }) {
+  const existing = get(`SELECT * FROM social_links WHERE id = ?`, [id]);
+  if (!existing) return false;
+  run(`UPDATE social_links SET platform=?, url=?, label=?, sort_order=?, active=? WHERE id=?`,
+    [
+      platform ?? existing.platform,
+      url ?? existing.url,
+      label === undefined ? existing.label : label,
+      sortOrder === undefined ? existing.sort_order : sortOrder,
+      active === undefined ? existing.active : (active ? 1 : 0),
+      id,
+    ]);
+  return true;
+}
+function deleteSocialLink(id) {
+  run(`DELETE FROM social_links WHERE id = ?`, [id]);
+}
+
+// ── Marketing post history ──
+function createMarketingPost({ sourceText, platforms, results, includedCta, createdById, createdByRole }) {
+  const id = uuid();
+  run(`INSERT INTO marketing_posts (id, source_text, platforms_json, results_json, included_cta, created_by_id, created_by_role) VALUES (?,?,?,?,?,?,?)`,
+    [id, sourceText, JSON.stringify(platforms), JSON.stringify(results), includedCta ? 1 : 0, createdById || null, createdByRole || null]);
+  return id;
+}
+function getMarketingHistory(limit) {
+  return all(`SELECT * FROM marketing_posts ORDER BY created_at DESC LIMIT ?`, [limit || 30]);
+}
+function deleteMarketingPost(id) {
+  run(`DELETE FROM marketing_posts WHERE id = ?`, [id]);
+}
+
 // ── What's New ──
 function getWhatsNew(audience) {
   return all(`SELECT * FROM whats_new WHERE active = 1 AND (audience = ? OR audience = 'both') ORDER BY published_at DESC`,
@@ -991,6 +1069,8 @@ module.exports = {
   createTeacherResource, updateTeacherResource, deleteTeacherResource,
   getActiveAppPages, getAllAppPages, createAppPage, updateAppPage, deleteAppPage,
   createTalkSession, getTalkSession, touchTalkSession, endTalkSession,
+  getActiveSocialLinks, getAllSocialLinks, createSocialLink, updateSocialLink, deleteSocialLink,
+  createMarketingPost, getMarketingHistory, deleteMarketingPost,
   getActiveBooks, getActiveBooksForLocale, getAllBooks, getBookBySlug, createBook,
   getChaptersByBook, createChapter,
   getScenesByChapter, createScene, setSceneImage, setSceneNarrationAudio,
