@@ -222,5 +222,20 @@
   "adminCopied": "Copied \u2713",
   "adminMarketingHistoryTitle": "Past posts",
   "adminNoMarketingHistoryYet": "Nothing generated yet.",
-  "adminCouldNotLoadHistory": "Could not load history."
+  "adminCouldNotLoadHistory": "Could not load history.",
+
+  "readerBack": "Back",
+  "readerChapters": "Chapters",
+  "readerClose": "Close",
+  "readerContinue": "Continue",
+  "readerNext": "Next",
+  "readerNextScene": "Next scene",
+  "readerPlay": "Play",
+  "readerPause": "Pause",
+  "readerPrevious": "Previous",
+  "readerPreviousScene": "Previous scene",
+  "readerResumePrompt": "Continue where you left off?",
+  "readerStartOver": "Start from the beginning",
+  "readerToggleMusic": "Mute music",
+  "readerToggleText": "Show text"
 }

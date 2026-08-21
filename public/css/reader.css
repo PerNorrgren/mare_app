@@ -1,0 +1,318 @@
+/* ── reader.css ── Mare's illustrated book reader.
+   Built applying the lessons already paid for once in per_bot's own
+   EPUB/PPTX reader work (see cutover doc + the real per_bot code):
+   - height uses a JS-computed --vh-px custom property, not raw vh —
+     iOS Safari's dvh/vh handling isn't reliable below 15.4, and a
+     JS-measured pixel value sidesteps that class of bug entirely.
+   - the stage is a real flex column with min-height:0 on the parts
+     that should shrink, not stacked vh percentages that can add up to
+     more than 100% of a short landscape viewport.
+   - touch-action:none on the swipe-capture layer so the browser never
+     treats a swipe as the start of a native scroll/pan, which in
+     per_bot's case won a fight against real gesture handling on a real
+     device even when everything tested fine in a sandboxed browser. */
+
+:root {
+  --vh-px: 100vh; /* overridden by reader.js on load/resize */
+}
+
+body.reader-body {
+  margin: 0;
+  background: var(--night-deep);
+  overflow: hidden;
+  font-family: 'Quicksand', sans-serif;
+}
+
+.reader-shell {
+  height: var(--vh-px);
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  background: var(--night-deep);
+  touch-action: none;
+}
+.reader-shell > * { flex-shrink: 0; }
+
+/* ── Topbar ── */
+.reader-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: var(--night);
+  color: var(--parchment);
+}
+.reader-book-title {
+  font-family: 'Fraunces', serif;
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: var(--gold);
+  flex: 1;
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 0 10px;
+}
+.reader-icon-btn {
+  background: rgba(243,236,217,0.08);
+  border: 1px solid rgba(243,236,217,0.2);
+  color: var(--parchment);
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+/* ── Stage — the part that must never overflow its share of the
+   viewport. flex:1 + min-height:0 is the exact fix from the per_bot
+   cutover notes for this class of bug. ── */
+.reader-stage-wrap {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  padding: 8px;
+}
+.reader-stage {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  max-width: 900px;
+  margin: 0 auto;
+  border-radius: 14px;
+  overflow: hidden;
+  background: var(--night);
+  touch-action: none;
+}
+.reader-scene-image {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+  user-select: none;
+  -webkit-user-drag: none;
+  transition: opacity 220ms ease;
+}
+.reader-scene-image.transitioning { opacity: 0; }
+
+/* Edge tap zones — large, forgiving tap targets for prev/next that sit
+   underneath the swipe layer's own gesture handling; a plain tap (no
+   drag) on either edge also turns the page, for anyone who doesn't
+   think to swipe. */
+.reader-edge-tap {
+  position: absolute;
+  top: 0; bottom: 0;
+  width: 15%;
+  background: none;
+  border: none;
+  cursor: pointer;
+  z-index: 4;
+}
+.reader-edge-tap-prev { left: 0; }
+.reader-edge-tap-next { right: 0; }
+
+/* ── Hotspots — normalized 0-1 coordinates from the DB, positioned by
+   percentage so they hold up across screen sizes with zero resize
+   recalculation needed (the one genuine simplification versus epub.js's
+   pixel-pagination problem — normalized coordinates just aren't
+   resolution-dependent the way a laid-out text page is). ── */
+.reader-hotspot-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+}
+.reader-hotspot {
+  position: absolute;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  padding: 0;
+}
+.reader-hotspot-marker {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(234,192,102,0.55) 0%, rgba(234,192,102,0.15) 60%, transparent 100%);
+  animation: hotspot-glow 2.4s ease-in-out infinite;
+}
+@keyframes hotspot-glow {
+  0%, 100% { opacity: 0.55; transform: scale(1); }
+  50% { opacity: 0.9; transform: scale(1.12); }
+}
+.reader-hotspot.hotspot-triggered .reader-hotspot-marker { animation: hotspot-pulse 500ms ease; }
+@keyframes hotspot-pulse {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.5); opacity: 1; }
+  100% { transform: scale(1); }
+}
+
+/* ── Narration text overlay ── */
+.reader-text-overlay {
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  z-index: 6;
+  background: linear-gradient(to top, rgba(11,23,18,0.92), rgba(11,23,18,0));
+  padding: 40px 20px 18px;
+  text-align: center;
+}
+.reader-text-line {
+  margin: 0;
+  color: var(--parchment);
+  font-size: clamp(1rem, 3.2vw, 1.3rem);
+  font-weight: 600;
+  line-height: 1.5;
+  text-shadow: 0 2px 8px rgba(0,0,0,0.4);
+}
+
+/* ── Controls ── */
+.reader-controls {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 16px calc(10px + env(safe-area-inset-bottom, 0px));
+  background: var(--night);
+}
+.reader-nav-btn {
+  background: rgba(243,236,217,0.08);
+  border: 1px solid rgba(243,236,217,0.2);
+  color: var(--parchment);
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.reader-play-btn {
+  background: var(--gold);
+  border: none;
+  color: var(--night);
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.reader-controls-right {
+  margin-left: auto;
+  display: flex;
+  gap: 8px;
+}
+.reader-toggle-btn {
+  background: rgba(243,236,217,0.08);
+  border: 1px solid rgba(243,236,217,0.2);
+  color: var(--parchment);
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+.reader-toggle-btn.active { background: var(--gold); color: var(--night); border-color: var(--gold); }
+
+/* ── TOC panel ── */
+.reader-toc-panel {
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  max-height: 60vh;
+  background: var(--night);
+  border-top: 1px solid rgba(243,236,217,0.15);
+  border-radius: 16px 16px 0 0;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+}
+.reader-toc-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px;
+  color: var(--gold);
+  font-family: 'Fraunces', serif;
+  font-weight: 600;
+  border-bottom: 1px solid rgba(243,236,217,0.1);
+}
+.reader-toc-list { overflow-y: auto; padding: 8px 0; }
+.reader-toc-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  color: var(--parchment);
+  padding: 12px 18px;
+  font-size: 0.95rem;
+  cursor: pointer;
+}
+.reader-toc-item.current { color: var(--gold); font-weight: 700; }
+.reader-toc-item:active { background: rgba(243,236,217,0.06); }
+
+/* ── Modals (hotspot popup, resume prompt) ── */
+.reader-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(11,23,18,0.75);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 30;
+  padding: 20px;
+}
+.reader-modal-card {
+  background: var(--parchment);
+  border-radius: 16px;
+  padding: 24px;
+  max-width: 360px;
+  text-align: center;
+}
+.reader-modal-image {
+  width: 100%;
+  border-radius: 10px;
+  margin-bottom: 14px;
+}
+.reader-modal-text {
+  margin: 0 0 18px;
+  color: var(--night);
+  font-weight: 600;
+  font-size: 1.02rem;
+}
+.reader-modal-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+}
+
+/* ── Loading state ── */
+.reader-loading {
+  position: fixed;
+  inset: 0;
+  background: var(--night-deep);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.reader-loading-spinner {
+  width: 40px; height: 40px;
+  border-radius: 50%;
+  border: 3px solid rgba(234,192,102,0.25);
+  border-top-color: var(--gold);
+  animation: reader-spin 0.8s linear infinite;
+}
+@keyframes reader-spin { to { transform: rotate(360deg); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .reader-hotspot-marker { animation: none; }
+  .reader-scene-image { transition: none; }
+}

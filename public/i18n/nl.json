@@ -222,5 +222,20 @@
   "adminCopied": "Gekopieerd \u2713",
   "adminMarketingHistoryTitle": "Eerdere posts",
   "adminNoMarketingHistoryYet": "Nog niets gegenereerd.",
-  "adminCouldNotLoadHistory": "Kon geschiedenis niet laden."
+  "adminCouldNotLoadHistory": "Kon geschiedenis niet laden.",
+
+  "readerBack": "Terug",
+  "readerChapters": "Hoofdstukken",
+  "readerClose": "Sluiten",
+  "readerContinue": "Verdergaan",
+  "readerNext": "Volgende",
+  "readerNextScene": "Volgende scene",
+  "readerPlay": "Afspelen",
+  "readerPause": "Pauzeren",
+  "readerPrevious": "Vorige",
+  "readerPreviousScene": "Vorige scene",
+  "readerResumePrompt": "Verdergaan waar je gebleven was?",
+  "readerStartOver": "Opnieuw beginnen",
+  "readerToggleMusic": "Muziek dempen",
+  "readerToggleText": "Tekst tonen"
 }

@@ -399,6 +399,21 @@ app.get('/api/activities/book/:bookId', (req, res) => {
   res.json({ activities: db.getActivitiesForBook(req.params.bookId) });
 });
 
+// Reading progress — parent-scoped (see the reading_progress schema
+// comment in db.js for why not child-scoped). bookId here is the real
+// book row id (from the already-loaded /api/books/:slug response), not
+// the slug.
+app.get('/api/reading-progress/:bookId', auth.requireAuthApi(['parent']), (req, res) => {
+  const progress = db.getReadingProgress(req.user.id, req.params.bookId);
+  res.json({ progress: progress || null });
+});
+app.post('/api/reading-progress', auth.requireAuthApi(['parent']), (req, res) => {
+  const { bookId, chapterId, sceneId } = req.body || {};
+  if (!bookId || !chapterId || !sceneId) return res.status(400).json({ error: 'bookId, chapterId, and sceneId required' });
+  db.upsertReadingProgress(req.user.id, bookId, chapterId, sceneId);
+  res.json({ ok: true });
+});
+
 // ─────────────────────────────────────────────────────────────────────
 // MEDIA UPLOAD — presigned R2, browser uploads directly (same pattern
 // as per_bot). Admin-only.

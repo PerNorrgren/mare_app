@@ -62,6 +62,12 @@ window.MareI18n = (function () {
     document.querySelectorAll('[data-i18n]').forEach(el => {
       el.textContent = t(el.getAttribute('data-i18n'));
     });
+    // aria-label translations — separate attribute since an element
+    // needing a translated aria-label usually has icon-only content,
+    // not text a plain data-i18n textContent swap could touch.
+    document.querySelectorAll('[data-i18n-aria]').forEach(el => {
+      el.setAttribute('aria-label', t(el.getAttribute('data-i18n-aria')));
+    });
   }
 
   function switchLocale(newLocale) {

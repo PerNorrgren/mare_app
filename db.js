@@ -428,6 +428,22 @@ async function getDb() {
     price_cents INTEGER NOT NULL
   )`);
 
+  // ── Reading progress — "continue where you left off," keyed by parent
+  // + book rather than by child. This is a shared-family-device reader
+  // (a child has no login of their own — see the children table
+  // comment), so there's no reliable "which child is reading right now"
+  // signal without adding friction (a child-picker before every book
+  // open) nobody asked for. One row per parent+book, upserted on every
+  // scene change. ──
+  db.run(`CREATE TABLE IF NOT EXISTS reading_progress (
+    id TEXT PRIMARY KEY,
+    parent_id TEXT NOT NULL,
+    book_id TEXT NOT NULL,
+    chapter_id TEXT NOT NULL,
+    scene_id TEXT NOT NULL,
+    updated_at TEXT DEFAULT (datetime('now'))
+  )`);
+
   // ── What's New — Parent/Teacher facing only. Same shape as per_bot's
   // What's New: can link to an external URL or an in-app action/page. ──
   db.run(`CREATE TABLE IF NOT EXISTS whats_new (
@@ -903,6 +919,23 @@ function addOrderItem(orderId, productId, variant, qty, priceCents) {
     [uuid(), orderId, productId, JSON.stringify(variant || {}), qty, priceCents]);
 }
 
+// ── Reading progress ──
+function getReadingProgress(parentId, bookId) {
+  return get(`SELECT * FROM reading_progress WHERE parent_id = ? AND book_id = ?`, [parentId, bookId]);
+}
+function upsertReadingProgress(parentId, bookId, chapterId, sceneId) {
+  const existing = getReadingProgress(parentId, bookId);
+  if (existing) {
+    run(`UPDATE reading_progress SET chapter_id = ?, scene_id = ?, updated_at = datetime('now') WHERE id = ?`,
+      [chapterId, sceneId, existing.id]);
+    return existing.id;
+  }
+  const id = uuid();
+  run(`INSERT INTO reading_progress (id, parent_id, book_id, chapter_id, scene_id) VALUES (?,?,?,?,?)`,
+    [id, parentId, bookId, chapterId, sceneId]);
+  return id;
+}
+
 // ── Teacher resources ──
 function getActiveTeacherResources() {
   return all(`SELECT * FROM teacher_resources WHERE active = 1 ORDER BY sort_order, created_at`);
@@ -1080,6 +1113,7 @@ module.exports = {
   getActivitiesForBook, getActivitiesForChapter, createActivity,
   getClubMareMembership, joinClubMareFree, upgradeClubMareToPaid, getClubMarePosts,
   getActiveProducts, getProduct, createOrder, setOrderStripeSession, markOrderPaid, addOrderItem,
+  getReadingProgress, upsertReadingProgress,
   getWhatsNew, createWhatsNew,
   hasSentMareMessageToday, logMareMessageSent, getEmailOptInParents,
 };
