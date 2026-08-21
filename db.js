@@ -53,9 +53,11 @@ async function getDb() {
     parent_id TEXT NOT NULL,
     name TEXT NOT NULL,
     avatar_key TEXT,
+    age_band TEXT, -- '6-8' | '9-11' | '12-15' — nullable (not set at signup); Talk falls back to the middle register until a parent sets this, rather than guessing
     sort_order INTEGER NOT NULL DEFAULT 0,
     created_at TEXT DEFAULT (datetime('now'))
   )`);
+  try { db.run(`ALTER TABLE children ADD COLUMN age_band TEXT`); } catch {}
 
   // ── Teachers — separate top-level account type, own login. Not tied to
   // a parent record. school/class fields are optional now, ready for
@@ -130,6 +132,7 @@ async function getDb() {
     { label: 'Sign in / create account (Parent)', url: '/login.html', kind: 'internal', status: 'live', description: 'Parent-only login + signup. Teachers use their own separate page (see below).', sortOrder: 10 },
     { label: 'Teacher sign in / create account', url: '/teacher-login.html', kind: 'internal', status: 'live', description: 'Dedicated teacher login + signup, separate from the parent page.', sortOrder: 15 },
     { label: 'For Teachers', url: '/teacher.html', kind: 'internal', status: 'live', description: 'Public teacher splash when signed out; resources + What\u2019s New hub when signed in as a teacher.', sortOrder: 20 },
+    { label: 'Talk to Mare (test harness)', url: '/talk.html', kind: 'internal', status: 'stub', description: 'Bare test page proving the mic -> Deepgram -> Claude -> ElevenLabs pipeline works. Not the real reader-embedded experience yet.', sortOrder: 25 },
     { label: 'Admin', url: '/admin.html', kind: 'internal', status: 'live', description: 'Staff login and dashboard (this page).', sortOrder: 30 },
     { label: 'Reader', url: '/reader.html', kind: 'internal', status: 'planned', description: 'The audio-follows-text reading experience — not built yet, the core still-open piece.', sortOrder: 40 },
     { label: 'Club Mare', url: '/club-mare.html', kind: 'internal', status: 'planned', description: 'Member posts, gated by tier.', sortOrder: 50 },
@@ -144,6 +147,43 @@ async function getDb() {
         [uuid(), p.label, p.url, p.kind, p.status, p.description, p.sortOrder]);
     }
   }
+
+  // ── Talk to Mare — a live conversation between a child and Mare.
+  // Ported architecture from per_bot's Talk feature: a raw Deepgram STT
+  // proxy over its own websocket (the same '/listen — Deepgram STT proxy
+  // (Mare Bot architecture)' pattern per_bot itself borrowed from the
+  // original standalone Mare Bot prototype), plain HTTP for the Claude
+  // reply, and the existing /api/speak endpoint for ElevenLabs TTS — no
+  // new TTS plumbing needed since that already exists in this app.
+  //
+  // What's deliberately NOT ported from per_bot's Talk: the arc/history
+  // summarisation pipeline (GENERATE_SESSION_SUMMARY, arc updates across
+  // sessions) and the get_knowledge tool-use knowledge base. Those exist
+  // in per_bot because Talk there supports an ongoing clinical
+  // relationship across months. Talk to Mare, for now, is a single
+  // conversation with no memory carried between sessions — a much
+  // smaller, safer surface for a first version with a child audience.
+  // Revisit that decision explicitly later if session-to-session memory
+  // is wanted; don't add it by extending this table's meaning quietly.
+  //
+  // Full transcript is NOT persisted to the database in this pass either
+  // — only session metadata (who, when, how long) is stored here; the
+  // actual back-and-forth lives in memory for the life of the
+  // conversation only (see server.js talkSessions Map) and is gone once
+  // it ends. Whether to store full transcripts for parent review or
+  // safety audit is a real data-retention decision for a children's
+  // product, not something to default into silently — flagging this
+  // explicitly rather than deciding it here.
+  db.run(`CREATE TABLE IF NOT EXISTS talk_sessions (
+    id TEXT PRIMARY KEY,
+    child_id TEXT NOT NULL,
+    parent_id TEXT NOT NULL,
+    locale TEXT NOT NULL DEFAULT 'en',
+    turn_count INTEGER NOT NULL DEFAULT 0,
+    started_at TEXT DEFAULT (datetime('now')),
+    last_activity_at TEXT DEFAULT (datetime('now')),
+    ended_at TEXT
+  )`);
 
   // ── Books, chapters, scenes ──
   // A "scene" is one image (chapter opening or chapter ending) plus its
@@ -414,6 +454,14 @@ function createChild(parentId, name, avatarKey) {
     [id, parentId, name, avatarKey || null]);
   return id;
 }
+function getChild(childId) {
+  return get(`SELECT * FROM children WHERE id = ?`, [childId]);
+}
+function setChildAgeBand(childId, ageBand) {
+  const valid = ['6-8', '9-11', '12-15'];
+  if (!valid.includes(ageBand)) throw new Error('Invalid age band');
+  run(`UPDATE children SET age_band = ? WHERE id = ?`, [ageBand, childId]);
+}
 
 // ── Teachers ──
 function getTeacherByEmail(email) {
@@ -676,6 +724,24 @@ function deleteAppPage(id) {
   run(`DELETE FROM app_pages WHERE id = ?`, [id]);
 }
 
+// ── Talk to Mare — session metadata only (no transcript persistence,
+// see the schema comment above for why). ──
+function createTalkSession(childId, parentId, locale) {
+  const id = uuid();
+  run(`INSERT INTO talk_sessions (id, child_id, parent_id, locale) VALUES (?,?,?,?)`,
+    [id, childId, parentId, locale || 'en']);
+  return id;
+}
+function getTalkSession(id) {
+  return get(`SELECT * FROM talk_sessions WHERE id = ?`, [id]);
+}
+function touchTalkSession(id) {
+  run(`UPDATE talk_sessions SET last_activity_at = datetime('now'), turn_count = turn_count + 1 WHERE id = ?`, [id]);
+}
+function endTalkSession(id) {
+  run(`UPDATE talk_sessions SET ended_at = datetime('now') WHERE id = ?`, [id]);
+}
+
 // ── What's New ──
 function getWhatsNew(audience) {
   return all(`SELECT * FROM whats_new WHERE active = 1 AND (audience = ? OR audience = 'both') ORDER BY published_at DESC`,
@@ -702,13 +768,14 @@ function getEmailOptInParents(frequency) {
 module.exports = {
   getDb, save, uuid, run, get, all,
   getParentByEmail, createParent, setParentEmailPrefs,
-  getChildrenByParent, createChild,
+  getChildrenByParent, createChild, getChild, setChildAgeBand,
   getTeacherByEmail, createTeacher,
   getAdminByEmail, createAdmin, getAllStaff,
   getAllParentsDirectory, getAllTeachersDirectory,
   getActiveTeacherResources, getAllTeacherResources,
   createTeacherResource, updateTeacherResource, deleteTeacherResource,
   getActiveAppPages, getAllAppPages, createAppPage, updateAppPage, deleteAppPage,
+  createTalkSession, getTalkSession, touchTalkSession, endTalkSession,
   getActiveBooks, getActiveBooksForLocale, getAllBooks, getBookBySlug, createBook,
   getChaptersByBook, createChapter,
   getScenesByChapter, createScene, setSceneImage, setSceneNarrationAudio,

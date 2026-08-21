@@ -1,19 +1,29 @@
 // ── server.js — Mare companion app ──
 // Separate Railway service from per_bot, same project. Own repo, own
 // deploy.sh, own admin, own accounts. Ported from per_bot: auth pattern,
-// R2 media plumbing, ElevenLabs TTS, Deepgram word-timestamp STT. Not
-// ported: courses, comms, Tomte-as-open-chat, Stripe subscription tiers
-// (merchandise here uses one-off Stripe Checkout instead).
+// R2 media plumbing, ElevenLabs TTS, Deepgram word-timestamp STT, and
+// (this pass) the Talk architecture — a raw Deepgram STT proxy over its
+// own websocket plus plain HTTP for the Claude reply, the same split
+// per_bot itself borrowed from the original standalone Mare Bot
+// prototype (see the '/listen' comment below). Not ported: courses,
+// comms, Tomte-as-open-chat, Stripe subscription tiers (merchandise here
+// uses one-off Stripe Checkout instead), and — deliberately, for
+// now — Talk's arc/history/knowledge-base layers (see prompts.js and the
+// talk_sessions schema comment in db.js for why).
 
+const http = require('http');
 const express = require('express');
 const cookieParser = require('cookie-parser');
 const cron = require('node-cron');
 const fetch = require('node-fetch');
 const Stripe = require('stripe');
+const WebSocket = require('ws');
+const Anthropic = require('@anthropic-ai/sdk');
 
 const db = require('./db');
 const auth = require('./auth');
 const media = require('./media');
+const prompts = require('./prompts');
 
 const app = express();
 app.use(express.json({ limit: '10mb' }));
@@ -24,8 +34,24 @@ const PORT = process.env.PORT || 3000;
 const ELEVENLABS_API_KEY = process.env.ELEVENLABS_API_KEY;
 const MARE_VOICE_ID = process.env.MARE_VOICE_ID; // same ElevenLabs voice already used for Mare inside per_bot's Tomte flow
 const DEEPGRAM_API_KEY = process.env.DEEPGRAM_API_KEY;
+const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
 const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY;
 const stripe = STRIPE_SECRET_KEY ? new Stripe(STRIPE_SECRET_KEY) : null;
+const anthropic = ANTHROPIC_API_KEY ? new Anthropic({ apiKey: ANTHROPIC_API_KEY }) : null;
+const TALK_MODEL = process.env.TALK_MODEL || 'claude-sonnet-4-6';
+
+// A raw http.Server wrapping the Express app — needed because a
+// websocket upgrade happens beneath Express entirely (Express never
+// sees it), so there has to be a real server object to attach an
+// 'upgrade' listener to. Every websocket path in this app funnels
+// through one consolidated dispatcher near the bottom of this file
+// (server.on('upgrade', ...)), the same pattern per_bot settled on
+// after hitting real bugs from multiple {server,path}-bound
+// WebSocket.Server instances all firing on every upgrade regardless of
+// path — see that pattern's own comment in per_bot's server.js for the
+// full story. One websocket path today (/listen); built this way so a
+// second one doesn't require re-architecting anything.
+const server = http.createServer(app);
 
 // ─────────────────────────────────────────────────────────────────────
 // LOCALE — English and Dutch to start (the book's two published
@@ -136,6 +162,19 @@ app.post('/api/children', auth.requireAuthApi(['parent']), (req, res) => {
   const id = db.createChild(req.user.id, name, avatarKey);
   res.json({ ok: true, id });
 });
+// Age band drives Talk to Mare's register (see prompts.js). Nullable —
+// a parent sets this whenever they get to it; Talk falls back to the
+// middle register until then rather than guessing.
+app.patch('/api/children/:id/age-band', auth.requireAuthApi(['parent']), (req, res) => {
+  const child = db.getChild(req.params.id);
+  if (!child || child.parent_id !== req.user.id) return res.status(404).json({ error: 'Not found' });
+  try {
+    db.setChildAgeBand(child.id, req.body?.ageBand);
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
 
 // ─────────────────────────────────────────────────────────────────────
 // SPLASH — books + Club Mare + Merchandise icons in one call
@@ -230,10 +269,12 @@ app.post('/api/speak', async (req, res) => {
   }
 });
 
-// Curated Mare "menu" — hello / joke etc. Deliberately not open free-chat
-// (audience is a child) — a fixed set of short, pre-written responses,
-// spoken via the same /api/speak pipeline. Content itself lives in admin
-// later; this is the endpoint shape.
+// Curated Mare "menu" — hello / joke etc. A small fixed set of
+// pre-written responses, spoken via the same /api/speak pipeline. Talk
+// to Mare below is the open-conversation version of this — the menu
+// stays as a lighter-weight option for a quick moment that doesn't need
+// a real back-and-forth. Content itself lives in admin later; this is
+// the endpoint shape.
 app.get('/api/mare/menu', (req, res) => {
   res.json({
     items: [
@@ -241,6 +282,145 @@ app.get('/api/mare/menu', (req, res) => {
       { id: 'joke', label: 'Tell a joke' },
     ],
   });
+});
+
+// ─────────────────────────────────────────────────────────────────────
+// TALK TO MARE — a real, open conversation between a child and Mare.
+// Architecture: /listen is a raw Deepgram STT proxy (own websocket, no
+// Claude/TTS in it at all) — the child's device streams mic audio in,
+// gets transcript JSON back, and once it has a final transcript it POSTs
+// that text to /api/talk/chat over plain HTTP. That returns Mare's
+// reply text, which the client then sends to the existing /api/speak
+// for ElevenLabs playback. Three separate, simple pieces rather than one
+// do-everything socket — this is the same split per_bot's own /listen
+// comment traces back to "Mare Bot architecture," i.e. the original
+// standalone Mare Bot prototype, not something invented fresh here.
+//
+// Auth model: every route below requires a parent session AND ownership
+// of the child the session belongs to — a child has no login of their
+// own (see the children table comment in db.js), so it's the parent's
+// authenticated session that gates access on the child's behalf, the
+// same way /api/children already works.
+// ─────────────────────────────────────────────────────────────────────
+
+// Conversation history lives here only, in memory, for the life of the
+// session — see the talk_sessions schema comment in db.js for why full
+// transcripts aren't written to the database in this pass. Cleared on
+// server restart, same as per_bot's own in-memory chat sessions.
+const talkSessions = new Map(); // sessionId -> { history: [{role,content}], systemPrompt, dbRow }
+
+function requireOwnedChild(req, res) {
+  const child = db.getChild(req.body?.childId || req.params?.childId);
+  if (!child || child.parent_id !== req.user.id) {
+    res.status(404).json({ error: 'Child not found' });
+    return null;
+  }
+  return child;
+}
+
+app.post('/api/talk/session', auth.requireAuthApi(['parent']), (req, res) => {
+  const child = requireOwnedChild(req, res);
+  if (!child) return;
+  const locale = resolveLocale(req);
+  const sessionId = db.createTalkSession(child.id, req.user.id, locale);
+  const systemPrompt = prompts.buildMareSystemPrompt({
+    ageBand: child.age_band,
+    locale,
+    childName: child.name,
+  });
+  talkSessions.set(sessionId, { history: [], systemPrompt, dbRow: db.getTalkSession(sessionId) });
+  res.json({ ok: true, sessionId, locale });
+});
+
+app.post('/api/talk/chat', auth.requireAuthApi(['parent']), async (req, res) => {
+  try {
+    const { sessionId, message } = req.body || {};
+    if (!sessionId || !message) return res.status(400).json({ error: 'sessionId and message required' });
+
+    const dbRow = db.getTalkSession(sessionId);
+    if (!dbRow || dbRow.parent_id !== req.user.id) return res.status(404).json({ error: 'Session not found' });
+    if (dbRow.ended_at) return res.status(410).json({ error: 'Session has ended' });
+    if (!anthropic) return res.status(503).json({ error: 'Talk is not configured' });
+
+    let session = talkSessions.get(sessionId);
+    if (!session) {
+      // Server restarted mid-session, or this is somehow the first turn
+      // without a prior /api/talk/session call reaching memory — rebuild
+      // the system prompt fresh from the DB row rather than failing.
+      const child = db.getChild(dbRow.child_id);
+      session = {
+        history: [],
+        systemPrompt: prompts.buildMareSystemPrompt({ ageBand: child?.age_band, locale: dbRow.locale, childName: child?.name }),
+        dbRow,
+      };
+      talkSessions.set(sessionId, session);
+    }
+
+    session.history.push({ role: 'user', content: message });
+
+    const response = await anthropic.messages.create({
+      model: TALK_MODEL,
+      max_tokens: 400,
+      system: session.systemPrompt,
+      messages: session.history,
+    });
+    const replyText = (response.content || [])
+      .filter(b => b.type === 'text')
+      .map(b => b.text)
+      .join('\n')
+      .trim();
+
+    session.history.push({ role: 'assistant', content: replyText });
+    db.touchTalkSession(sessionId);
+
+    res.json({ ok: true, reply: replyText });
+  } catch (e) {
+    console.error('talk chat failed', e);
+    res.status(500).json({ error: 'Mare is having trouble hearing right now — try again in a moment.' });
+  }
+});
+
+app.post('/api/talk/session/:id/end', auth.requireAuthApi(['parent']), (req, res) => {
+  const dbRow = db.getTalkSession(req.params.id);
+  if (!dbRow || dbRow.parent_id !== req.user.id) return res.status(404).json({ error: 'Session not found' });
+  db.endTalkSession(req.params.id);
+  talkSessions.delete(req.params.id);
+  res.json({ ok: true });
+});
+
+// The very first thing Mare says, in character, without the child having
+// spoken yet — see prompts.js's MARE_OPENING_LINE. Separate from
+// /api/talk/chat because it isn't a reply to anything; it's an opener,
+// pushed to history as an assistant turn so the conversation continues
+// naturally from there.
+app.post('/api/talk/session/:id/opening', auth.requireAuthApi(['parent']), async (req, res) => {
+  try {
+    const dbRow = db.getTalkSession(req.params.id);
+    if (!dbRow || dbRow.parent_id !== req.user.id) return res.status(404).json({ error: 'Session not found' });
+    if (!anthropic) return res.status(503).json({ error: 'Talk is not configured' });
+
+    let session = talkSessions.get(req.params.id);
+    if (!session) return res.status(410).json({ error: 'Session expired — start a new one' });
+    if (session.history.length) return res.status(409).json({ error: 'Opening already given for this session' });
+
+    const response = await anthropic.messages.create({
+      model: TALK_MODEL,
+      max_tokens: 200,
+      system: session.systemPrompt,
+      messages: [{ role: 'user', content: '(The child has just arrived. Give your opening line now.)' }],
+    });
+    const replyText = (response.content || [])
+      .filter(b => b.type === 'text')
+      .map(b => b.text)
+      .join('\n')
+      .trim();
+
+    session.history.push({ role: 'assistant', content: replyText });
+    res.json({ ok: true, reply: replyText });
+  } catch (e) {
+    console.error('talk opening failed', e);
+    res.status(500).json({ error: 'Mare is having trouble hearing right now — try again in a moment.' });
+  }
 });
 
 // ─────────────────────────────────────────────────────────────────────
@@ -599,12 +779,93 @@ function startCron() {
 }
 
 // ─────────────────────────────────────────────────────────────────────
+// /listen — Deepgram STT proxy for Talk to Mare. Auth-gated: the upgrade
+// request must carry a valid parent session cookie AND a ?session=
+// query param naming a talk_sessions row that parent actually owns —
+// unlike per_bot's original /listen (which is open, no auth at all,
+// since it only ever ran behind pages already gated by page-level auth),
+// this one is reachable directly as a raw websocket URL, so the check
+// has to happen right here at the handshake. Once open, it's a pure
+// proxy: audio bytes in, Deepgram's transcript JSON straight back out —
+// no Claude, no TTS, nothing else happens on this socket at all.
+// ─────────────────────────────────────────────────────────────────────
+
+function parseCookies(header) {
+  const out = {};
+  if (!header) return out;
+  header.split(';').forEach(part => {
+    const idx = part.indexOf('=');
+    if (idx === -1) return;
+    out[part.slice(0, idx).trim()] = decodeURIComponent(part.slice(idx + 1).trim());
+  });
+  return out;
+}
+
+const listenWss = new WebSocket.Server({ noServer: true, perMessageDeflate: false });
+
+listenWss.on('connection', (clientWs, req) => {
+  const { searchParams } = new URL(req.url, 'http://internal');
+  const locale = searchParams.get('locale') === 'nl' ? 'nl' : 'en';
+  const dgLanguage = locale === 'nl' ? 'nl' : 'en';
+
+  const dgWs = new WebSocket(
+    `wss://api.deepgram.com/v1/listen?model=nova-2&language=${dgLanguage}&encoding=linear16&sample_rate=16000&channels=1&smart_format=true&endpointing=400&utterance_end_ms=3200&interim_results=true`,
+    { headers: { Authorization: `Token ${DEEPGRAM_API_KEY}` } }
+  );
+  dgWs.on('open', () => console.log('[listen] Deepgram connected'));
+  dgWs.on('unexpected-response', (_req, res) => {
+    let body = '';
+    res.on('data', (chunk) => { body += chunk; });
+    res.on('end', () => console.error(`[listen] deepgram rejected connection — status=${res.statusCode} body=${body}`));
+  });
+  dgWs.on('message', (data) => { if (clientWs.readyState === WebSocket.OPEN) clientWs.send(typeof data === 'string' ? data : data.toString('utf8')); });
+  dgWs.on('error', (e) => console.error('[listen] Deepgram error:', e.message));
+  dgWs.on('close', () => console.log('[listen] Deepgram closed'));
+  clientWs.on('message', (audioData) => { if (dgWs.readyState === WebSocket.OPEN) dgWs.send(audioData); });
+  clientWs.on('close', () => { if (dgWs.readyState === WebSocket.OPEN) dgWs.close(); });
+  clientWs.on('error', (e) => console.error('[listen] client ws error:', e.message));
+});
+
+server.on('upgrade', (req, socket, head) => {
+  const { pathname, searchParams } = new URL(req.url, `http://${req.headers.host}`);
+
+  if (pathname !== '/listen') {
+    socket.destroy();
+    return;
+  }
+
+  if (!DEEPGRAM_API_KEY) {
+    socket.write('HTTP/1.1 503 Service Unavailable\r\n\r\n');
+    socket.destroy();
+    return;
+  }
+
+  const cookies = parseCookies(req.headers.cookie);
+  const payload = auth.verifyToken(cookies[auth.COOKIE_NAME]);
+  if (!payload || payload.role !== 'parent') {
+    socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
+    socket.destroy();
+    return;
+  }
+
+  const sessionId = searchParams.get('session');
+  const talkSession = sessionId ? db.getTalkSession(sessionId) : null;
+  if (!talkSession || talkSession.parent_id !== payload.id || talkSession.ended_at) {
+    socket.write('HTTP/1.1 403 Forbidden\r\n\r\n');
+    socket.destroy();
+    return;
+  }
+
+  listenWss.handleUpgrade(req, socket, head, (ws) => listenWss.emit('connection', ws, req));
+});
+
+// ─────────────────────────────────────────────────────────────────────
 
 app.get('/health', (req, res) => res.json({ ok: true }));
 
 db.getDb().then(() => {
   startCron();
-  app.listen(PORT, () => console.log(`Mare app listening on :${PORT}`));
+  server.listen(PORT, () => console.log(`Mare app listening on :${PORT}`));
 }).catch(e => {
   console.error('Failed to initialise database', e);
   process.exit(1);
