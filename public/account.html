@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mare — My Account</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/style.css">
+<link rel="stylesheet" href="/css/day.css">
+</head>
+<body class="day">
+
+<header class="topbar">
+  <a href="/" class="brand" style="text-decoration:none;">
+    <span class="brand-mark" aria-hidden="true">
+      <svg viewBox="0 0 40 40" width="28" height="28"><path d="M20 4c-7 0-13 6-13 14 0 9 8 15 13 18 5-3 13-9 13-18 0-8-6-14-13-14z" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="20" cy="17" r="3" fill="currentColor"/></svg>
+    </span>
+    <span class="brand-word" data-i18n="brand">Mare</span>
+  </a>
+  <nav class="topbar-actions">
+    <div class="lang-switch" id="lang-switch" aria-label="Language">
+      <button type="button" class="lang-btn" data-lang="en">EN</button>
+      <button type="button" class="lang-btn" data-lang="nl">NL</button>
+    </div>
+    <a href="/" class="btn-ghost" data-i18n="backToStories">Back to stories</a>
+    <button type="button" class="btn-ghost" id="sign-out-btn" data-i18n="accSignOut">Sign out</button>
+  </nav>
+</header>
+
+<main class="acc-shell">
+  <h1 data-i18n="accTitle">My Account</h1>
+  <p class="acc-sub" id="acc-welcome"></p>
+
+  <!-- Profile -->
+  <div class="acc-card">
+    <div class="acc-card-header" data-card="profile"><span class="acc-card-title" data-i18n="accProfileTitle">Profile</span><span class="acc-chevron">▾</span></div>
+    <div class="acc-card-body" id="body-profile">
+      <div class="field">
+        <label for="p-name" data-i18n="fieldName">Name</label>
+        <input type="text" id="p-name">
+      </div>
+      <div class="field">
+        <label for="p-email" data-i18n="fieldEmail">Email</label>
+        <input type="email" id="p-email" disabled>
+      </div>
+      <div class="field">
+        <label data-i18n="accBirthday">Birthday <span class="acc-field-hint" data-i18n="accBirthdayHint">(optional — month and day only, so Mare can say happy birthday)</span></label>
+        <div class="acc-dob-row">
+          <select id="p-bday-month"><option value="" data-i18n="accMonth">Month</option></select>
+          <select id="p-bday-day"><option value="" data-i18n="accDay">Day</option></select>
+        </div>
+      </div>
+      <p class="form-error" id="profile-error" hidden></p>
+      <p class="acc-saved-note" id="profile-saved" hidden data-i18n="accSaved">Saved.</p>
+      <button type="button" class="btn-primary" id="profile-save-btn" data-i18n="accSaveChanges">Save changes</button>
+    </div>
+  </div>
+
+  <!-- Messages from Mare -->
+  <div class="acc-card">
+    <div class="acc-card-header" data-card="prefs"><span class="acc-card-title" data-i18n="accPrefsTitle">Messages from Mare</span><span class="acc-chevron">▾</span></div>
+    <div class="acc-card-body" id="body-prefs">
+      <label class="acc-checkbox-row"><input type="checkbox" id="p-email-optin"> <span data-i18n="accEmailOptIn">Send me messages from Mare by email</span></label>
+      <div class="field" id="p-frequency-field">
+        <label for="p-frequency" data-i18n="accFrequency">How often</label>
+        <select id="p-frequency">
+          <option value="weekly" data-i18n="accWeekly">Weekly</option>
+          <option value="daily" data-i18n="accDaily">Daily</option>
+        </select>
+      </div>
+      <p class="acc-saved-note" id="prefs-saved" hidden data-i18n="accSaved">Saved.</p>
+      <button type="button" class="btn-primary" id="prefs-save-btn" data-i18n="accSaveChanges">Save changes</button>
+    </div>
+  </div>
+
+  <!-- My addresses -->
+  <div class="acc-card">
+    <div class="acc-card-header" data-card="addresses"><span class="acc-card-title" data-i18n="accAddressesTitle">My addresses</span><span class="acc-chevron">▾</span></div>
+    <div class="acc-card-body" id="body-addresses">
+      <p class="acc-card-sub" data-i18n="accAddressesDesc">For orders from Mare's Shop. You can add more than one.</p>
+      <div id="parent-address-list"></div>
+      <button type="button" class="btn-ghost" id="add-address-toggle" data-i18n="accAddAddress">+ Add an address</button>
+      <form id="parent-address-form" class="acc-address-form" hidden>
+        <div class="admin-form-row">
+          <div class="field"><label data-i18n="accFieldLabel">Label</label><input type="text" id="a-label" placeholder="Home"></div>
+          <div class="field"><label data-i18n="accFieldRecipient">Recipient name</label><input type="text" id="a-recipient"></div>
+        </div>
+        <div class="field"><label data-i18n="accFieldLine1">Address line 1</label><input type="text" id="a-line1" required></div>
+        <div class="field"><label data-i18n="accFieldLine2">Address line 2</label><input type="text" id="a-line2"></div>
+        <div class="admin-form-row">
+          <div class="field"><label data-i18n="accFieldCity">City</label><input type="text" id="a-city" required></div>
+          <div class="field"><label data-i18n="accFieldPostcode">Postcode</label><input type="text" id="a-postcode" required></div>
+        </div>
+        <div class="field"><label data-i18n="accFieldCountry">Country</label><input type="text" id="a-country" value="GB"></div>
+        <label class="acc-checkbox-row"><input type="checkbox" id="a-default"> <span data-i18n="accSetDefault">Set as default</span></label>
+        <p class="form-error" id="address-error" hidden></p>
+        <div class="acc-form-actions">
+          <button type="button" class="btn-ghost" id="cancel-address-btn" data-i18n="accCancel">Cancel</button>
+          <button type="submit" class="btn-primary" data-i18n="accSaveAddress">Save address</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- My children -->
+  <div class="acc-card">
+    <div class="acc-card-header" data-card="children"><span class="acc-card-title" data-i18n="accChildrenTitle">My children</span><span class="acc-chevron">▾</span></div>
+    <div class="acc-card-body" id="body-children">
+      <div id="children-list"></div>
+      <button type="button" class="btn-ghost" id="add-child-toggle" data-i18n="accAddChild">+ Add a child</button>
+      <form id="add-child-form" class="acc-address-form" hidden>
+        <div class="field"><label data-i18n="fieldName">Name</label><input type="text" id="new-child-name" required></div>
+        <p class="form-error" id="add-child-error" hidden></p>
+        <div class="acc-form-actions">
+          <button type="button" class="btn-ghost" id="cancel-child-btn" data-i18n="accCancel">Cancel</button>
+          <button type="submit" class="btn-primary" data-i18n="accAddChild">+ Add a child</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Password -->
+  <div class="acc-card">
+    <div class="acc-card-header" data-card="password"><span class="acc-card-title" data-i18n="accPasswordTitle">Password</span><span class="acc-chevron">▾</span></div>
+    <div class="acc-card-body" id="body-password">
+      <div class="field"><label for="pw-current" data-i18n="accCurrentPassword">Current password</label><input type="password" id="pw-current"></div>
+      <div class="field"><label for="pw-new" data-i18n="accNewPassword">New password</label><input type="password" id="pw-new"></div>
+      <div class="field"><label for="pw-confirm" data-i18n="accConfirmNewPassword">Confirm new password</label><input type="password" id="pw-confirm"></div>
+      <p class="form-error" id="password-error" hidden></p>
+      <p class="acc-saved-note" id="password-saved" hidden data-i18n="accPasswordUpdated">Password updated.</p>
+      <button type="button" class="btn-primary" id="password-save-btn" data-i18n="accUpdatePassword">Update password</button>
+    </div>
+  </div>
+
+  <!-- Delete account -->
+  <div class="acc-card">
+    <div class="acc-card-header" data-card="delete"><span class="acc-card-title" data-i18n="accDeleteTitle">Delete account</span><span class="acc-chevron">▾</span></div>
+    <div class="acc-card-body" id="body-delete">
+      <p class="acc-card-sub" data-i18n="accDeleteDesc">This can't be undone.</p>
+      <p class="form-error" id="delete-error" hidden></p>
+      <button type="button" class="btn-ghost acc-danger-btn" id="delete-account-btn" data-i18n="accDeleteAccount">Delete my account</button>
+    </div>
+  </div>
+
+</main>
+
+<!-- ── Child card template (filled in by account.js) ── -->
+<template id="child-card-template">
+  <div class="acc-child-card">
+    <div class="acc-child-header">
+      <span class="acc-child-name"></span>
+      <span class="role-pill acc-child-role-pill"></span>
+    </div>
+    <div class="acc-child-body">
+      <div class="admin-form-row">
+        <div class="field">
+          <label data-i18n="accAgeBand">Age band</label>
+          <select class="child-age-band">
+            <option value="" data-i18n="accAgeBandUnset">Not set</option>
+            <option value="6-8">6\u20138</option>
+            <option value="9-11">9\u201311</option>
+            <option value="12-15">12\u201315</option>
+          </select>
+        </div>
+        <div class="field">
+          <label data-i18n="accBirthday">Birthday</label>
+          <div class="acc-dob-row">
+            <select class="child-bday-month"><option value="" data-i18n="accMonth">Month</option></select>
+            <select class="child-bday-day"><option value="" data-i18n="accDay">Day</option></select>
+          </div>
+        </div>
+      </div>
+      <button type="button" class="btn-primary btn-sm child-save-btn" data-i18n="accSaveChanges">Save changes</button>
+      <p class="acc-saved-note child-saved-note" hidden data-i18n="accSaved">Saved.</p>
+
+      <h4 class="acc-subhead" data-i18n="accCarersTitle">Parents & carers</h4>
+      <div class="carer-list"></div>
+      <form class="add-carer-form">
+        <div class="admin-form-row">
+          <div class="field"><input type="email" class="carer-email" placeholder="carer@example.com" required></div>
+          <div class="field"><input type="text" class="carer-relationship" placeholder="Relationship (optional)"></div>
+        </div>
+        <p class="form-error carer-error" hidden></p>
+        <button type="submit" class="btn-ghost btn-sm" data-i18n="accAddCarer">+ Add a carer</button>
+      </form>
+
+      <h4 class="acc-subhead" data-i18n="accChildAddressesTitle">Addresses for this child</h4>
+      <div class="child-address-list"></div>
+      <button type="button" class="btn-ghost btn-sm add-child-address-toggle" data-i18n="accAddAddress">+ Add an address</button>
+      <form class="acc-address-form add-child-address-form" hidden>
+        <div class="admin-form-row">
+          <div class="field"><label data-i18n="accFieldLabel">Label</label><input type="text" class="ca-label"></div>
+          <div class="field"><label data-i18n="accFieldRecipient">Recipient name</label><input type="text" class="ca-recipient"></div>
+        </div>
+        <div class="field"><label data-i18n="accFieldLine1">Address line 1</label><input type="text" class="ca-line1" required></div>
+        <div class="field"><label data-i18n="accFieldLine2">Address line 2</label><input type="text" class="ca-line2"></div>
+        <div class="admin-form-row">
+          <div class="field"><label data-i18n="accFieldCity">City</label><input type="text" class="ca-city" required></div>
+          <div class="field"><label data-i18n="accFieldPostcode">Postcode</label><input type="text" class="ca-postcode" required></div>
+        </div>
+        <div class="field"><label data-i18n="accFieldCountry">Country</label><input type="text" class="ca-country" value="GB"></div>
+        <label class="acc-checkbox-row"><input type="checkbox" class="ca-default"> <span data-i18n="accSetDefault">Set as default</span></label>
+        <p class="form-error ca-error" hidden></p>
+        <div class="acc-form-actions">
+          <button type="button" class="btn-ghost cancel-child-address-btn" data-i18n="accCancel">Cancel</button>
+          <button type="submit" class="btn-primary" data-i18n="accSaveAddress">Save address</button>
+        </div>
+      </form>
+
+      <div class="acc-child-danger-row">
+        <button type="button" class="btn-ghost acc-danger-btn child-delete-btn" data-i18n="accDeleteChild">Delete this child's profile</button>
+        <p class="acc-locked-note child-not-primary-note" hidden data-i18n="accNotPrimaryNote">Only the primary parent can delete this profile or remove carers.</p>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script src="/js/i18n.js"></script>
+<script src="/js/account.js"></script>
+</body>
+</html>

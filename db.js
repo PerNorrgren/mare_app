@@ -42,22 +42,79 @@ async function getDb() {
     email TEXT UNIQUE NOT NULL,
     password_hash TEXT NOT NULL,
     name TEXT NOT NULL,
+    birthday_month INTEGER, -- month/day only, no year — same privacy-conscious pattern as per_bot's birthday-message feature, applied consistently here for parents too
+    birthday_day INTEGER,
     email_opt_in INTEGER NOT NULL DEFAULT 0,
     email_frequency TEXT DEFAULT 'weekly', -- 'daily' | 'weekly'
     preferred_locale TEXT NOT NULL DEFAULT 'en', -- for future locale-aware emails/UI persistence
     created_at TEXT DEFAULT (datetime('now'))
   )`);
+  try { db.run(`ALTER TABLE parents ADD COLUMN birthday_month INTEGER`); } catch {}
+  try { db.run(`ALTER TABLE parents ADD COLUMN birthday_day INTEGER`); } catch {}
 
+  // ── Children — a profile can belong to more than one parent/carer.
+  // parent_id stays as the PRIMARY parent (whoever created the profile —
+  // the one who can remove carers or delete the child outright); the
+  // child_carers table below adds any additional linked parents. Every
+  // ownership check in server.js goes through canParentAccessChild(),
+  // which checks both, so nothing downstream (Talk sessions, etc.) needs
+  // to know or care which kind of access a given parent has. ──
   db.run(`CREATE TABLE IF NOT EXISTS children (
     id TEXT PRIMARY KEY,
-    parent_id TEXT NOT NULL,
+    parent_id TEXT NOT NULL, -- primary parent — see comment above
     name TEXT NOT NULL,
     avatar_key TEXT,
     age_band TEXT, -- '6-8' | '9-11' | '12-15' — nullable (not set at signup); Talk falls back to the middle register until a parent sets this, rather than guessing
+    birthday_month INTEGER, -- month/day only, no year — deliberately not full DOB for a child's profile
+    birthday_day INTEGER,
     sort_order INTEGER NOT NULL DEFAULT 0,
     created_at TEXT DEFAULT (datetime('now'))
   )`);
   try { db.run(`ALTER TABLE children ADD COLUMN age_band TEXT`); } catch {}
+  try { db.run(`ALTER TABLE children ADD COLUMN birthday_month INTEGER`); } catch {}
+  try { db.run(`ALTER TABLE children ADD COLUMN birthday_day INTEGER`); } catch {}
+
+  // ── Additional parents/carers linked to a child, beyond the primary
+  // parent_id on the children row itself. Per's requirement: a child can
+  // have N parents/carers. Adding a carer requires that person to
+  // already have a Mare parent account (looked up by email) — inviting
+  // someone who doesn't have an account yet is a real feature (an email
+  // invite flow) deliberately left for later rather than half-built
+  // here. Only the primary parent can remove a carer or delete the
+  // child — see the requireCanManageChild vs requireCanAccessChild
+  // distinction in server.js. ──
+  db.run(`CREATE TABLE IF NOT EXISTS child_carers (
+    id TEXT PRIMARY KEY,
+    child_id TEXT NOT NULL,
+    parent_id TEXT NOT NULL, -- the carer's own parent account id
+    relationship TEXT, -- optional free-text label, e.g. 'Dad', 'Grandma', 'Childminder'
+    added_at TEXT DEFAULT (datetime('now'))
+  )`);
+
+  // ── Addresses — a generic, owner-agnostic table rather than fixed
+  // columns on parents/children, because Per's requirement is N
+  // addresses per parent AND N addresses per child (e.g. two homes after
+  // a separation, a grandparent's address for gift shipping). owner_type
+  // + owner_id follows the same app-level-ownership-check convention
+  // already used everywhere else in this file (no real FOREIGN KEY
+  // constraints anywhere in this schema — ownership is always verified
+  // in server.js, not enforced by SQLite). This is an address BOOK —
+  // wiring a chosen address into actual Stripe checkout is a separate,
+  // later task, not done here. ──
+  db.run(`CREATE TABLE IF NOT EXISTS addresses (
+    id TEXT PRIMARY KEY,
+    owner_type TEXT NOT NULL, -- 'parent' | 'child'
+    owner_id TEXT NOT NULL,
+    label TEXT, -- optional, e.g. 'Home', 'Mum's house'
+    recipient_name TEXT,
+    line1 TEXT NOT NULL,
+    line2 TEXT,
+    city TEXT NOT NULL,
+    postcode TEXT NOT NULL,
+    country TEXT NOT NULL DEFAULT 'GB',
+    is_default INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT DEFAULT (datetime('now'))
+  )`);
 
   // ── Teachers — separate top-level account type, own login. Not tied to
   // a parent record. school/class fields are optional now, ready for
@@ -137,7 +194,7 @@ async function getDb() {
     { label: 'Reader', url: '/reader.html', kind: 'internal', status: 'planned', description: 'The audio-follows-text reading experience — not built yet, the core still-open piece.', sortOrder: 40 },
     { label: 'Club Mare', url: '/club-mare.html', kind: 'internal', status: 'planned', description: 'Member posts, gated by tier.', sortOrder: 50 },
     { label: 'Merchandise', url: '/merchandise.html', kind: 'internal', status: 'planned', description: 'Shop browsing + Stripe checkout.', sortOrder: 60 },
-    { label: 'Account', url: '/account.html', kind: 'internal', status: 'planned', description: 'Parent account settings, children, email preferences.', sortOrder: 70 },
+    { label: 'Account', url: '/account.html', kind: 'internal', status: 'live', description: 'Parent account settings: profile, birthday, email preferences, addresses, children (with multi-parent/carer support), password, account deletion.', sortOrder: 70 },
     { label: 'GitHub repo', url: 'https://github.com/PerNorrgren/mare_app', kind: 'external', status: 'live', description: 'Source code.', sortOrder: 100 },
     { label: 'Railway (production)', url: 'https://mareapp-production.up.railway.app', kind: 'external', status: 'live', description: 'Live deployment.', sortOrder: 110 },
   ];
@@ -433,6 +490,9 @@ function all(sql, params = []) {
 function getParentByEmail(email) {
   return get(`SELECT * FROM parents WHERE email = ?`, [email.toLowerCase().trim()]);
 }
+function getParentById(id) {
+  return get(`SELECT * FROM parents WHERE id = ?`, [id]);
+}
 function createParent({ email, passwordHash, name }) {
   const id = uuid();
   run(`INSERT INTO parents (id, email, password_hash, name) VALUES (?,?,?,?)`,
@@ -443,10 +503,59 @@ function setParentEmailPrefs(parentId, optIn, frequency) {
   run(`UPDATE parents SET email_opt_in = ?, email_frequency = ? WHERE id = ?`,
     [optIn ? 1 : 0, frequency, parentId]);
 }
+function updateParentProfile(parentId, { name, birthdayMonth, birthdayDay, preferredLocale }) {
+  const existing = getParentById(parentId);
+  if (!existing) return false;
+  run(`UPDATE parents SET name=?, birthday_month=?, birthday_day=?, preferred_locale=? WHERE id=?`,
+    [
+      name ?? existing.name,
+      birthdayMonth === undefined ? existing.birthday_month : birthdayMonth,
+      birthdayDay === undefined ? existing.birthday_day : birthdayDay,
+      preferredLocale ?? existing.preferred_locale,
+      parentId,
+    ]);
+  return true;
+}
+function updateParentPasswordHash(parentId, passwordHash) {
+  run(`UPDATE parents SET password_hash = ? WHERE id = ?`, [passwordHash, parentId]);
+}
+// A parent can only delete their own account if they aren't the primary
+// parent for any child — deleting them would either orphan that child
+// or silently promote a carer to primary, and neither should happen
+// without a real, deliberate "transfer primary" step this app doesn't
+// have yet. Blocking is the safe default until that exists.
+function primaryChildrenCountForParent(parentId) {
+  const row = get(`SELECT COUNT(*) as n FROM children WHERE parent_id = ?`, [parentId]);
+  return row ? row.n : 0;
+}
+function deleteParentAccount(parentId) {
+  // Carer links (this parent as someone else's linked carer) and this
+  // parent's own addresses are safe to remove outright. club_mare_members
+  // is this account's own membership row. Orders/order_items are
+  // deliberately NOT touched — those are financial records and should
+  // outlive the account, same as most real-world account deletions.
+  run(`DELETE FROM child_carers WHERE parent_id = ?`, [parentId]);
+  run(`DELETE FROM addresses WHERE owner_type = 'parent' AND owner_id = ?`, [parentId]);
+  run(`DELETE FROM club_mare_members WHERE parent_id = ?`, [parentId]);
+  run(`DELETE FROM parents WHERE id = ?`, [parentId]);
+}
 
-// ── Children (profiles under a parent) ──
+// ── Children (profiles that can belong to more than one parent/carer —
+// see the child_carers schema comment for the ownership model). ──
 function getChildrenByParent(parentId) {
-  return all(`SELECT * FROM children WHERE parent_id = ? ORDER BY sort_order, created_at`, [parentId]);
+  // Primary parent OR linked carer — either way this is a child the
+  // signed-in parent should see. UNION rather than a JOIN+OR keeps this
+  // readable and correct even though children could theoretically appear
+  // via both paths (they can't in practice — addCarerToChild refuses to
+  // link the primary parent as a carer too — but UNION, not UNION ALL,
+  // means this stays correct even if that ever changed).
+  return all(
+    `SELECT * FROM children WHERE parent_id = ?
+     UNION
+     SELECT c.* FROM children c JOIN child_carers cc ON cc.child_id = c.id WHERE cc.parent_id = ?
+     ORDER BY sort_order, created_at`,
+    [parentId, parentId]
+  );
 }
 function createChild(parentId, name, avatarKey) {
   const id = uuid();
@@ -461,6 +570,109 @@ function setChildAgeBand(childId, ageBand) {
   const valid = ['6-8', '9-11', '12-15'];
   if (!valid.includes(ageBand)) throw new Error('Invalid age band');
   run(`UPDATE children SET age_band = ? WHERE id = ?`, [ageBand, childId]);
+}
+function updateChild(childId, { name, avatarKey, ageBand, birthdayMonth, birthdayDay }) {
+  const existing = getChild(childId);
+  if (!existing) return false;
+  if (ageBand !== undefined && ageBand !== null && !['6-8', '9-11', '12-15'].includes(ageBand)) {
+    throw new Error('Invalid age band');
+  }
+  run(`UPDATE children SET name=?, avatar_key=?, age_band=?, birthday_month=?, birthday_day=? WHERE id=?`,
+    [
+      name ?? existing.name,
+      avatarKey === undefined ? existing.avatar_key : avatarKey,
+      ageBand === undefined ? existing.age_band : ageBand,
+      birthdayMonth === undefined ? existing.birthday_month : birthdayMonth,
+      birthdayDay === undefined ? existing.birthday_day : birthdayDay,
+      childId,
+    ]);
+  return true;
+}
+function deleteChild(childId) {
+  run(`DELETE FROM children WHERE id = ?`, [childId]);
+  run(`DELETE FROM child_carers WHERE child_id = ?`, [childId]);
+  run(`DELETE FROM addresses WHERE owner_type = 'child' AND owner_id = ?`, [childId]);
+}
+
+// ── Child carers — additional parents linked to a child beyond the
+// primary parent_id. canParentAccessChild is the one function every
+// ownership check in server.js should call — nothing else needs to know
+// whether access comes from being primary or being a linked carer. ──
+function canParentAccessChild(parentId, childId) {
+  const child = getChild(childId);
+  if (!child) return false;
+  if (child.parent_id === parentId) return true;
+  return !!get(`SELECT id FROM child_carers WHERE child_id = ? AND parent_id = ?`, [childId, parentId]);
+}
+function isPrimaryParentOfChild(parentId, childId) {
+  const child = getChild(childId);
+  return !!child && child.parent_id === parentId;
+}
+function getCarersForChild(childId) {
+  return all(
+    `SELECT cc.id as carer_link_id, cc.relationship, cc.added_at, p.id, p.name, p.email
+     FROM child_carers cc JOIN parents p ON p.id = cc.parent_id
+     WHERE cc.child_id = ? ORDER BY cc.added_at`,
+    [childId]
+  );
+}
+// Adding a carer requires that person to already have a parent account
+// (looked up by email) — inviting someone with no account yet is a real
+// feature (an email-invite flow) deliberately left for later rather than
+// half-built here. Returns the new link id, or throws with a message
+// safe to show the requesting parent directly.
+function addCarerToChild(childId, carerEmail, relationship) {
+  const child = getChild(childId);
+  if (!child) throw new Error('Child not found');
+  const carer = getParentByEmail(carerEmail);
+  if (!carer) throw new Error('No Mare parent account found with that email — they need to create one first.');
+  if (carer.id === child.parent_id) throw new Error('That\u2019s already the primary parent for this child.');
+  const already = get(`SELECT id FROM child_carers WHERE child_id = ? AND parent_id = ?`, [childId, carer.id]);
+  if (already) throw new Error('Already linked to this child.');
+  const id = uuid();
+  run(`INSERT INTO child_carers (id, child_id, parent_id, relationship) VALUES (?,?,?,?)`,
+    [id, childId, carer.id, relationship || null]);
+  return id;
+}
+function removeCarerFromChild(carerLinkId) {
+  run(`DELETE FROM child_carers WHERE id = ?`, [carerLinkId]);
+}
+
+// ── Addresses — owner-agnostic (see schema comment). N per parent, N
+// per child. ──
+function getAddressesForOwner(ownerType, ownerId) {
+  return all(`SELECT * FROM addresses WHERE owner_type = ? AND owner_id = ? ORDER BY is_default DESC, created_at`, [ownerType, ownerId]);
+}
+function getAddress(id) {
+  return get(`SELECT * FROM addresses WHERE id = ?`, [id]);
+}
+function createAddress(ownerType, ownerId, { label, recipientName, line1, line2, city, postcode, country, isDefault }) {
+  const id = uuid();
+  if (isDefault) run(`UPDATE addresses SET is_default = 0 WHERE owner_type = ? AND owner_id = ?`, [ownerType, ownerId]);
+  run(`INSERT INTO addresses (id, owner_type, owner_id, label, recipient_name, line1, line2, city, postcode, country, is_default) VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
+    [id, ownerType, ownerId, label || null, recipientName || null, line1, line2 || null, city, postcode, country || 'GB', isDefault ? 1 : 0]);
+  return id;
+}
+function updateAddress(id, { label, recipientName, line1, line2, city, postcode, country, isDefault }) {
+  const existing = getAddress(id);
+  if (!existing) return false;
+  if (isDefault) run(`UPDATE addresses SET is_default = 0 WHERE owner_type = ? AND owner_id = ?`, [existing.owner_type, existing.owner_id]);
+  run(`UPDATE addresses SET label=?, recipient_name=?, line1=?, line2=?, city=?, postcode=?, country=?, is_default=? WHERE id=?`,
+    [
+      label ?? existing.label,
+      recipientName ?? existing.recipient_name,
+      line1 ?? existing.line1,
+      line2 === undefined ? existing.line2 : line2,
+      city ?? existing.city,
+      postcode ?? existing.postcode,
+      country ?? existing.country,
+      isDefault === undefined ? existing.is_default : (isDefault ? 1 : 0),
+      id,
+    ]);
+  return true;
+}
+function deleteAddress(id) {
+  run(`DELETE FROM addresses WHERE id = ?`, [id]);
 }
 
 // ── Teachers ──
@@ -767,8 +979,11 @@ function getEmailOptInParents(frequency) {
 
 module.exports = {
   getDb, save, uuid, run, get, all,
-  getParentByEmail, createParent, setParentEmailPrefs,
-  getChildrenByParent, createChild, getChild, setChildAgeBand,
+  getParentByEmail, getParentById, createParent, setParentEmailPrefs, updateParentProfile,
+  updateParentPasswordHash, primaryChildrenCountForParent, deleteParentAccount,
+  getChildrenByParent, createChild, getChild, setChildAgeBand, updateChild, deleteChild,
+  canParentAccessChild, isPrimaryParentOfChild, getCarersForChild, addCarerToChild, removeCarerFromChild,
+  getAddressesForOwner, getAddress, createAddress, updateAddress, deleteAddress,
   getTeacherByEmail, createTeacher,
   getAdminByEmail, createAdmin, getAllStaff,
   getAllParentsDirectory, getAllTeachersDirectory,

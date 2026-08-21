@@ -150,8 +150,32 @@ app.post('/api/logout', (req, res) => {
 app.get('/api/me', auth.requireAuthApi(), (req, res) => res.json({ user: req.user }));
 
 // ─────────────────────────────────────────────────────────────────────
-// CHILDREN — profiles under a parent, no separate password
+// CHILDREN — profiles that can belong to more than one parent/carer.
+// Two access levels used throughout: requireChildAccess (primary parent
+// OR any linked carer — viewing, editing basic details, adding another
+// carer, managing addresses) and requireChildOwnership (primary parent
+// only — deleting the child, removing a carer). See the child_carers
+// schema comment in db.js for why removal is more restricted than
+// adding: it avoids carers being able to remove each other or the
+// primary parent in a dispute.
 // ─────────────────────────────────────────────────────────────────────
+
+function requireChildAccess(req, res) {
+  const child = db.getChild(req.params.id);
+  if (!child || !db.canParentAccessChild(req.user.id, child.id)) {
+    res.status(404).json({ error: 'Not found' });
+    return null;
+  }
+  return child;
+}
+function requireChildOwnership(req, res) {
+  const child = db.getChild(req.params.id);
+  if (!child || !db.isPrimaryParentOfChild(req.user.id, child.id)) {
+    res.status(404).json({ error: 'Not found' });
+    return null;
+  }
+  return child;
+}
 
 app.get('/api/children', auth.requireAuthApi(['parent']), (req, res) => {
   res.json({ children: db.getChildrenByParent(req.user.id) });
@@ -162,18 +186,179 @@ app.post('/api/children', auth.requireAuthApi(['parent']), (req, res) => {
   const id = db.createChild(req.user.id, name, avatarKey);
   res.json({ ok: true, id });
 });
-// Age band drives Talk to Mare's register (see prompts.js). Nullable —
-// a parent sets this whenever they get to it; Talk falls back to the
-// middle register until then rather than guessing.
+app.get('/api/children/:id', auth.requireAuthApi(['parent']), (req, res) => {
+  const child = requireChildAccess(req, res);
+  if (!child) return;
+  res.json({
+    child,
+    isPrimary: db.isPrimaryParentOfChild(req.user.id, child.id),
+    carers: db.getCarersForChild(child.id),
+    addresses: db.getAddressesForOwner('child', child.id),
+  });
+});
+app.patch('/api/children/:id', auth.requireAuthApi(['parent']), (req, res) => {
+  const child = requireChildAccess(req, res);
+  if (!child) return;
+  try {
+    db.updateChild(child.id, req.body || {});
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+app.delete('/api/children/:id', auth.requireAuthApi(['parent']), (req, res) => {
+  const child = requireChildOwnership(req, res);
+  if (!child) return;
+  db.deleteChild(child.id);
+  res.json({ ok: true });
+});
+// Kept alongside the general PATCH above for backward compatibility —
+// this shipped first and the test harness already calls it directly.
 app.patch('/api/children/:id/age-band', auth.requireAuthApi(['parent']), (req, res) => {
-  const child = db.getChild(req.params.id);
-  if (!child || child.parent_id !== req.user.id) return res.status(404).json({ error: 'Not found' });
+  const child = requireChildAccess(req, res);
+  if (!child) return;
   try {
     db.setChildAgeBand(child.id, req.body?.ageBand);
     res.json({ ok: true });
   } catch (e) {
     res.status(400).json({ error: e.message });
   }
+});
+
+// ── Carers ──
+app.get('/api/children/:id/carers', auth.requireAuthApi(['parent']), (req, res) => {
+  const child = requireChildAccess(req, res);
+  if (!child) return;
+  res.json({ carers: db.getCarersForChild(child.id) });
+});
+app.post('/api/children/:id/carers', auth.requireAuthApi(['parent']), (req, res) => {
+  const child = requireChildAccess(req, res);
+  if (!child) return;
+  const { email, relationship } = req.body || {};
+  if (!email) return res.status(400).json({ error: 'Email required' });
+  try {
+    const id = db.addCarerToChild(child.id, email, relationship);
+    res.json({ ok: true, id });
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+app.delete('/api/children/:id/carers/:carerLinkId', auth.requireAuthApi(['parent']), (req, res) => {
+  const child = requireChildOwnership(req, res);
+  if (!child) return;
+  db.removeCarerFromChild(req.params.carerLinkId);
+  res.json({ ok: true });
+});
+
+// ── Addresses (child-owned) ──
+app.get('/api/children/:id/addresses', auth.requireAuthApi(['parent']), (req, res) => {
+  const child = requireChildAccess(req, res);
+  if (!child) return;
+  res.json({ addresses: db.getAddressesForOwner('child', child.id) });
+});
+app.post('/api/children/:id/addresses', auth.requireAuthApi(['parent']), (req, res) => {
+  const child = requireChildAccess(req, res);
+  if (!child) return;
+  const { label, recipientName, line1, line2, city, postcode, country, isDefault } = req.body || {};
+  if (!line1 || !city || !postcode) return res.status(400).json({ error: 'line1, city, and postcode are required' });
+  const id = db.createAddress('child', child.id, { label, recipientName, line1, line2, city, postcode, country, isDefault });
+  res.json({ ok: true, id });
+});
+
+// ── Addresses — shared update/delete for both parent- and child-owned
+// rows. Ownership is checked generically here since an address row
+// doesn't know in advance which kind of owner it belongs to. ──
+function requireAddressAccess(req, res) {
+  const address = db.getAddress(req.params.id);
+  if (!address) { res.status(404).json({ error: 'Not found' }); return null; }
+  const allowed = address.owner_type === 'parent'
+    ? address.owner_id === req.user.id
+    : db.canParentAccessChild(req.user.id, address.owner_id);
+  if (!allowed) { res.status(404).json({ error: 'Not found' }); return null; }
+  return address;
+}
+app.patch('/api/addresses/:id', auth.requireAuthApi(['parent']), (req, res) => {
+  const address = requireAddressAccess(req, res);
+  if (!address) return;
+  db.updateAddress(address.id, req.body || {});
+  res.json({ ok: true });
+});
+app.delete('/api/addresses/:id', auth.requireAuthApi(['parent']), (req, res) => {
+  const address = requireAddressAccess(req, res);
+  if (!address) return;
+  db.deleteAddress(address.id);
+  res.json({ ok: true });
+});
+
+// ─────────────────────────────────────────────────────────────────────
+// ACCOUNT — the parent's own profile: name, birthday, locale, email
+// preferences, and their own addresses (separate from any child's
+// addresses — e.g. a grandparent's shipping address lives on the child,
+// not the parent, if that's where gifts should go). One GET returns
+// everything the account page needs in a single call, same pattern as
+// /api/splash.
+// ─────────────────────────────────────────────────────────────────────
+
+app.get('/api/account', auth.requireAuthApi(['parent']), (req, res) => {
+  const parent = db.getParentById(req.user.id);
+  const { password_hash, ...safeParent } = parent;
+  res.json({
+    parent: safeParent,
+    addresses: db.getAddressesForOwner('parent', req.user.id),
+    children: db.getChildrenByParent(req.user.id).map(c => ({
+      ...c,
+      isPrimary: db.isPrimaryParentOfChild(req.user.id, c.id),
+    })),
+  });
+});
+app.patch('/api/account', auth.requireAuthApi(['parent']), (req, res) => {
+  const { name, birthdayMonth, birthdayDay, preferredLocale } = req.body || {};
+  db.updateParentProfile(req.user.id, { name, birthdayMonth, birthdayDay, preferredLocale });
+  res.json({ ok: true });
+});
+app.patch('/api/account/email-prefs', auth.requireAuthApi(['parent']), (req, res) => {
+  const { optIn, frequency } = req.body || {};
+  db.setParentEmailPrefs(req.user.id, !!optIn, frequency === 'daily' ? 'daily' : 'weekly');
+  res.json({ ok: true });
+});
+app.get('/api/account/addresses', auth.requireAuthApi(['parent']), (req, res) => {
+  res.json({ addresses: db.getAddressesForOwner('parent', req.user.id) });
+});
+app.post('/api/account/addresses', auth.requireAuthApi(['parent']), (req, res) => {
+  const { label, recipientName, line1, line2, city, postcode, country, isDefault } = req.body || {};
+  if (!line1 || !city || !postcode) return res.status(400).json({ error: 'line1, city, and postcode are required' });
+  const id = db.createAddress('parent', req.user.id, { label, recipientName, line1, line2, city, postcode, country, isDefault });
+  res.json({ ok: true, id });
+});
+
+app.post('/api/account/change-password', auth.requireAuthApi(['parent']), async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body || {};
+    if (!currentPassword || !newPassword) return res.status(400).json({ error: 'Missing fields' });
+    if (newPassword.length < 8) return res.status(400).json({ error: 'Password must be at least 8 characters' });
+    const parent = db.getParentById(req.user.id);
+    const valid = await auth.verifyPassword(currentPassword, parent.password_hash);
+    if (!valid) return res.status(401).json({ error: 'Current password is incorrect' });
+    const hash = await auth.hashPassword(newPassword);
+    db.updateParentPasswordHash(req.user.id, hash);
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('change-password failed', e);
+    res.status(500).json({ error: 'Could not update password' });
+  }
+});
+
+// Blocked if this parent is the primary parent for any child — see the
+// db.js comment on deleteParentAccount for why. A carer-only account
+// (or one with no children at all) can delete freely.
+app.delete('/api/account', auth.requireAuthApi(['parent']), (req, res) => {
+  const primaryCount = db.primaryChildrenCountForParent(req.user.id);
+  if (primaryCount > 0) {
+    return res.status(409).json({ error: 'You\u2019re the primary parent for one or more children — remove or reassign them first.', primaryChildrenCount: primaryCount });
+  }
+  db.deleteParentAccount(req.user.id);
+  res.clearCookie(auth.COOKIE_NAME);
+  res.json({ ok: true });
 });
 
 // ─────────────────────────────────────────────────────────────────────
@@ -311,11 +496,27 @@ const talkSessions = new Map(); // sessionId -> { history: [{role,content}], sys
 
 function requireOwnedChild(req, res) {
   const child = db.getChild(req.body?.childId || req.params?.childId);
-  if (!child || child.parent_id !== req.user.id) {
+  if (!child || !db.canParentAccessChild(req.user.id, child.id)) {
     res.status(404).json({ error: 'Child not found' });
     return null;
   }
   return child;
+}
+
+// A Talk session is tied to a child, not exclusively to whichever
+// parent happened to start it — any parent/carer with access to that
+// child can continue, end, or receive the opening for a session, same
+// as with every other child-scoped resource in this file. In practice
+// only one parent is ever holding the device during a live session, but
+// the permission boundary should match the child-access model, not the
+// literal originator.
+function requireSessionChildAccess(req, res, sessionId) {
+  const dbRow = db.getTalkSession(sessionId);
+  if (!dbRow || !db.canParentAccessChild(req.user.id, dbRow.child_id)) {
+    res.status(404).json({ error: 'Session not found' });
+    return null;
+  }
+  return dbRow;
 }
 
 app.post('/api/talk/session', auth.requireAuthApi(['parent']), (req, res) => {
@@ -337,8 +538,8 @@ app.post('/api/talk/chat', auth.requireAuthApi(['parent']), async (req, res) => 
     const { sessionId, message } = req.body || {};
     if (!sessionId || !message) return res.status(400).json({ error: 'sessionId and message required' });
 
-    const dbRow = db.getTalkSession(sessionId);
-    if (!dbRow || dbRow.parent_id !== req.user.id) return res.status(404).json({ error: 'Session not found' });
+    const dbRow = requireSessionChildAccess(req, res, sessionId);
+    if (!dbRow) return;
     if (dbRow.ended_at) return res.status(410).json({ error: 'Session has ended' });
     if (!anthropic) return res.status(503).json({ error: 'Talk is not configured' });
 
@@ -381,8 +582,8 @@ app.post('/api/talk/chat', auth.requireAuthApi(['parent']), async (req, res) => 
 });
 
 app.post('/api/talk/session/:id/end', auth.requireAuthApi(['parent']), (req, res) => {
-  const dbRow = db.getTalkSession(req.params.id);
-  if (!dbRow || dbRow.parent_id !== req.user.id) return res.status(404).json({ error: 'Session not found' });
+  const dbRow = requireSessionChildAccess(req, res, req.params.id);
+  if (!dbRow) return;
   db.endTalkSession(req.params.id);
   talkSessions.delete(req.params.id);
   res.json({ ok: true });
@@ -395,8 +596,8 @@ app.post('/api/talk/session/:id/end', auth.requireAuthApi(['parent']), (req, res
 // naturally from there.
 app.post('/api/talk/session/:id/opening', auth.requireAuthApi(['parent']), async (req, res) => {
   try {
-    const dbRow = db.getTalkSession(req.params.id);
-    if (!dbRow || dbRow.parent_id !== req.user.id) return res.status(404).json({ error: 'Session not found' });
+    const dbRow = requireSessionChildAccess(req, res, req.params.id);
+    if (!dbRow) return;
     if (!anthropic) return res.status(503).json({ error: 'Talk is not configured' });
 
     let session = talkSessions.get(req.params.id);
@@ -850,7 +1051,7 @@ server.on('upgrade', (req, socket, head) => {
 
   const sessionId = searchParams.get('session');
   const talkSession = sessionId ? db.getTalkSession(sessionId) : null;
-  if (!talkSession || talkSession.parent_id !== payload.id || talkSession.ended_at) {
+  if (!talkSession || !db.canParentAccessChild(payload.id, talkSession.child_id) || talkSession.ended_at) {
     socket.write('HTTP/1.1 403 Forbidden\r\n\r\n');
     socket.destroy();
     return;
