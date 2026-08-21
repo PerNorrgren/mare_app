@@ -101,6 +101,49 @@ async function getDb() {
     created_at TEXT DEFAULT (datetime('now'))
   )`);
 
+  // ── App pages directory — admin's "Pages" tab. This app has no
+  // page-routing framework to introspect (every page is a static file
+  // served by express.static — there's no router to walk), so rather
+  // than a fragile auto-crawl this is a maintained directory: seeded
+  // with the pages known at build time, kept current by whoever's
+  // managing content (admin or support). Covers both internal app pages
+  // (url is a path like '/teacher.html') and external references (url is
+  // a full https:// link — Railway dashboard, GitHub repo, the live
+  // per_bot site, etc.) in one list rather than two separate tables,
+  // since from the admin's point of view they're both just "places this
+  // project lives". ──
+  db.run(`CREATE TABLE IF NOT EXISTS app_pages (
+    id TEXT PRIMARY KEY,
+    label TEXT NOT NULL,
+    url TEXT NOT NULL,
+    kind TEXT NOT NULL DEFAULT 'internal', -- 'internal' | 'external'
+    status TEXT NOT NULL DEFAULT 'live', -- 'live' | 'planned' | 'stub'
+    description TEXT,
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    active INTEGER NOT NULL DEFAULT 1,
+    created_at TEXT DEFAULT (datetime('now'))
+  )`);
+  // Seed once, keyed by url so re-running never duplicates rows and
+  // never overwrites anything an admin has since edited or deleted.
+  const PAGE_SEED = [
+    { label: 'Story Corner (splash)', url: '/', kind: 'internal', status: 'live', description: "The public landing page — book shelf, Club Mare and Shop tiles.", sortOrder: 0 },
+    { label: 'Sign in / create account', url: '/login.html', kind: 'internal', status: 'live', description: 'Parent and teacher login + signup, role and mode selectable.', sortOrder: 10 },
+    { label: 'For Teachers', url: '/teacher.html', kind: 'internal', status: 'live', description: 'Public teacher splash when signed out; resources + What\u2019s New hub when signed in as a teacher.', sortOrder: 20 },
+    { label: 'Admin', url: '/admin.html', kind: 'internal', status: 'live', description: 'Staff login and dashboard (this page).', sortOrder: 30 },
+    { label: 'Reader', url: '/reader.html', kind: 'internal', status: 'planned', description: 'The audio-follows-text reading experience — not built yet, the core still-open piece.', sortOrder: 40 },
+    { label: 'Club Mare', url: '/club-mare.html', kind: 'internal', status: 'planned', description: 'Member posts, gated by tier.', sortOrder: 50 },
+    { label: 'Merchandise', url: '/merchandise.html', kind: 'internal', status: 'planned', description: 'Shop browsing + Stripe checkout.', sortOrder: 60 },
+    { label: 'Account', url: '/account.html', kind: 'internal', status: 'planned', description: 'Parent account settings, children, email preferences.', sortOrder: 70 },
+    { label: 'GitHub repo', url: 'https://github.com/PerNorrgren/mare_app', kind: 'external', status: 'live', description: 'Source code.', sortOrder: 100 },
+    { label: 'Railway (production)', url: 'https://mareapp-production.up.railway.app', kind: 'external', status: 'live', description: 'Live deployment.', sortOrder: 110 },
+  ];
+  for (const p of PAGE_SEED) {
+    if (!get(`SELECT id FROM app_pages WHERE url = ?`, [p.url])) {
+      run(`INSERT INTO app_pages (id, label, url, kind, status, description, sort_order) VALUES (?,?,?,?,?,?,?)`,
+        [uuid(), p.label, p.url, p.kind, p.status, p.description, p.sortOrder]);
+    }
+  }
+
   // ── Books, chapters, scenes ──
   // A "scene" is one image (chapter opening or chapter ending) plus its
   // own narration audio, its own sentence timings, its own hotspots, and
@@ -599,6 +642,39 @@ function deleteTeacherResource(id) {
   run(`DELETE FROM teacher_resources WHERE id = ?`, [id]);
 }
 
+// ── App pages directory ──
+function getActiveAppPages() {
+  return all(`SELECT * FROM app_pages WHERE active = 1 ORDER BY sort_order, created_at`);
+}
+function getAllAppPages() {
+  return all(`SELECT * FROM app_pages ORDER BY sort_order, created_at`);
+}
+function createAppPage({ label, url, kind, status, description, sortOrder }) {
+  const id = uuid();
+  run(`INSERT INTO app_pages (id, label, url, kind, status, description, sort_order) VALUES (?,?,?,?,?,?,?)`,
+    [id, label, url, kind === 'external' ? 'external' : 'internal', status || 'live', description || null, sortOrder || 0]);
+  return id;
+}
+function updateAppPage(id, { label, url, kind, status, description, sortOrder, active }) {
+  const existing = get(`SELECT * FROM app_pages WHERE id = ?`, [id]);
+  if (!existing) return false;
+  run(`UPDATE app_pages SET label=?, url=?, kind=?, status=?, description=?, sort_order=?, active=? WHERE id=?`,
+    [
+      label ?? existing.label,
+      url ?? existing.url,
+      kind ?? existing.kind,
+      status ?? existing.status,
+      description ?? existing.description,
+      sortOrder ?? existing.sort_order,
+      active === undefined ? existing.active : (active ? 1 : 0),
+      id,
+    ]);
+  return true;
+}
+function deleteAppPage(id) {
+  run(`DELETE FROM app_pages WHERE id = ?`, [id]);
+}
+
 // ── What's New ──
 function getWhatsNew(audience) {
   return all(`SELECT * FROM whats_new WHERE active = 1 AND (audience = ? OR audience = 'both') ORDER BY published_at DESC`,
@@ -631,6 +707,7 @@ module.exports = {
   getAllParentsDirectory, getAllTeachersDirectory,
   getActiveTeacherResources, getAllTeacherResources,
   createTeacherResource, updateTeacherResource, deleteTeacherResource,
+  getActiveAppPages, getAllAppPages, createAppPage, updateAppPage, deleteAppPage,
   getActiveBooks, getActiveBooksForLocale, getAllBooks, getBookBySlug, createBook,
   getChaptersByBook, createChapter,
   getScenesByChapter, createScene, setSceneImage, setSceneNarrationAudio,

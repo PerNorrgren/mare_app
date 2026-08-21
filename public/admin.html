@@ -17,11 +17,15 @@
     <span class="brand-mark" aria-hidden="true">
       <svg viewBox="0 0 40 40" width="28" height="28"><path d="M20 4c-7 0-13 6-13 14 0 9 8 15 13 18 5-3 13-9 13-18 0-8-6-14-13-14z" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="20" cy="17" r="3" fill="currentColor"/></svg>
     </span>
-    <span class="brand-word">Mare Admin</span>
+    <span class="brand-word" data-i18n="adminBrand">Mare Admin</span>
   </a>
   <nav class="topbar-actions" id="topbar-actions">
+    <div class="lang-switch" id="lang-switch" aria-label="Language">
+      <button type="button" class="lang-btn" data-lang="en">EN</button>
+      <button type="button" class="lang-btn" data-lang="nl">NL</button>
+    </div>
     <span class="role-pill admin" id="who-pill" hidden></span>
-    <button type="button" class="btn-ghost" id="sign-out-btn" hidden>Sign out</button>
+    <button type="button" class="btn-ghost" id="sign-out-btn" hidden data-i18n="adminSignOut">Sign out</button>
   </nav>
 </header>
 
@@ -30,19 +34,19 @@
   <!-- ── Login ── -->
   <section class="auth-main" id="login-view">
     <div class="auth-card">
-      <h1>Admin sign in</h1>
-      <p class="auth-sub">Staff accounts only — admin and support.</p>
+      <h1 data-i18n="adminLoginHeading">Admin sign in</h1>
+      <p class="auth-sub" data-i18n="adminLoginSub">Staff accounts only — admin and support.</p>
       <form id="admin-login-form" novalidate>
         <div class="field">
-          <label for="f-email">Email</label>
+          <label for="f-email" data-i18n="fieldEmail">Email</label>
           <input type="email" id="f-email" name="email" autocomplete="email" required>
         </div>
         <div class="field">
-          <label for="f-password">Password</label>
+          <label for="f-password" data-i18n="fieldPassword">Password</label>
           <input type="password" id="f-password" name="password" autocomplete="current-password" required>
         </div>
         <p class="form-error" id="form-error" hidden></p>
-        <button type="submit" class="btn-primary btn-full" id="submit-btn">Sign in</button>
+        <button type="submit" class="btn-primary btn-full" id="submit-btn" data-i18n="adminSignIn">Sign in</button>
       </form>
     </div>
   </section>
@@ -50,124 +54,173 @@
   <!-- ── Dashboard ── -->
   <section class="admin-shell" id="dashboard-view" hidden>
     <div class="admin-tabs" id="admin-tabs">
-      <button type="button" class="admin-tab active" data-tab="overview">Overview</button>
-      <button type="button" class="admin-tab" data-tab="resources">Teacher Resources</button>
-      <button type="button" class="admin-tab" data-tab="directory">Parents &amp; Teachers</button>
-      <button type="button" class="admin-tab admin-only-tab" data-tab="staff" hidden>Staff Accounts</button>
+      <button type="button" class="admin-tab active" data-tab="overview" data-i18n="adminTabOverview">Overview</button>
+      <button type="button" class="admin-tab" data-tab="resources" data-i18n="adminTabResources">Teacher Resources</button>
+      <button type="button" class="admin-tab" data-tab="pages" data-i18n="adminTabPages">Pages</button>
+      <button type="button" class="admin-tab" data-tab="directory" data-i18n="adminTabDirectory">Parents &amp; Teachers</button>
+      <button type="button" class="admin-tab admin-only-tab" data-tab="staff" hidden data-i18n="adminTabStaff">Staff Accounts</button>
     </div>
 
     <!-- Overview -->
     <div class="admin-panel active" id="panel-overview">
       <div class="admin-card">
-        <h2>Content library</h2>
-        <p class="admin-card-sub">Books, chapters, scenes, hotspots, activities, and merchandise already have working API endpoints from earlier builds. A dedicated content-management UI for those is the natural next piece — not built in this pass, which focused on teacher access, the support role, and staff/account visibility.</p>
-        <p class="admin-empty-note" id="book-count-note">Loading book count…</p>
+        <h2 data-i18n="adminOverviewContentTitle">Content library</h2>
+        <p class="admin-card-sub" data-i18n="adminOverviewContentDesc">Books, chapters, scenes, hotspots, activities, and merchandise already have working API endpoints from earlier builds. A dedicated content-management UI for those is the natural next piece.</p>
+        <p class="admin-empty-note" id="book-count-note" data-i18n="adminLoadingBookCount">Loading book count…</p>
       </div>
       <div class="admin-card admin-only-tab" id="products-note-card" hidden>
-        <h2>Products &amp; payments</h2>
-        <p class="admin-card-sub">Product and Stripe checkout settings are admin-only by design — support accounts can't see or change these.</p>
+        <h2 data-i18n="adminOverviewProductsTitle">Products &amp; payments</h2>
+        <p class="admin-card-sub" data-i18n="adminOverviewProductsDesc">Product and Stripe checkout settings are admin-only by design — support accounts can't see or change these.</p>
       </div>
     </div>
 
     <!-- Teacher resources -->
     <div class="admin-panel" id="panel-resources">
       <div class="admin-card">
-        <h2>Add a resource</h2>
-        <p class="admin-card-sub">Shows up immediately in the teacher hub once saved.</p>
+        <h2 data-i18n="adminResourcesAddTitle">Add a resource</h2>
+        <p class="admin-card-sub" data-i18n="adminResourcesAddDesc">Shows up immediately in the teacher hub once saved.</p>
         <form id="resource-form">
           <div class="admin-form-row">
             <div class="field">
-              <label for="r-title">Title</label>
+              <label for="r-title" data-i18n="adminFieldTitle">Title</label>
               <input type="text" id="r-title" required>
             </div>
             <div class="field">
-              <label for="r-category">Type</label>
+              <label for="r-category" data-i18n="adminFieldType">Type</label>
               <select id="r-category">
-                <option value="document">Document</option>
-                <option value="tool">Tool</option>
-                <option value="link">Link</option>
+                <option value="document" data-i18n="resourceCategoryDocument">Document</option>
+                <option value="tool" data-i18n="resourceCategoryTool">Tool</option>
+                <option value="link" data-i18n="resourceCategoryLink">Link</option>
               </select>
             </div>
           </div>
           <div class="field">
-            <label for="r-description">Description (optional)</label>
+            <label for="r-description" data-i18n="adminFieldDescriptionOptional">Description (optional)</label>
             <input type="text" id="r-description">
           </div>
           <div class="field" id="r-url-field">
-            <label for="r-url">Link / tool URL</label>
+            <label for="r-url" data-i18n="adminFieldLinkUrl">Link / tool URL</label>
             <input type="url" id="r-url" placeholder="https://…">
           </div>
           <div class="field" id="r-file-field" hidden>
-            <label for="r-file">Document file</label>
+            <label for="r-file" data-i18n="adminFieldDocumentFile">Document file</label>
             <input type="file" id="r-file">
             <p class="admin-empty-note" id="r-upload-status"></p>
           </div>
           <p class="form-error" id="resource-error" hidden></p>
-          <button type="submit" class="btn-primary" id="resource-submit-btn">Add resource</button>
+          <button type="submit" class="btn-primary" id="resource-submit-btn" data-i18n="adminAddResource">Add resource</button>
         </form>
       </div>
       <div class="admin-card">
-        <h2>Existing resources</h2>
-        <div id="resource-list"><p class="admin-empty-note">Loading…</p></div>
+        <h2 data-i18n="adminResourcesExistingTitle">Existing resources</h2>
+        <div id="resource-list"><p class="admin-empty-note" data-i18n="adminLoading">Loading…</p></div>
+      </div>
+    </div>
+
+    <!-- Pages directory -->
+    <div class="admin-panel" id="panel-pages">
+      <div class="admin-card">
+        <h2 data-i18n="adminPagesAddTitle">Add a page or link</h2>
+        <p class="admin-card-sub" data-i18n="adminPagesAddDesc">A maintained directory of everywhere this project lives — app pages and outside references (repo, dashboards, etc.) in one list.</p>
+        <form id="page-form">
+          <div class="admin-form-row">
+            <div class="field">
+              <label for="p-label" data-i18n="adminFieldLabel">Label</label>
+              <input type="text" id="p-label" required>
+            </div>
+            <div class="field">
+              <label for="p-kind" data-i18n="adminFieldKind">Kind</label>
+              <select id="p-kind">
+                <option value="internal" data-i18n="pageKindInternal">Internal (in this app)</option>
+                <option value="external" data-i18n="pageKindExternal">External (outside link)</option>
+              </select>
+            </div>
+          </div>
+          <div class="admin-form-row">
+            <div class="field">
+              <label for="p-url" data-i18n="adminFieldUrl">URL or path</label>
+              <input type="text" id="p-url" placeholder="/reader.html or https://…" required>
+            </div>
+            <div class="field">
+              <label for="p-status" data-i18n="adminFieldStatus">Status</label>
+              <select id="p-status">
+                <option value="live" data-i18n="pageStatusLive">Live</option>
+                <option value="planned" data-i18n="pageStatusPlanned">Planned</option>
+                <option value="stub" data-i18n="pageStatusStub">Stub</option>
+              </select>
+            </div>
+          </div>
+          <div class="field">
+            <label for="p-description" data-i18n="adminFieldDescriptionOptional">Description (optional)</label>
+            <input type="text" id="p-description">
+          </div>
+          <p class="form-error" id="page-error" hidden></p>
+          <button type="submit" class="btn-primary" id="page-submit-btn" data-i18n="adminAddPage">Add page</button>
+        </form>
+      </div>
+      <div class="admin-card">
+        <h2 data-i18n="adminPagesExistingTitle">All pages</h2>
+        <div id="pages-list"><p class="admin-empty-note" data-i18n="adminLoading">Loading…</p></div>
       </div>
     </div>
 
     <!-- Directory -->
     <div class="admin-panel" id="panel-directory">
       <div class="admin-card">
-        <h2>Parents</h2>
-        <p class="admin-card-sub">Read-only — for helping someone confirm what's on file.</p>
-        <div id="parents-table"><p class="admin-empty-note">Loading…</p></div>
+        <h2 data-i18n="adminDirectoryParentsTitle">Parents</h2>
+        <p class="admin-card-sub" data-i18n="adminDirectoryReadOnly">Read-only — for helping someone confirm what's on file.</p>
+        <div id="parents-table"><p class="admin-empty-note" data-i18n="adminLoading">Loading…</p></div>
       </div>
       <div class="admin-card">
-        <h2>Teachers</h2>
-        <p class="admin-card-sub">Read-only — for helping someone confirm what's on file.</p>
-        <div id="teachers-table"><p class="admin-empty-note">Loading…</p></div>
+        <h2 data-i18n="adminDirectoryTeachersTitle">Teachers</h2>
+        <p class="admin-card-sub" data-i18n="adminDirectoryReadOnly">Read-only — for helping someone confirm what's on file.</p>
+        <div id="teachers-table"><p class="admin-empty-note" data-i18n="adminLoading">Loading…</p></div>
       </div>
     </div>
 
     <!-- Staff (admin only) -->
     <div class="admin-panel" id="panel-staff">
       <div class="admin-card">
-        <h2>Add a staff account</h2>
-        <p class="admin-card-sub">Support accounts can manage content and help parents/teachers, but never see products or payments.</p>
+        <h2 data-i18n="adminStaffAddTitle">Add a staff account</h2>
+        <p class="admin-card-sub" data-i18n="adminStaffAddDesc">Support accounts can manage content and help parents/teachers, but never see products or payments.</p>
         <form id="staff-form">
           <div class="admin-form-row">
             <div class="field">
-              <label for="s-name">Name</label>
+              <label for="s-name" data-i18n="fieldName">Name</label>
               <input type="text" id="s-name" required>
             </div>
             <div class="field">
-              <label for="s-role">Role</label>
+              <label for="s-role" data-i18n="adminFieldRole">Role</label>
               <select id="s-role">
-                <option value="support">Support</option>
-                <option value="admin">Admin</option>
+                <option value="support" data-i18n="staffRoleSupport">Support</option>
+                <option value="admin" data-i18n="staffRoleAdmin">Admin</option>
               </select>
             </div>
           </div>
           <div class="admin-form-row">
             <div class="field">
-              <label for="s-email">Email</label>
+              <label for="s-email" data-i18n="fieldEmail">Email</label>
               <input type="email" id="s-email" required>
             </div>
             <div class="field">
-              <label for="s-password">Password</label>
+              <label for="s-password" data-i18n="fieldPassword">Password</label>
               <input type="password" id="s-password" required minlength="8">
             </div>
           </div>
           <p class="form-error" id="staff-error" hidden></p>
-          <button type="submit" class="btn-primary">Create account</button>
+          <button type="submit" class="btn-primary" data-i18n="adminCreateAccount">Create account</button>
         </form>
       </div>
       <div class="admin-card">
-        <h2>Existing staff</h2>
-        <div id="staff-table"><p class="admin-empty-note">Loading…</p></div>
+        <h2 data-i18n="adminStaffExistingTitle">Existing staff</h2>
+        <div id="staff-table"><p class="admin-empty-note" data-i18n="adminLoading">Loading…</p></div>
       </div>
     </div>
   </section>
 
 </main>
 
+<script src="/js/i18n.js"></script>
 <script src="/js/admin.js"></script>
 </body>
 </html>

@@ -547,6 +547,31 @@ app.get('/api/teacher/resources', auth.requireAuthApi(['teacher']), (req, res) =
 });
 
 // ─────────────────────────────────────────────────────────────────────
+// APP PAGES DIRECTORY — admin's "Pages" tab. Maintained list, not an
+// auto-crawl (see the comment on the app_pages table in db.js for why).
+// Content, not payments, so admin+support both manage it.
+// ─────────────────────────────────────────────────────────────────────
+
+app.get('/api/admin/pages', auth.requireAuthApi(['admin', 'support']), (req, res) => {
+  res.json({ pages: db.getAllAppPages() });
+});
+app.post('/api/admin/pages', auth.requireAuthApi(['admin', 'support']), (req, res) => {
+  const { label, url, kind, status, description, sortOrder } = req.body || {};
+  if (!label || !url) return res.status(400).json({ error: 'label and url required' });
+  const id = db.createAppPage({ label, url, kind, status, description, sortOrder });
+  res.json({ ok: true, id });
+});
+app.patch('/api/admin/pages/:id', auth.requireAuthApi(['admin', 'support']), (req, res) => {
+  const ok = db.updateAppPage(req.params.id, req.body || {});
+  if (!ok) return res.status(404).json({ error: 'Not found' });
+  res.json({ ok: true });
+});
+app.delete('/api/admin/pages/:id', auth.requireAuthApi(['admin', 'support']), (req, res) => {
+  db.deleteAppPage(req.params.id);
+  res.json({ ok: true });
+});
+
+// ─────────────────────────────────────────────────────────────────────
 // "Messages from Mare" — daily/weekly opt-in email, same cron shape as
 // per_bot's custom_reminders (hourly tick, dedup via a sent-today log).
 // Actual email send + Mare-voiced content generation is left as a stub
