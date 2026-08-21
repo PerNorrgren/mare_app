@@ -789,6 +789,9 @@ function getActiveBooksForLocale(locale) {
 function getAllBooks() {
   return all(`SELECT * FROM books ORDER BY sort_order, created_at`);
 }
+function getBook(id) {
+  return get(`SELECT * FROM books WHERE id = ?`, [id]);
+}
 function getBookBySlug(slug) {
   return get(`SELECT * FROM books WHERE slug = ?`, [slug]);
 }
@@ -798,23 +801,79 @@ function createBook({ title, slug, description, splashIconKey, locale, groupSlug
     [id, title, slug, groupSlug || slug, locale || 'en', description || null, splashIconKey || null]);
   return id;
 }
+function updateBook(id, { title, description, splashIconKey, active }) {
+  const existing = getBook(id);
+  if (!existing) return false;
+  run(`UPDATE books SET title=?, description=?, splash_icon_key=?, active=? WHERE id=?`,
+    [
+      title ?? existing.title,
+      description === undefined ? existing.description : description,
+      splashIconKey === undefined ? existing.splash_icon_key : splashIconKey,
+      active === undefined ? existing.active : (active ? 1 : 0),
+      id,
+    ]);
+  return true;
+}
+
 function getChaptersByBook(bookId) {
   return all(`SELECT * FROM chapters WHERE book_id = ? ORDER BY sort_order`, [bookId]);
 }
+function getChapter(id) {
+  return get(`SELECT * FROM chapters WHERE id = ?`, [id]);
+}
 function createChapter(bookId, title, sortOrder) {
   const id = uuid();
+  // Default new chapters to the end of the book rather than 0 — 0 would
+  // silently jump a newly-added chapter to the front of the list, which
+  // is never what "add a chapter" means in practice.
+  const order = sortOrder ?? ((get(`SELECT MAX(sort_order) as m FROM chapters WHERE book_id = ?`, [bookId])?.m ?? -1) + 1);
   run(`INSERT INTO chapters (id, book_id, title, sort_order) VALUES (?,?,?,?)`,
-    [id, bookId, title, sortOrder || 0]);
+    [id, bookId, title, order]);
   return id;
 }
+function updateChapter(id, { title }) {
+  const existing = getChapter(id);
+  if (!existing) return false;
+  run(`UPDATE chapters SET title = ? WHERE id = ?`, [title ?? existing.title, id]);
+  return true;
+}
+function deleteChapter(id) {
+  const scenes = getScenesByChapter(id);
+  scenes.forEach(s => deleteScene(s.id));
+  run(`DELETE FROM chapters WHERE id = ?`, [id]);
+}
+function reorderChapters(bookId, orderedIds) {
+  orderedIds.forEach((chapterId, i) => {
+    run(`UPDATE chapters SET sort_order = ? WHERE id = ? AND book_id = ?`, [i, chapterId, bookId]);
+  });
+}
+
 function getScenesByChapter(chapterId) {
   return all(`SELECT * FROM scenes WHERE chapter_id = ? ORDER BY sort_order`, [chapterId]);
 }
+function getScene(id) {
+  return get(`SELECT * FROM scenes WHERE id = ?`, [id]);
+}
 function createScene(chapterId, kind, sortOrder) {
   const id = uuid();
+  const order = sortOrder ?? ((get(`SELECT MAX(sort_order) as m FROM scenes WHERE chapter_id = ?`, [chapterId])?.m ?? -1) + 1);
   run(`INSERT INTO scenes (id, chapter_id, kind, sort_order) VALUES (?,?,?,?)`,
-    [id, chapterId, kind, sortOrder || 0]);
+    [id, chapterId, kind, order]);
   return id;
+}
+function updateSceneKind(id, kind) {
+  run(`UPDATE scenes SET kind = ? WHERE id = ?`, [kind, id]);
+}
+function deleteScene(id) {
+  run(`DELETE FROM hotspots WHERE scene_id = ?`, [id]);
+  run(`DELETE FROM audio_cues WHERE scene_id = ?`, [id]);
+  run(`DELETE FROM narration_sentences WHERE scene_id = ?`, [id]);
+  run(`DELETE FROM scenes WHERE id = ?`, [id]);
+}
+function reorderScenes(chapterId, orderedIds) {
+  orderedIds.forEach((sceneId, i) => {
+    run(`UPDATE scenes SET sort_order = ? WHERE id = ? AND chapter_id = ?`, [i, sceneId, chapterId]);
+  });
 }
 function setSceneImage(sceneId, imageKey) {
   run(`UPDATE scenes SET image_key = ? WHERE id = ?`, [imageKey, sceneId]);
@@ -838,10 +897,19 @@ function getNarrationSentences(sceneId) {
 function updateNarrationSentenceTiming(id, startMs, endMs) {
   run(`UPDATE narration_sentences SET start_ms = ?, end_ms = ? WHERE id = ?`, [startMs, endMs, id]);
 }
+function updateNarrationSentenceText(id, text) {
+  run(`UPDATE narration_sentences SET text = ? WHERE id = ?`, [text, id]);
+}
 
 // ── Hotspots ──
 function getHotspotsByScene(sceneId) {
   return all(`SELECT * FROM hotspots WHERE scene_id = ? AND active = 1 ORDER BY sort_order`, [sceneId]);
+}
+function getAllHotspotsByScene(sceneId) {
+  return all(`SELECT * FROM hotspots WHERE scene_id = ? ORDER BY sort_order`, [sceneId]);
+}
+function getHotspot(id) {
+  return get(`SELECT * FROM hotspots WHERE id = ?`, [id]);
 }
 function createHotspot(sceneId, { x, y, w, h, type, payload }) {
   const id = uuid();
@@ -849,10 +917,32 @@ function createHotspot(sceneId, { x, y, w, h, type, payload }) {
     [id, sceneId, x, y, w || 0.08, h || 0.08, type, JSON.stringify(payload || {})]);
   return id;
 }
+function updateHotspot(id, { x, y, w, h, type, payload, active }) {
+  const existing = getHotspot(id);
+  if (!existing) return false;
+  run(`UPDATE hotspots SET x=?, y=?, w=?, h=?, type=?, payload_json=?, active=? WHERE id=?`,
+    [
+      x ?? existing.x,
+      y ?? existing.y,
+      w ?? existing.w,
+      h ?? existing.h,
+      type ?? existing.type,
+      payload === undefined ? existing.payload_json : JSON.stringify(payload),
+      active === undefined ? existing.active : (active ? 1 : 0),
+      id,
+    ]);
+  return true;
+}
+function deleteHotspot(id) {
+  run(`DELETE FROM hotspots WHERE id = ?`, [id]);
+}
 
 // ── Audio cues ──
 function getAudioCuesByScene(sceneId) {
   return all(`SELECT * FROM audio_cues WHERE scene_id = ? ORDER BY start_ms`, [sceneId]);
+}
+function getAudioCue(id) {
+  return get(`SELECT * FROM audio_cues WHERE id = ?`, [id]);
 }
 function createAudioCue(sceneId, { kind, audioKey, startMs, volume, loop }) {
   const id = uuid();
@@ -860,8 +950,45 @@ function createAudioCue(sceneId, { kind, audioKey, startMs, volume, loop }) {
     [id, sceneId, kind, audioKey, startMs || 0, volume ?? 1.0, loop ? 1 : 0]);
   return id;
 }
+function updateAudioCue(id, { kind, audioKey, startMs, volume, loop, label }) {
+  const existing = getAudioCue(id);
+  if (!existing) return false;
+  run(`UPDATE audio_cues SET kind=?, audio_key=?, start_ms=?, volume=?, loop_audio=?, label=? WHERE id=?`,
+    [
+      kind ?? existing.kind,
+      audioKey ?? existing.audio_key,
+      startMs === undefined ? existing.start_ms : startMs,
+      volume === undefined ? existing.volume : volume,
+      loop === undefined ? existing.loop_audio : (loop ? 1 : 0),
+      label === undefined ? existing.label : label,
+      id,
+    ]);
+  return true;
+}
+function deleteAudioCue(id) {
+  run(`DELETE FROM audio_cues WHERE id = ?`, [id]);
+}
 
-// ── Activities ──
+// ── Full book tree — everything the content admin editor needs in one
+// call, rather than N+1 round trips per scene. Includes inactive
+// hotspots too (unlike the public getHotspotsByScene) since the admin
+// editor needs to show/toggle them, not just render live ones. ──
+function getBookFullTree(bookId) {
+  const book = getBook(bookId);
+  if (!book) return null;
+  const chapters = getChaptersByBook(bookId).map(ch => ({
+    ...ch,
+    scenes: getScenesByChapter(ch.id).map(scene => ({
+      ...scene,
+      hotspots: getAllHotspotsByScene(scene.id),
+      audioCues: getAudioCuesByScene(scene.id),
+      sentences: getNarrationSentences(scene.id),
+    })),
+  }));
+  return { book, chapters };
+}
+
+
 function getActivitiesForBook(bookId) {
   return all(`SELECT * FROM activities WHERE book_id = ? AND active = 1 ORDER BY sort_order`, [bookId]);
 }
@@ -1104,12 +1231,13 @@ module.exports = {
   createTalkSession, getTalkSession, touchTalkSession, endTalkSession,
   getActiveSocialLinks, getAllSocialLinks, createSocialLink, updateSocialLink, deleteSocialLink,
   createMarketingPost, getMarketingHistory, deleteMarketingPost,
-  getActiveBooks, getActiveBooksForLocale, getAllBooks, getBookBySlug, createBook,
-  getChaptersByBook, createChapter,
-  getScenesByChapter, createScene, setSceneImage, setSceneNarrationAudio,
-  replaceNarrationSentences, getNarrationSentences, updateNarrationSentenceTiming,
-  getHotspotsByScene, createHotspot,
-  getAudioCuesByScene, createAudioCue,
+  getActiveBooks, getActiveBooksForLocale, getAllBooks, getBook, getBookBySlug, createBook, updateBook,
+  getChaptersByBook, getChapter, createChapter, updateChapter, deleteChapter, reorderChapters,
+  getScenesByChapter, getScene, createScene, updateSceneKind, deleteScene, reorderScenes, setSceneImage, setSceneNarrationAudio,
+  replaceNarrationSentences, getNarrationSentences, updateNarrationSentenceTiming, updateNarrationSentenceText,
+  getHotspotsByScene, getAllHotspotsByScene, getHotspot, createHotspot, updateHotspot, deleteHotspot,
+  getAudioCuesByScene, getAudioCue, createAudioCue, updateAudioCue, deleteAudioCue,
+  getBookFullTree,
   getActivitiesForBook, getActivitiesForChapter, createActivity,
   getClubMareMembership, joinClubMareFree, upgradeClubMareToPaid, getClubMarePosts,
   getActiveProducts, getProduct, createOrder, setOrderStripeSession, markOrderPaid, addOrderItem,

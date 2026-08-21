@@ -920,33 +920,109 @@ app.post('/api/admin/books', auth.requireAuthApi(['admin', 'support']), (req, re
   const id = db.createBook({ title, slug, description, splashIconKey });
   res.json({ ok: true, id });
 });
+app.patch('/api/admin/books/:id', auth.requireAuthApi(['admin', 'support']), (req, res) => {
+  const ok = db.updateBook(req.params.id, req.body || {});
+  if (!ok) return res.status(404).json({ error: 'Not found' });
+  res.json({ ok: true });
+});
+// The full nested tree (chapters -> scenes -> hotspots/audioCues/
+// sentences) in one call — what the content editor loads on open,
+// rather than a round trip per scene.
+app.get('/api/admin/books/:id/full', auth.requireAuthApi(['admin', 'support']), (req, res) => {
+  const tree = db.getBookFullTree(req.params.id);
+  if (!tree) return res.status(404).json({ error: 'Not found' });
+  res.json(tree);
+});
 
 app.post('/api/admin/chapters', auth.requireAuthApi(['admin', 'support']), (req, res) => {
   const { bookId, title, sortOrder } = req.body || {};
+  if (!bookId || !title) return res.status(400).json({ error: 'bookId and title required' });
   const id = db.createChapter(bookId, title, sortOrder);
   res.json({ ok: true, id });
+});
+app.patch('/api/admin/chapters/:id', auth.requireAuthApi(['admin', 'support']), (req, res) => {
+  const ok = db.updateChapter(req.params.id, req.body || {});
+  if (!ok) return res.status(404).json({ error: 'Not found' });
+  res.json({ ok: true });
+});
+app.delete('/api/admin/chapters/:id', auth.requireAuthApi(['admin', 'support']), (req, res) => {
+  db.deleteChapter(req.params.id);
+  res.json({ ok: true });
+});
+// Drag-reorder — body is the full ordered list of chapter ids for this
+// book; sort_order is rewritten 0..n to match exactly.
+app.post('/api/admin/chapters/reorder', auth.requireAuthApi(['admin', 'support']), (req, res) => {
+  const { bookId, orderedIds } = req.body || {};
+  if (!bookId || !Array.isArray(orderedIds)) return res.status(400).json({ error: 'bookId and orderedIds required' });
+  db.reorderChapters(bookId, orderedIds);
+  res.json({ ok: true });
 });
 
 app.post('/api/admin/scenes', auth.requireAuthApi(['admin', 'support']), (req, res) => {
   const { chapterId, kind, sortOrder } = req.body || {};
+  if (!chapterId || !kind) return res.status(400).json({ error: 'chapterId and kind required' });
   const id = db.createScene(chapterId, kind, sortOrder);
   res.json({ ok: true, id });
+});
+app.patch('/api/admin/scenes/:id', auth.requireAuthApi(['admin', 'support']), (req, res) => {
+  if (req.body?.kind) db.updateSceneKind(req.params.id, req.body.kind);
+  res.json({ ok: true });
+});
+app.delete('/api/admin/scenes/:id', auth.requireAuthApi(['admin', 'support']), (req, res) => {
+  db.deleteScene(req.params.id);
+  res.json({ ok: true });
+});
+app.post('/api/admin/scenes/reorder', auth.requireAuthApi(['admin', 'support']), (req, res) => {
+  const { chapterId, orderedIds } = req.body || {};
+  if (!chapterId || !Array.isArray(orderedIds)) return res.status(400).json({ error: 'chapterId and orderedIds required' });
+  db.reorderScenes(chapterId, orderedIds);
+  res.json({ ok: true });
 });
 app.patch('/api/admin/scenes/:id/image', auth.requireAuthApi(['admin', 'support']), (req, res) => {
   db.setSceneImage(req.params.id, req.body.imageKey);
   res.json({ ok: true });
 });
+app.patch('/api/admin/scenes/:id/narration-audio', auth.requireAuthApi(['admin', 'support']), (req, res) => {
+  db.setSceneNarrationAudio(req.params.id, req.body.audioKey);
+  res.json({ ok: true });
+});
+app.patch('/api/admin/narration-sentences/:id', auth.requireAuthApi(['admin', 'support']), (req, res) => {
+  const { text, startMs, endMs } = req.body || {};
+  if (text !== undefined) db.updateNarrationSentenceText(req.params.id, text);
+  if (startMs !== undefined && endMs !== undefined) db.updateNarrationSentenceTiming(req.params.id, startMs, endMs);
+  res.json({ ok: true });
+});
 
 app.post('/api/admin/hotspots', auth.requireAuthApi(['admin', 'support']), (req, res) => {
   const { sceneId, x, y, w, h, type, payload } = req.body || {};
+  if (!sceneId || x === undefined || y === undefined || !type) return res.status(400).json({ error: 'sceneId, x, y, and type required' });
   const id = db.createHotspot(sceneId, { x, y, w, h, type, payload });
   res.json({ ok: true, id });
+});
+app.patch('/api/admin/hotspots/:id', auth.requireAuthApi(['admin', 'support']), (req, res) => {
+  const ok = db.updateHotspot(req.params.id, req.body || {});
+  if (!ok) return res.status(404).json({ error: 'Not found' });
+  res.json({ ok: true });
+});
+app.delete('/api/admin/hotspots/:id', auth.requireAuthApi(['admin', 'support']), (req, res) => {
+  db.deleteHotspot(req.params.id);
+  res.json({ ok: true });
 });
 
 app.post('/api/admin/audio-cues', auth.requireAuthApi(['admin', 'support']), (req, res) => {
   const { sceneId, kind, audioKey, startMs, volume, loop } = req.body || {};
+  if (!sceneId || !kind || !audioKey) return res.status(400).json({ error: 'sceneId, kind, and audioKey required' });
   const id = db.createAudioCue(sceneId, { kind, audioKey, startMs, volume, loop });
   res.json({ ok: true, id });
+});
+app.patch('/api/admin/audio-cues/:id', auth.requireAuthApi(['admin', 'support']), (req, res) => {
+  const ok = db.updateAudioCue(req.params.id, req.body || {});
+  if (!ok) return res.status(404).json({ error: 'Not found' });
+  res.json({ ok: true });
+});
+app.delete('/api/admin/audio-cues/:id', auth.requireAuthApi(['admin', 'support']), (req, res) => {
+  db.deleteAudioCue(req.params.id);
+  res.json({ ok: true });
 });
 
 app.post('/api/admin/activities', auth.requireAuthApi(['admin', 'support']), (req, res) => {

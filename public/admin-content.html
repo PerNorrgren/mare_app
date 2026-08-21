@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mare — Book Content</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/style.css">
+<link rel="stylesheet" href="/css/day.css">
+<link rel="stylesheet" href="/css/admin-content.css">
+</head>
+<body class="day">
+
+<header class="topbar">
+  <a href="/admin.html" class="brand" style="text-decoration:none;">
+    <span class="brand-mark" aria-hidden="true">
+      <svg viewBox="0 0 40 40" width="28" height="28"><path d="M20 4c-7 0-13 6-13 14 0 9 8 15 13 18 5-3 13-9 13-18 0-8-6-14-13-14z" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="20" cy="17" r="3" fill="currentColor"/></svg>
+    </span>
+    <span class="brand-word" data-i18n="acAdminBrand">Book Content</span>
+  </a>
+  <nav class="topbar-actions">
+    <a href="/admin.html" class="btn-ghost" data-i18n="acBackToAdmin">\u2190 Admin</a>
+    <div class="lang-switch" id="lang-switch" aria-label="Language">
+      <button type="button" class="lang-btn" data-lang="en">EN</button>
+      <button type="button" class="lang-btn" data-lang="nl">NL</button>
+    </div>
+    <span class="role-pill admin" id="who-pill" hidden></span>
+  </nav>
+</header>
+
+<main class="ac-shell">
+
+  <!-- Login gate -->
+  <section class="auth-main" id="login-view">
+    <div class="auth-card">
+      <h1 data-i18n="adminLoginHeading">Admin sign in</h1>
+      <form id="admin-login-form" novalidate>
+        <div class="field">
+          <label for="f-email" data-i18n="fieldEmail">Email</label>
+          <input type="email" id="f-email" required>
+        </div>
+        <div class="field">
+          <label for="f-password" data-i18n="fieldPassword">Password</label>
+          <input type="password" id="f-password" required>
+        </div>
+        <p class="form-error" id="login-error" hidden></p>
+        <button type="submit" class="btn-primary btn-full" data-i18n="adminSignIn">Sign in</button>
+      </form>
+    </div>
+  </section>
+
+  <!-- Book picker bar -->
+  <section class="ac-book-bar" id="book-bar" hidden>
+    <div class="field ac-book-select-field">
+      <label for="book-select" data-i18n="acBook">Book</label>
+      <select id="book-select"></select>
+    </div>
+    <button type="button" class="btn-ghost" id="new-book-btn" data-i18n="acNewBook">+ New Book</button>
+  </section>
+
+  <!-- Chapters + Scenes view -->
+  <section class="ac-tree-view" id="tree-view" hidden>
+    <div class="ac-chapters-col">
+      <div class="ac-col-header">
+        <span data-i18n="acChapters">Chapters</span>
+        <button type="button" class="ac-icon-btn" id="add-chapter-btn" title="Add chapter">+</button>
+      </div>
+      <div class="ac-chapter-list" id="chapter-list"></div>
+    </div>
+    <div class="ac-scenes-col">
+      <div class="ac-col-header">
+        <span id="scenes-col-title" data-i18n="acScenes">Scenes</span>
+        <button type="button" class="ac-icon-btn" id="add-scene-btn" title="Add scene" disabled>+</button>
+      </div>
+      <div class="ac-scene-grid" id="scene-grid"></div>
+    </div>
+  </section>
+
+  <!-- Scene editor -->
+  <section class="ac-scene-editor" id="scene-editor" hidden>
+    <button type="button" class="btn-ghost" id="editor-back-btn" data-i18n="acBackToChapters">\u2190 Back to chapters</button>
+
+    <div class="ac-editor-grid">
+      <!-- Image + hotspot canvas -->
+      <div class="ac-editor-main">
+        <h3 data-i18n="acSceneImage">Scene image</h3>
+        <div class="ac-image-dropzone" id="image-dropzone">
+          <img id="scene-canvas-image" alt="" hidden>
+          <div class="ac-dropzone-hint" id="image-dropzone-hint" data-i18n="acDropImageHint">Drop an image here, or click to choose one</div>
+          <div class="ac-hotspot-canvas-layer" id="hotspot-canvas-layer"></div>
+          <input type="file" id="image-file-input" accept="image/*" hidden>
+        </div>
+        <p class="ac-hint-text" data-i18n="acHotspotHint">Click anywhere on the image to add a hotspot. Drag an existing marker to move it.</p>
+      </div>
+
+      <!-- Right sidebar: hotspot editor -->
+      <div class="ac-editor-sidebar">
+        <div class="ac-sidebar-panel" id="hotspot-panel" hidden>
+          <h3 data-i18n="acHotspot">Hotspot</h3>
+          <div class="field">
+            <label data-i18n="acFieldType">Type</label>
+            <select id="hs-type">
+              <option value="popup" data-i18n="acHotspotPopup">Popup (text/image)</option>
+              <option value="sound" data-i18n="acHotspotSound">Sound</option>
+              <option value="animation" data-i18n="acHotspotAnimation">Animation</option>
+            </select>
+          </div>
+          <div class="field" id="hs-popup-fields">
+            <label data-i18n="acFieldText">Text</label>
+            <input type="text" id="hs-text">
+          </div>
+          <div class="field" id="hs-sound-fields" hidden>
+            <label data-i18n="acFieldSoundFile">Sound file</label>
+            <input type="file" id="hs-sound-file" accept="audio/*">
+            <p class="ac-hint-text" id="hs-sound-status"></p>
+          </div>
+          <div class="admin-form-row">
+            <div class="field"><label data-i18n="acFieldWidth">Width</label><input type="number" id="hs-w" min="0.02" max="1" step="0.01"></div>
+            <div class="field"><label data-i18n="acFieldHeight">Height</label><input type="number" id="hs-h" min="0.02" max="1" step="0.01"></div>
+          </div>
+          <div class="ac-form-actions">
+            <button type="button" class="btn-ghost acc-danger-btn" id="hs-delete-btn" data-i18n="adminDelete">Delete</button>
+            <button type="button" class="btn-primary" id="hs-save-btn" data-i18n="acSave">Save</button>
+          </div>
+        </div>
+        <p class="ac-hint-text" id="hotspot-panel-empty" data-i18n="acNoHotspotSelected">No hotspot selected.</p>
+      </div>
+    </div>
+
+    <!-- Narration -->
+    <div class="admin-card">
+      <h2 data-i18n="acNarrationTitle">Narration</h2>
+      <div class="ac-audio-dropzone" id="narration-dropzone">
+        <div class="ac-dropzone-hint" data-i18n="acDropAudioHint">Drop a narration audio file here, or click to choose one</div>
+        <input type="file" id="narration-file-input" accept="audio/*" hidden>
+      </div>
+      <p class="ac-hint-text" id="narration-status"></p>
+      <audio id="narration-preview" controls hidden></audio>
+      <button type="button" class="btn-primary" id="sync-narration-btn" data-i18n="acSyncNarration">\u2728 Sync narration (auto-generate text timing)</button>
+      <div id="sentence-list"></div>
+    </div>
+
+    <!-- Audio cues -->
+    <div class="admin-card">
+      <h2 data-i18n="acAudioCuesTitle">Music &amp; sound effects</h2>
+      <div id="audio-cue-list"></div>
+      <button type="button" class="btn-ghost" id="add-cue-toggle" data-i18n="acAddCue">+ Add music or sound effect</button>
+      <form id="add-cue-form" hidden>
+        <div class="admin-form-row">
+          <div class="field">
+            <label data-i18n="acFieldKind">Kind</label>
+            <select id="cue-kind">
+              <option value="music" data-i18n="acCueMusic">Background music (loops)</option>
+              <option value="sfx" data-i18n="acCueSfx">Sound effect (plays once)</option>
+            </select>
+          </div>
+          <div class="field">
+            <label data-i18n="acFieldStartMs">Starts at (ms)</label>
+            <input type="number" id="cue-start-ms" value="0" min="0">
+          </div>
+        </div>
+        <div class="field">
+          <label data-i18n="acFieldAudioFile">Audio file</label>
+          <input type="file" id="cue-file-input" accept="audio/*" required>
+        </div>
+        <div class="field">
+          <label data-i18n="acFieldVolume">Volume (0\u20131)</label>
+          <input type="number" id="cue-volume" value="0.6" min="0" max="1" step="0.05">
+        </div>
+        <p class="form-error" id="cue-error" hidden></p>
+        <div class="ac-form-actions">
+          <button type="button" class="btn-ghost" id="cancel-cue-btn" data-i18n="accCancel">Cancel</button>
+          <button type="submit" class="btn-primary" data-i18n="acAddCueSubmit">Add</button>
+        </div>
+      </form>
+    </div>
+  </section>
+
+</main>
+
+<!-- New book modal -->
+<div class="ac-modal-backdrop" id="new-book-modal" hidden>
+  <div class="ac-modal-card">
+    <h3 data-i18n="acNewBookTitle">New book</h3>
+    <div class="field"><label data-i18n="acFieldTitle">Title</label><input type="text" id="nb-title" required></div>
+    <div class="field"><label data-i18n="acFieldSlug">Slug</label><input type="text" id="nb-slug" placeholder="mare-book-two" required></div>
+    <div class="field"><label data-i18n="acFieldDescriptionOptional">Description (optional)</label><input type="text" id="nb-description"></div>
+    <p class="form-error" id="nb-error" hidden></p>
+    <div class="ac-form-actions">
+      <button type="button" class="btn-ghost" id="nb-cancel-btn" data-i18n="accCancel">Cancel</button>
+      <button type="button" class="btn-primary" id="nb-save-btn" data-i18n="acSave">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- New chapter modal -->
+<div class="ac-modal-backdrop" id="new-chapter-modal" hidden>
+  <div class="ac-modal-card">
+    <h3 data-i18n="acNewChapterTitle">New chapter</h3>
+    <div class="field"><label data-i18n="acFieldTitle">Title</label><input type="text" id="nc-title" required></div>
+    <p class="form-error" id="nc-error" hidden></p>
+    <div class="ac-form-actions">
+      <button type="button" class="btn-ghost" id="nc-cancel-btn" data-i18n="accCancel">Cancel</button>
+      <button type="button" class="btn-primary" id="nc-save-btn" data-i18n="acSave">Save</button>
+    </div>
+  </div>
+</div>
+
+<script src="/js/i18n.js"></script>
+<script src="/js/admin-content.js"></script>
+</body>
+</html>
