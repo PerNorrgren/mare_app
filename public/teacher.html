@@ -10,7 +10,10 @@
 <link rel="stylesheet" href="/css/style.css">
 <link rel="stylesheet" href="/css/day.css">
 </head>
-<body class="day">
+<body class="day auth-atmosphere" id="page-body">
+
+<div class="bg-slideshow-wrap" id="bg-slideshow"></div>
+<div class="bg-veil"></div>
 
 <header class="topbar">
   <a href="/" class="brand" style="text-decoration:none;">
@@ -53,9 +56,9 @@
     </div>
 
     <div class="teacher-cta-row">
-      <a href="/teacher-login.html?mode=signup" class="btn-primary" data-i18n="teacherCtaSignUp">Create a teacher account</a>
-      <a href="/teacher-login.html" class="btn-ghost" data-i18n="teacherCtaSignIn">Sign in</a>
+      <a href="/teacher-login.html" class="btn-primary" data-i18n="teacherCtaSignIn">Sign in</a>
     </div>
+    <p class="teacher-signup-note" data-i18n="teacherSignupNote">New to Mare? Ask your school administrator to set up your account.</p>
   </section>
 
   <!-- ── Logged-in hub — shown once a teacher session is confirmed ── -->
@@ -94,6 +97,8 @@
 <div class="social-footer" id="social-footer" hidden></div>
 
 <script src="/js/i18n.js"></script>
+<script src="/js/bg-slideshow.js"></script>
 <script src="/js/teacher.js"></script>
+<script>window.MareBgSlideshow.init('bg-slideshow', ['/images/mare-front-cover.jpg', '/images/mare-back-cover.jpg']);</script>
 </body>
 </html>

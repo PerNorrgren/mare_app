@@ -540,7 +540,24 @@
       </div>
       <div class="admin-card">
         <h2 data-i18n="adminDirectoryTeachersTitle">Teachers</h2>
-        <p class="admin-card-sub" data-i18n="adminDirectoryReadOnly">Read-only — for helping someone confirm what's on file.</p>
+        <p class="admin-card-sub" data-i18n="adminAddTeacherDesc">Teacher accounts are created here — there's no public self-signup. New teachers get a "set your password" email.</p>
+        <form id="add-teacher-form" class="admin-form-row" style="align-items:flex-end;">
+          <div class="field" style="flex:1;margin-bottom:0;">
+            <label for="at-name" data-i18n="fieldName">Name</label>
+            <input type="text" id="at-name" required>
+          </div>
+          <div class="field" style="flex:1;margin-bottom:0;">
+            <label for="at-email" data-i18n="fieldEmail">Email</label>
+            <input type="email" id="at-email" required>
+          </div>
+          <div class="field" style="flex:1;margin-bottom:0;">
+            <label for="at-school" data-i18n="fieldSchool">School (optional)</label>
+            <input type="text" id="at-school">
+          </div>
+          <button type="submit" class="btn-primary" id="add-teacher-btn" data-i18n="adminAddTeacher">Add teacher</button>
+        </form>
+        <p class="form-error" id="add-teacher-error" hidden></p>
+        <p class="form-success" id="add-teacher-success" hidden></p>
         <div id="teachers-table"><p class="admin-empty-note" data-i18n="adminLoading">Loading…</p></div>
       </div>
 

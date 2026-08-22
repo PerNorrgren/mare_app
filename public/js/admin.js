@@ -141,6 +141,7 @@
     setupTileModal();
     setupPhraseModal();
     setupBulkImport();
+    setupAddTeacherForm();
     loadOverview();
     loadResources();
     loadPages();
@@ -1279,6 +1280,37 @@
         loadShowcasePhrases();
       } catch {
         showModalError('phrase-error', t('errorGeneric'));
+      }
+    });
+  }
+
+  // ── Add single teacher (admin-side account creation) ──
+  function setupAddTeacherForm() {
+    document.getElementById('add-teacher-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      document.getElementById('add-teacher-error').hidden = true;
+      document.getElementById('add-teacher-success').hidden = true;
+      const name = document.getElementById('at-name').value.trim();
+      const email = document.getElementById('at-email').value.trim();
+      const school = document.getElementById('at-school').value.trim();
+      if (!name || !email) {
+        document.getElementById('add-teacher-error').textContent = t('errorMissingFields');
+        document.getElementById('add-teacher-error').hidden = false;
+        return;
+      }
+      const btn = document.getElementById('add-teacher-btn');
+      btn.disabled = true;
+      try {
+        await api('/api/admin/teachers', { method: 'POST', body: JSON.stringify({ name, email, school }) });
+        document.getElementById('add-teacher-success').textContent = t('adminTeacherAdded', { name });
+        document.getElementById('add-teacher-success').hidden = false;
+        document.getElementById('add-teacher-form').reset();
+        loadDirectory();
+      } catch (err) {
+        document.getElementById('add-teacher-error').textContent = err.message === 'Email already registered' ? t('errorEmailTaken') : t('errorGeneric');
+        document.getElementById('add-teacher-error').hidden = false;
+      } finally {
+        btn.disabled = false;
       }
     });
   }

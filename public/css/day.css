@@ -747,3 +747,41 @@ body.auth-atmosphere .brand { color: var(--gold); }
 }
 .showcase-talk-note { font-size: 0.85rem; color: rgba(243,236,217,0.7); text-align: center; margin: 0 0 8px; }
 .showcase-talk-card .admin-modal-btns { justify-content: center; }
+
+/* ── Teacher public page (teacher.html) atmosphere support ── */
+/* #public-view needs its own stacking context for the same reason
+   .admin-shell/.showcase-main/.topbar do — .bg-slideshow-wrap/.bg-veil
+   are unconditional and positioned, so unpositioned content here would
+   paint invisibly underneath them. #hub-view gets the same treatment
+   PLUS an opaque light background, since once a teacher is signed in
+   this becomes a working dashboard, not a marketing backdrop — same
+   "dashboard interiors stay plain" principle as admin.html's
+   .admin-shell, applied here from the start rather than found later. */
+#public-view { position: relative; z-index: 2; }
+#hub-view {
+  position: relative;
+  z-index: 2;
+  background: var(--cloud);
+  min-height: 100vh;
+}
+
+/* Frosted-glass benefit cards when shown against the atmosphere
+   backdrop (teacher.html's public-view) — .benefit-grid/.benefit-card
+   is shared with admin.html's plain-background use of the same shape,
+   so this override is scoped to auth-atmosphere only. */
+.auth-atmosphere #public-view .benefit-card {
+  background: rgba(11,23,18,0.55);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(243,236,217,0.15);
+  box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+}
+.auth-atmosphere #public-view .benefit-card h3 { color: var(--gold); }
+.auth-atmosphere #public-view .benefit-card p { color: rgba(243,236,217,0.75); }
+
+.teacher-signup-note {
+  text-align: center;
+  font-size: 0.85rem;
+  color: rgba(243,236,217,0.7);
+  margin: 8px 0 0;
+}

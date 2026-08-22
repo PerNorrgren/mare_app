@@ -446,5 +446,9 @@
   "showcaseVideoComingSoon": "A short film of the Whispering Woods is on its way.",
   "showcaseBrowseAll": "Browse all stories",
   "showcaseTalkDemoNote": "A little of what Mare sounds like — sign in to have a real conversation with her.",
-  "showcaseTalkDemoFallback": "Hi, I'm Mare. It's lovely to meet you."
+  "showcaseTalkDemoFallback": "Hi, I'm Mare. It's lovely to meet you.",
+  "adminAddTeacherDesc": "Teacher accounts are created here — there's no public self-signup. New teachers get a \"set your password\" email.",
+  "adminAddTeacher": "Add teacher",
+  "adminTeacherAdded": "{name} added — a welcome email is on its way.",
+  "teacherSignupNote": "New to Mare? Ask your school to arrange access."
 }

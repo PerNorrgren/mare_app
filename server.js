@@ -114,22 +114,14 @@ app.post('/api/parent/login', async (req, res) => {
   res.json({ ok: true });
 });
 
+// Public self-serve teacher signup is disabled — teacher accounts are
+// now created via Admin only (the single-account form or bulk import
+// in the Parents & Teachers tab), per Per's explicit request that
+// account creation move off the public site. Route kept rather than
+// deleted so the reason is documented in one place and restoring it is
+// a one-line change if that decision ever changes.
 app.post('/api/teacher/signup', async (req, res) => {
-  try {
-    const { email: rawEmail, password, name, school } = req.body || {};
-    if (!rawEmail || !password || !name) return res.status(400).json({ error: 'Missing fields' });
-    if (password.length < 8) return res.status(400).json({ error: 'Password must be at least 8 characters' });
-    if (db.getTeacherByEmail(rawEmail)) return res.status(409).json({ error: 'Email already registered' });
-    const hash = await auth.hashPassword(password);
-    const id = db.createTeacher({ email: rawEmail, passwordHash: hash, name, school });
-    const token = auth.createToken({ role: 'teacher', id, name, email: rawEmail });
-    res.cookie(auth.COOKIE_NAME, token, auth.COOKIE_OPTIONS);
-    res.json({ ok: true, id });
-    email.sendWelcomeTeacherEmail(rawEmail, name).catch(e => console.error('welcome email failed:', e.message));
-  } catch (e) {
-    console.error('teacher signup failed', e);
-    res.status(500).json({ error: 'Signup failed' });
-  }
+  res.status(403).json({ error: 'Teacher accounts are created by an administrator. Contact your school to get set up.' });
 });
 
 app.post('/api/teacher/login', async (req, res) => {
@@ -1481,6 +1473,22 @@ app.patch('/api/admin/teachers/:id/status', auth.requireAuthApi(['admin', 'suppo
   if (!['active', 'suspended'].includes(status)) return res.status(400).json({ error: 'Invalid status' });
   db.setTeacherStatus(req.params.id, status);
   res.json({ ok: true });
+});
+
+// Single-account teacher creation — the admin-side replacement for the
+// old public self-serve signup. Same secure pattern as bulk-import:
+// random unusable password, immediate reset token, "set your password"
+// email — never a plaintext password generated or sent.
+app.post('/api/admin/teachers', auth.requireAuthApi(['admin', 'support']), async (req, res) => {
+  const { name, email: rawEmail, school } = req.body || {};
+  if (!name || !rawEmail) return res.status(400).json({ error: 'Missing fields' });
+  if (db.getTeacherByEmail(rawEmail)) return res.status(409).json({ error: 'Email already registered' });
+  const hash = await auth.hashPassword(crypto.randomBytes(24).toString('hex'));
+  const teacherId = db.createTeacher({ email: rawEmail, passwordHash: hash, name, school });
+  const token = db.createPasswordResetToken('teacher', teacherId);
+  const resetUrl = `${process.env.APP_URL || 'https://mareapp-production.up.railway.app'}/reset-password.html?token=${token}&role=teacher`;
+  email.sendPasswordResetEmail(rawEmail, name, resetUrl).catch(e => console.error('teacher welcome email failed:', e.message));
+  res.json({ ok: true, id: teacherId });
 });
 
 // ─────────────────────────────────────────────────────────────────────

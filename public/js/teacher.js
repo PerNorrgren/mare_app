@@ -103,6 +103,7 @@
     document.getElementById('public-view').hidden = true;
     const hub = document.getElementById('hub-view');
     hub.hidden = false;
+    document.body.classList.remove('auth-atmosphere');
 
     document.getElementById('hub-welcome').textContent =
       window.MareI18n.t('teacherWelcome', { name: user.name || '' });
@@ -129,6 +130,7 @@
   function showPublic() {
     document.getElementById('hub-view').hidden = true;
     document.getElementById('public-view').hidden = false;
+    document.body.classList.add('auth-atmosphere');
   }
 
   async function init() {

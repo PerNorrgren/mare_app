@@ -446,5 +446,9 @@
   "showcaseVideoComingSoon": "Er komt binnenkort een korte film van het Fluisterende Woud.",
   "showcaseBrowseAll": "Bekijk alle verhalen",
   "showcaseTalkDemoNote": "Een klein voorproefje van hoe Mare klinkt — log in voor een echt gesprek met haar.",
-  "showcaseTalkDemoFallback": "Hoi, ik ben Mare. Fijn om je te ontmoeten."
+  "showcaseTalkDemoFallback": "Hoi, ik ben Mare. Fijn om je te ontmoeten.",
+  "adminAddTeacherDesc": "Leraaraccounts worden hier aangemaakt — er is geen openbare zelfregistratie. Nieuwe leraren krijgen een e-mail om \"je wachtwoord in te stellen\".",
+  "adminAddTeacher": "Leraar toevoegen",
+  "adminTeacherAdded": "{name} toegevoegd — er is een welkomstmail onderweg.",
+  "teacherSignupNote": "Nieuw bij Mare? Vraag je school om toegang te regelen."
 }
