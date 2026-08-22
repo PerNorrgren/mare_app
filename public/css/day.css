@@ -337,7 +337,18 @@ body.day .lang-btn:not(.active):hover { background: rgba(22,48,92,0.06); }
 .whats-new-item p { margin: 0; font-size: 0.85rem; color: var(--navy-soft); }
 
 /* ── Admin dashboard shell ── */
-.admin-shell { max-width: 1100px; margin: 0 auto; padding: 8px clamp(20px, 5vw, 56px) 56px; }
+/* position+z-index required here: .bg-slideshow-wrap (z-index:0) and
+   .bg-veil (z-index:1) are unconditional, always in the DOM on every
+   auth-atmosphere page, regardless of login state. Without its own
+   stacking context, this unpositioned dashboard content paints at the
+   "non-positioned in-flow" paint level, which sits BELOW positioned
+   z-index:0/1 siblings — so once login-view is hidden and this becomes
+   visible, it renders correctly in the DOM but invisibly behind the
+   fixed background image and veil. Confirmed root cause, reproduced
+   directly: real screenshot after login showed the atmospheric
+   background with nothing else, on desktop Chrome, no exotic browser
+   quirk involved. */
+.admin-shell { max-width: 1100px; margin: 0 auto; padding: 8px clamp(20px, 5vw, 56px) 56px; position: relative; z-index: 2; }
 .admin-tabs {
   display: flex;
   gap: 6px;
