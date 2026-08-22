@@ -24,7 +24,7 @@
     <span class="brand-word" data-i18n="acAdminBrand">Book Content</span>
   </a>
   <nav class="topbar-actions">
-    <a href="/admin.html" class="btn-ghost" data-i18n="acBackToAdmin">\u2190 Admin</a>
+    <a href="/admin.html" class="btn-ghost" data-i18n="acBackToAdmin">← Admin</a>
     <div class="lang-switch" id="lang-switch" aria-label="Language">
       <button type="button" class="lang-btn" data-lang="en">EN</button>
       <button type="button" class="lang-btn" data-lang="nl">NL</button>
@@ -83,7 +83,7 @@
 
   <!-- Scene editor -->
   <section class="ac-scene-editor" id="scene-editor" hidden>
-    <button type="button" class="btn-ghost" id="editor-back-btn" data-i18n="acBackToChapters">\u2190 Back to chapters</button>
+    <button type="button" class="btn-ghost" id="editor-back-btn" data-i18n="acBackToChapters">← Back to chapters</button>
 
     <div class="ac-editor-grid">
       <!-- Image + hotspot canvas -->
@@ -141,7 +141,7 @@
       </div>
       <p class="ac-hint-text" id="narration-status"></p>
       <audio id="narration-preview" controls hidden></audio>
-      <button type="button" class="btn-primary" id="sync-narration-btn" data-i18n="acSyncNarration">\u2728 Sync narration (auto-generate text timing)</button>
+      <button type="button" class="btn-primary" id="sync-narration-btn" data-i18n="acSyncNarration">✨ Sync narration (auto-generate text timing)</button>
       <div id="sentence-list"></div>
     </div>
 
@@ -169,7 +169,7 @@
           <input type="file" id="cue-file-input" accept="audio/*" required>
         </div>
         <div class="field">
-          <label data-i18n="acFieldVolume">Volume (0\u20131)</label>
+          <label data-i18n="acFieldVolume">Volume (0–1)</label>
           <input type="number" id="cue-volume" value="0.6" min="0" max="1" step="0.05">
         </div>
         <p class="form-error" id="cue-error" hidden></p>

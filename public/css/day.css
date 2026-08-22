@@ -372,7 +372,10 @@ body.day .lang-btn:not(.active):hover { background: rgba(22,48,92,0.06); }
   display: flex;
   gap: 6px;
   flex-wrap: wrap;
-  border-bottom: 2px solid rgba(22,48,92,0.12);
+  background: #FFFFFF;
+  border-radius: 14px 14px 0 0;
+  padding: 10px clamp(18px, 3vw, 28px) 0;
+  box-shadow: 0 2px 0 rgba(22,48,92,0.06), 0 10px 24px rgba(22,48,92,0.10);
   margin-bottom: 24px;
 }
 .admin-tab {
@@ -382,10 +385,9 @@ body.day .lang-btn:not(.active):hover { background: rgba(22,48,92,0.06); }
   font-weight: 700;
   font-size: 0.88rem;
   color: var(--navy-soft);
-  padding: 10px 16px;
+  padding: 10px 16px 14px;
   cursor: pointer;
   border-bottom: 3px solid transparent;
-  margin-bottom: -2px;
 }
 .admin-tab.active { color: var(--navy); border-bottom-color: var(--gold); }
 .admin-panel { display: none; }

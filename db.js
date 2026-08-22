@@ -443,6 +443,69 @@ async function getDb() {
   // /api/checkout itself in this pass, since there's no live consumer
   // of a code field yet and wiring it in speculatively risks drifting
   // from whatever the actual storefront design ends up needing. ──
+  // ── Splash page content — the public showcase landing page's content
+  // is fully admin-managed rather than hardcoded, per Per's request:
+  // welcome message, Talk to Mare sample phrases (spoken/shown in the
+  // demo tile), showcase tiles (read/listen/view/buy icons), and the
+  // intro video slot. Singleton row (id='default') for the parts that
+  // are just "the current text", separate tables for the parts that
+  // are genuinely lists an admin adds to and reorders. ──
+  db.run(`CREATE TABLE IF NOT EXISTS showcase_content (
+    id TEXT PRIMARY KEY DEFAULT 'default',
+    welcome_message_en TEXT,
+    welcome_message_nl TEXT,
+    video_key TEXT, -- R2 key once a real video is uploaded; NULL = placeholder state
+    video_status TEXT NOT NULL DEFAULT 'placeholder', -- 'placeholder' | 'ready'
+    updated_at TEXT DEFAULT (datetime('now'))
+  )`);
+  db.run(`CREATE TABLE IF NOT EXISTS showcase_talk_phrases (
+    id TEXT PRIMARY KEY,
+    phrase_en TEXT NOT NULL,
+    phrase_nl TEXT,
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    active INTEGER NOT NULL DEFAULT 1,
+    created_at TEXT DEFAULT (datetime('now'))
+  )`);
+  db.run(`CREATE TABLE IF NOT EXISTS showcase_tiles (
+    id TEXT PRIMARY KEY,
+    tile_type TEXT NOT NULL, -- 'read' | 'listen' | 'view' | 'buy' | 'talk' | 'custom'
+    label_en TEXT NOT NULL,
+    label_nl TEXT,
+    icon TEXT, -- emoji or short icon key, kept simple rather than an icon-library dependency
+    link_type TEXT NOT NULL DEFAULT 'internal', -- 'book' | 'audio' | 'video' | 'external' | 'talk_demo' | 'register' | 'login'
+    link_value TEXT, -- book id / audio R2 key / URL, depending on link_type
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    active INTEGER NOT NULL DEFAULT 1,
+    created_at TEXT DEFAULT (datetime('now'))
+  )`);
+
+  // ── Bulk school onboarding — one row per import run (for audit/
+  // troubleshooting "did that school's signup actually work"), one row
+  // per person in bulk_import_rows (for per-row pass/fail detail, since
+  // a batch of 30 rows partially failing needs to say exactly which
+  // three didn't work and why, not just an aggregate count). ──
+  db.run(`CREATE TABLE IF NOT EXISTS bulk_imports (
+    id TEXT PRIMARY KEY,
+    school_name TEXT,
+    initiated_by_id TEXT,
+    row_count INTEGER NOT NULL DEFAULT 0,
+    created_count INTEGER NOT NULL DEFAULT 0,
+    failed_count INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT DEFAULT (datetime('now'))
+  )`);
+  db.run(`CREATE TABLE IF NOT EXISTS bulk_import_rows (
+    id TEXT PRIMARY KEY,
+    import_id TEXT NOT NULL,
+    row_number INTEGER NOT NULL,
+    role TEXT NOT NULL, -- 'teacher' | 'parent' | 'child'
+    name TEXT,
+    email TEXT,
+    extra TEXT, -- school (teacher) | parent email to link to (child) | unused (parent)
+    status TEXT NOT NULL DEFAULT 'pending', -- 'pending' | 'created' | 'failed' | 'skipped'
+    error TEXT,
+    created_user_id TEXT
+  )`);
+
   db.run(`CREATE TABLE IF NOT EXISTS offers (
     id TEXT PRIMARY KEY,
     code TEXT UNIQUE NOT NULL,
@@ -1466,6 +1529,99 @@ function deleteOffer(id) {
   run(`DELETE FROM offers WHERE id = ?`, [id]);
 }
 
+// ── Splash content ──
+function getShowcaseContent() {
+  let row = get(`SELECT * FROM showcase_content WHERE id = 'default'`);
+  if (!row) {
+    run(`INSERT INTO showcase_content (id) VALUES ('default')`);
+    row = get(`SELECT * FROM showcase_content WHERE id = 'default'`);
+  }
+  return row;
+}
+function updateShowcaseContent({ welcomeMessageEn, welcomeMessageNl }) {
+  getShowcaseContent(); // ensure the row exists first
+  run(`UPDATE showcase_content SET welcome_message_en=?, welcome_message_nl=?, updated_at=datetime('now') WHERE id='default'`,
+    [welcomeMessageEn || null, welcomeMessageNl || null]);
+}
+function setShowcaseVideo(videoKey) {
+  getShowcaseContent();
+  run(`UPDATE showcase_content SET video_key=?, video_status='ready', updated_at=datetime('now') WHERE id='default'`, [videoKey]);
+}
+function clearShowcaseVideo() {
+  getShowcaseContent();
+  run(`UPDATE showcase_content SET video_key=NULL, video_status='placeholder', updated_at=datetime('now') WHERE id='default'`);
+}
+
+function getAllShowcasePhrasesAdmin() {
+  return all(`SELECT * FROM showcase_talk_phrases ORDER BY sort_order ASC, created_at ASC`);
+}
+function getActiveShowcasePhrases() {
+  return all(`SELECT * FROM showcase_talk_phrases WHERE active = 1 ORDER BY sort_order ASC, created_at ASC`);
+}
+function createShowcasePhrase({ phraseEn, phraseNl, sortOrder }) {
+  const id = uuid();
+  run(`INSERT INTO showcase_talk_phrases (id, phrase_en, phrase_nl, sort_order) VALUES (?,?,?,?)`,
+    [id, phraseEn, phraseNl || null, sortOrder || 0]);
+  return id;
+}
+function updateShowcasePhrase(id, { phraseEn, phraseNl, sortOrder, active }) {
+  run(`UPDATE showcase_talk_phrases SET phrase_en=?, phrase_nl=?, sort_order=?, active=? WHERE id=?`,
+    [phraseEn, phraseNl || null, sortOrder || 0, active ? 1 : 0, id]);
+}
+function deleteShowcasePhrase(id) {
+  run(`DELETE FROM showcase_talk_phrases WHERE id = ?`, [id]);
+}
+
+function getAllShowcaseTilesAdmin() {
+  return all(`SELECT * FROM showcase_tiles ORDER BY sort_order ASC, created_at ASC`);
+}
+function getActiveShowcaseTiles() {
+  return all(`SELECT * FROM showcase_tiles WHERE active = 1 ORDER BY sort_order ASC, created_at ASC`);
+}
+function createShowcaseTile({ tileType, labelEn, labelNl, icon, linkType, linkValue, sortOrder }) {
+  const id = uuid();
+  run(`INSERT INTO showcase_tiles (id, tile_type, label_en, label_nl, icon, link_type, link_value, sort_order) VALUES (?,?,?,?,?,?,?,?)`,
+    [id, tileType || 'custom', labelEn, labelNl || null, icon || null, linkType || 'internal', linkValue || null, sortOrder || 0]);
+  return id;
+}
+function updateShowcaseTile(id, { tileType, labelEn, labelNl, icon, linkType, linkValue, sortOrder, active }) {
+  run(`UPDATE showcase_tiles SET tile_type=?, label_en=?, label_nl=?, icon=?, link_type=?, link_value=?, sort_order=?, active=? WHERE id=?`,
+    [tileType || 'custom', labelEn, labelNl || null, icon || null, linkType || 'internal', linkValue || null, sortOrder || 0, active ? 1 : 0, id]);
+}
+function deleteShowcaseTile(id) {
+  run(`DELETE FROM showcase_tiles WHERE id = ?`, [id]);
+}
+
+// ── Bulk school onboarding ──
+function createBulkImport({ schoolName, initiatedById, rowCount }) {
+  const id = uuid();
+  run(`INSERT INTO bulk_imports (id, school_name, initiated_by_id, row_count) VALUES (?,?,?,?)`,
+    [id, schoolName || null, initiatedById || null, rowCount || 0]);
+  return id;
+}
+function addBulkImportRow(importId, { rowNumber, role, name, email, extra }) {
+  const id = uuid();
+  run(`INSERT INTO bulk_import_rows (id, import_id, row_number, role, name, email, extra) VALUES (?,?,?,?,?,?,?)`,
+    [id, importId, rowNumber, role, name || null, email || null, extra || null]);
+  return id;
+}
+function markBulkImportRowResult(rowId, { status, error, createdUserId }) {
+  run(`UPDATE bulk_import_rows SET status=?, error=?, created_user_id=? WHERE id=?`,
+    [status, error || null, createdUserId || null, rowId]);
+}
+function finishBulkImport(importId, { createdCount, failedCount }) {
+  run(`UPDATE bulk_imports SET created_count=?, failed_count=? WHERE id=?`, [createdCount, failedCount, importId]);
+}
+function getBulkImport(id) {
+  return get(`SELECT * FROM bulk_imports WHERE id = ?`, [id]);
+}
+function getBulkImportRows(importId) {
+  return all(`SELECT * FROM bulk_import_rows WHERE import_id = ? ORDER BY row_number ASC`, [importId]);
+}
+function getAllBulkImports() {
+  return all(`SELECT * FROM bulk_imports ORDER BY created_at DESC`);
+}
+
 module.exports = {
   getDb, save, uuid, run, get, all,
   getParentByEmail, getParentById, createParent, setParentEmailPrefs, updateParentProfile,
@@ -1501,4 +1657,9 @@ module.exports = {
   scheduleBroadcast, unscheduleBroadcast, deleteBroadcast, getDueScheduledBroadcasts,
   markBroadcastSending, markBroadcastSent, getBroadcastAudienceEmails,
   getAllOffers, getOfferByCode, createOffer, updateOffer, deleteOffer,
+  getShowcaseContent, updateShowcaseContent, setShowcaseVideo, clearShowcaseVideo,
+  getAllShowcasePhrasesAdmin, getActiveShowcasePhrases, createShowcasePhrase, updateShowcasePhrase, deleteShowcasePhrase,
+  getAllShowcaseTilesAdmin, getActiveShowcaseTiles, createShowcaseTile, updateShowcaseTile, deleteShowcaseTile,
+  createBulkImport, addBulkImportRow, markBulkImportRowResult, finishBulkImport,
+  getBulkImport, getBulkImportRows, getAllBulkImports,
 };

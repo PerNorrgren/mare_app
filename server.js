@@ -12,6 +12,7 @@
 // talk_sessions schema comment in db.js for why).
 
 const http = require('http');
+const crypto = require('crypto');
 const express = require('express');
 const cookieParser = require('cookie-parser');
 const cron = require('node-cron');
@@ -1219,6 +1220,184 @@ app.patch('/api/admin/offers-catalog/:id', auth.requireAuthApi(['admin', 'suppor
 app.delete('/api/admin/offers-catalog/:id', auth.requireAuthApi(['admin', 'support']), (req, res) => {
   db.deleteOffer(req.params.id);
   res.json({ ok: true });
+});
+
+// ─────────────────────────────────────────────────────────────────────
+// SPLASH PAGE CONTENT — the public showcase landing page's welcome
+// message, Talk to Mare sample phrases, showcase tiles, and intro
+// video are all admin-managed rather than hardcoded. GET is public (the
+// splash page itself needs this with no auth); everything else is
+// admin/support.
+// ─────────────────────────────────────────────────────────────────────
+
+app.get('/api/showcase', async (req, res) => {
+  const content = db.getShowcaseContent();
+  let videoUrl = null;
+  if (content.video_status === 'ready' && content.video_key) {
+    try { videoUrl = await media.getPlaybackUrl(content.video_key); } catch { /* leave null, front-end handles it */ }
+  }
+  res.json({
+    welcomeMessageEn: content.welcome_message_en,
+    welcomeMessageNl: content.welcome_message_nl,
+    videoStatus: content.video_status,
+    videoUrl,
+    tiles: db.getActiveShowcaseTiles(),
+    talkPhrases: db.getActiveShowcasePhrases(),
+  });
+});
+app.patch('/api/admin/showcase', auth.requireAuthApi(['admin', 'support']), (req, res) => {
+  const { welcomeMessageEn, welcomeMessageNl } = req.body || {};
+  db.updateShowcaseContent({ welcomeMessageEn, welcomeMessageNl });
+  res.json({ ok: true });
+});
+app.post('/api/admin/showcase/video', auth.requireAuthApi(['admin', 'support']), (req, res) => {
+  const { key } = req.body || {};
+  if (!key) return res.status(400).json({ error: 'Missing fields' });
+  db.setShowcaseVideo(key);
+  res.json({ ok: true });
+});
+app.delete('/api/admin/showcase/video', auth.requireAuthApi(['admin', 'support']), (req, res) => {
+  db.clearShowcaseVideo();
+  res.json({ ok: true });
+});
+
+app.get('/api/admin/showcase/phrases', auth.requireAuthApi(['admin', 'support']), (req, res) => {
+  res.json({ phrases: db.getAllShowcasePhrasesAdmin() });
+});
+app.post('/api/admin/showcase/phrases', auth.requireAuthApi(['admin', 'support']), (req, res) => {
+  const { phraseEn, phraseNl, sortOrder } = req.body || {};
+  if (!phraseEn) return res.status(400).json({ error: 'Missing fields' });
+  const id = db.createShowcasePhrase({ phraseEn, phraseNl, sortOrder });
+  res.json({ ok: true, id });
+});
+app.patch('/api/admin/showcase/phrases/:id', auth.requireAuthApi(['admin', 'support']), (req, res) => {
+  const { phraseEn, phraseNl, sortOrder, active } = req.body || {};
+  if (!phraseEn) return res.status(400).json({ error: 'Missing fields' });
+  db.updateShowcasePhrase(req.params.id, { phraseEn, phraseNl, sortOrder, active });
+  res.json({ ok: true });
+});
+app.delete('/api/admin/showcase/phrases/:id', auth.requireAuthApi(['admin', 'support']), (req, res) => {
+  db.deleteShowcasePhrase(req.params.id);
+  res.json({ ok: true });
+});
+
+app.get('/api/admin/showcase/tiles', auth.requireAuthApi(['admin', 'support']), (req, res) => {
+  res.json({ tiles: db.getAllShowcaseTilesAdmin() });
+});
+app.post('/api/admin/showcase/tiles', auth.requireAuthApi(['admin', 'support']), (req, res) => {
+  const { tileType, labelEn, labelNl, icon, linkType, linkValue, sortOrder } = req.body || {};
+  if (!labelEn) return res.status(400).json({ error: 'Missing fields' });
+  const id = db.createShowcaseTile({ tileType, labelEn, labelNl, icon, linkType, linkValue, sortOrder });
+  res.json({ ok: true, id });
+});
+app.patch('/api/admin/showcase/tiles/:id', auth.requireAuthApi(['admin', 'support']), (req, res) => {
+  const { tileType, labelEn, labelNl, icon, linkType, linkValue, sortOrder, active } = req.body || {};
+  if (!labelEn) return res.status(400).json({ error: 'Missing fields' });
+  db.updateShowcaseTile(req.params.id, { tileType, labelEn, labelNl, icon, linkType, linkValue, sortOrder, active });
+  res.json({ ok: true });
+});
+app.delete('/api/admin/showcase/tiles/:id', auth.requireAuthApi(['admin', 'support']), (req, res) => {
+  db.deleteShowcaseTile(req.params.id);
+  res.json({ ok: true });
+});
+
+// ─────────────────────────────────────────────────────────────────────
+// BULK SCHOOL ONBOARDING — admin pastes a list (one person per line,
+// CSV-style: role,name,email,extra) and every row gets created in one
+// pass. extra means: school name for a teacher, parent's email for a
+// child (to link them), unused for a parent. No plaintext passwords are
+// ever generated or emailed — every created account gets a random
+// unusable password plus an immediate password-reset token, and the
+// welcome email carries a 'set your password' link through the exact
+// same reset-password flow a forgotten-password request uses.
+//
+// Admin-initiated only (not self-service for schools) — per Per's
+// answer that this should be the admin-side tool for now.
+// ─────────────────────────────────────────────────────────────────────
+
+function parseBulkImportText(text) {
+  return text.split('\n')
+    .map(line => line.trim())
+    .filter(line => line && !line.toLowerCase().startsWith('role,')) // skip blank lines and an optional header row
+    .map(line => {
+      const parts = line.split(',').map(p => p.trim());
+      return { role: (parts[0] || '').toLowerCase(), name: parts[1] || '', email: parts[2] || '', extra: parts[3] || '' };
+    });
+}
+
+app.post('/api/admin/bulk-import', auth.requireAuthApi(['admin', 'support']), async (req, res) => {
+  const { schoolName, text } = req.body || {};
+  if (!text || !text.trim()) return res.status(400).json({ error: 'Missing fields' });
+
+  const rows = parseBulkImportText(text);
+  if (!rows.length) return res.status(400).json({ error: 'No valid rows found' });
+  if (rows.length > 500) return res.status(400).json({ error: 'Too many rows in one batch (max 500)' });
+
+  const importId = db.createBulkImport({ schoolName, initiatedById: req.user.id, rowCount: rows.length });
+  let createdCount = 0, failedCount = 0;
+  // Parents created earlier in the SAME batch need to be linkable by
+  // email for a child row later in the same batch, even before this
+  // whole import is committed to the response — hence this in-memory
+  // map alongside the real DB lookups.
+  const parentEmailToId = {};
+
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i];
+    const rowId = db.addBulkImportRow(importId, { rowNumber: i + 1, role: row.role, name: row.name, email: row.email, extra: row.extra });
+    try {
+      if (row.role === 'teacher') {
+        if (!row.name || !row.email) throw new Error('Missing name or email');
+        if (db.getTeacherByEmail(row.email)) throw new Error('Email already registered');
+        const hash = await auth.hashPassword(crypto.randomBytes(24).toString('hex'));
+        const teacherId = db.createTeacher({ email: row.email, passwordHash: hash, name: row.name, school: row.extra || schoolName });
+        const token = db.createPasswordResetToken('teacher', teacherId);
+        const resetUrl = `${process.env.APP_URL || 'https://mareapp-production.up.railway.app'}/reset-password.html?token=${token}&role=teacher`;
+        email.sendPasswordResetEmail(row.email, row.name, resetUrl).catch(e => console.error('bulk welcome email failed:', e.message));
+        db.markBulkImportRowResult(rowId, { status: 'created', createdUserId: teacherId });
+        createdCount++;
+      } else if (row.role === 'parent') {
+        if (!row.name || !row.email) throw new Error('Missing name or email');
+        if (db.getParentByEmail(row.email)) throw new Error('Email already registered');
+        const hash = await auth.hashPassword(crypto.randomBytes(24).toString('hex'));
+        const parentId = db.createParent({ email: row.email, passwordHash: hash, name: row.name });
+        parentEmailToId[row.email.toLowerCase()] = parentId;
+        const token = db.createPasswordResetToken('parent', parentId);
+        const resetUrl = `${process.env.APP_URL || 'https://mareapp-production.up.railway.app'}/reset-password.html?token=${token}&role=parent`;
+        email.sendPasswordResetEmail(row.email, row.name, resetUrl).catch(e => console.error('bulk welcome email failed:', e.message));
+        db.markBulkImportRowResult(rowId, { status: 'created', createdUserId: parentId });
+        createdCount++;
+      } else if (row.role === 'child') {
+        if (!row.name || !row.extra) throw new Error('Missing name or parent email');
+        const parentEmail = row.extra.toLowerCase();
+        let parentId = parentEmailToId[parentEmail];
+        if (!parentId) {
+          const existingParent = db.getParentByEmail(parentEmail);
+          if (!existingParent) throw new Error(`No parent found for ${row.extra} — add that parent row first`);
+          parentId = existingParent.id;
+        }
+        const childId = db.createChild(parentId, row.name, null);
+        db.markBulkImportRowResult(rowId, { status: 'created', createdUserId: childId });
+        createdCount++;
+      } else {
+        throw new Error(`Unknown role "${row.role}" — expected teacher, parent, or child`);
+      }
+    } catch (e) {
+      db.markBulkImportRowResult(rowId, { status: 'failed', error: e.message });
+      failedCount++;
+    }
+  }
+
+  db.finishBulkImport(importId, { createdCount, failedCount });
+  res.json({ ok: true, importId, createdCount, failedCount, rowCount: rows.length });
+});
+
+app.get('/api/admin/bulk-imports', auth.requireAuthApi(['admin', 'support']), (req, res) => {
+  res.json({ imports: db.getAllBulkImports() });
+});
+app.get('/api/admin/bulk-imports/:id', auth.requireAuthApi(['admin', 'support']), (req, res) => {
+  const imp = db.getBulkImport(req.params.id);
+  if (!imp) return res.status(404).json({ error: 'Not found' });
+  res.json({ import: imp, rows: db.getBulkImportRows(req.params.id) });
 });
 
 // ─────────────────────────────────────────────────────────────────────

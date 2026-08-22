@@ -136,6 +136,11 @@
     setupBroadcastModal();
     setupWhatsNewModal();
     setupOfferModal();
+    setupShowcaseWelcome();
+    setupShowcaseVideo();
+    setupTileModal();
+    setupPhraseModal();
+    setupBulkImport();
     loadOverview();
     loadResources();
     loadPages();
@@ -146,6 +151,9 @@
     loadWhatsNew();
     loadOffers();
     loadMarketingStats();
+    loadShowcaseContent();
+    loadShowcaseTiles();
+    loadShowcasePhrases();
     if (isAdmin) loadStaff();
   }
 
@@ -1047,6 +1055,269 @@
     } catch {
       grid.innerHTML = `<p class="admin-empty-note">${escapeHtml(t('adminCouldNotLoadStats'))}</p>`;
     }
+  }
+
+  // ── Showcase: welcome message ──
+  async function loadShowcaseContent() {
+    try {
+      const data = await api('/api/showcase');
+      document.getElementById('sc-welcome-en').value = data.welcomeMessageEn || '';
+      document.getElementById('sc-welcome-nl').value = data.welcomeMessageNl || '';
+      renderVideoStatus(data.videoStatus);
+    } catch { /* leave fields blank — the save button still works from empty */ }
+  }
+
+  function renderVideoStatus(status) {
+    const el = document.getElementById('showcase-video-status');
+    const clearBtn = document.getElementById('sc-video-clear-btn');
+    if (status === 'ready') {
+      el.textContent = t('adminShowcaseVideoReady');
+      clearBtn.hidden = false;
+    } else {
+      el.textContent = t('adminShowcaseVideoPlaceholder');
+      clearBtn.hidden = true;
+    }
+  }
+
+  function setupShowcaseWelcome() {
+    document.getElementById('showcase-welcome-save-btn').addEventListener('click', async () => {
+      document.getElementById('showcase-welcome-error').hidden = true;
+      document.getElementById('showcase-welcome-success').hidden = true;
+      const welcomeMessageEn = document.getElementById('sc-welcome-en').value.trim();
+      const welcomeMessageNl = document.getElementById('sc-welcome-nl').value.trim();
+      try {
+        await api('/api/admin/showcase', { method: 'PATCH', body: JSON.stringify({ welcomeMessageEn, welcomeMessageNl }) });
+        document.getElementById('showcase-welcome-success').textContent = t('adminSaved');
+        document.getElementById('showcase-welcome-success').hidden = false;
+      } catch {
+        document.getElementById('showcase-welcome-error').textContent = t('errorGeneric');
+        document.getElementById('showcase-welcome-error').hidden = false;
+      }
+    });
+  }
+
+  // ── Showcase: video ──
+  function setupShowcaseVideo() {
+    document.getElementById('sc-video-upload-btn').addEventListener('click', () => {
+      document.getElementById('sc-video-file').click();
+    });
+    document.getElementById('sc-video-file').addEventListener('change', async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      document.getElementById('showcase-video-error').hidden = true;
+      document.getElementById('showcase-video-status').textContent = t('adminUploading');
+      try {
+        const key = `showcase/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
+        const { url } = await api('/api/admin/upload-url', { method: 'POST', body: JSON.stringify({ key, contentType: file.type || 'video/mp4' }) });
+        const putRes = await fetch(url, { method: 'PUT', headers: { 'Content-Type': file.type || 'video/mp4' }, body: file });
+        if (!putRes.ok) throw new Error(t('adminErrorUploadFailed'));
+        await api('/api/admin/showcase/video', { method: 'POST', body: JSON.stringify({ key }) });
+        renderVideoStatus('ready');
+      } catch (err) {
+        document.getElementById('showcase-video-error').textContent = err.message || t('errorGeneric');
+        document.getElementById('showcase-video-error').hidden = false;
+        renderVideoStatus('placeholder');
+      }
+    });
+    document.getElementById('sc-video-clear-btn').addEventListener('click', async () => {
+      if (!window.confirm(t('adminDeleteConfirm'))) return;
+      await api('/api/admin/showcase/video', { method: 'DELETE' });
+      renderVideoStatus('placeholder');
+    });
+  }
+
+  // ── Showcase: tiles ──
+  let tiEditingId = null;
+
+  async function loadShowcaseTiles() {
+    const container = document.getElementById('showcase-tiles-list');
+    try {
+      const data = await api('/api/admin/showcase/tiles');
+      const rows = data.tiles || [];
+      if (!rows.length) {
+        container.innerHTML = `<p class="admin-empty-note">${escapeHtml(t('adminNoneYet'))}</p>`;
+        return;
+      }
+      container.innerHTML = rows.map(tile => `
+        <div class="admin-list-item">
+          <div class="admin-list-item-main">
+            <div class="admin-list-item-title">${escapeHtml(tile.icon || '')} ${escapeHtml(tile.label_en)}</div>
+            <div class="admin-list-item-sub">
+              <span class="status-badge ${tile.active ? 'active' : 'suspended'}">${escapeHtml(t(tile.active ? 'adminActive' : 'adminInactive'))}</span>
+              &nbsp;·&nbsp; ${escapeHtml(t('tileType' + capitalize(tile.tile_type)))} &nbsp;·&nbsp; ${escapeHtml(t('linkType' + capitalize(tile.link_type === 'talk_demo' ? 'TalkDemo' : tile.link_type)))}
+            </div>
+          </div>
+          <div class="admin-list-item-actions">
+            <button type="button" class="btn-ghost btn-small" data-edit-ti="${tile.id}">${escapeHtml(t('adminEdit'))}</button>
+            <button type="button" class="btn-ghost btn-small" data-delete-ti="${tile.id}">${escapeHtml(t('adminDelete'))}</button>
+          </div>
+        </div>
+      `).join('');
+      container.querySelectorAll('[data-edit-ti]').forEach(btn => {
+        btn.addEventListener('click', () => openTileModal(btn.getAttribute('data-edit-ti'), rows.find(r => r.id === btn.getAttribute('data-edit-ti'))));
+      });
+      container.querySelectorAll('[data-delete-ti]').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          if (!window.confirm(t('adminDeleteConfirm'))) return;
+          await api(`/api/admin/showcase/tiles/${btn.getAttribute('data-delete-ti')}`, { method: 'DELETE' });
+          loadShowcaseTiles();
+        });
+      });
+    } catch {
+      container.innerHTML = `<p class="admin-empty-note">${escapeHtml(t('adminCouldNotLoadTiles'))}</p>`;
+    }
+  }
+
+  function openTileModal(id, tile) {
+    tiEditingId = id || null;
+    document.getElementById('tile-error').hidden = true;
+    document.getElementById('tile-modal-title').textContent = t(id ? 'adminEditTile' : 'adminNewTile');
+    document.getElementById('ti-label-en').value = tile ? tile.label_en : '';
+    document.getElementById('ti-label-nl').value = tile ? (tile.label_nl || '') : '';
+    document.getElementById('ti-type').value = tile ? tile.tile_type : 'read';
+    document.getElementById('ti-icon').value = tile ? (tile.icon || '') : '';
+    document.getElementById('ti-link-type').value = tile ? tile.link_type : 'book';
+    document.getElementById('ti-link-value').value = tile ? (tile.link_value || '') : '';
+    document.getElementById('ti-active').checked = tile ? !!tile.active : true;
+    document.getElementById('tile-modal').hidden = false;
+  }
+
+  function setupTileModal() {
+    document.getElementById('new-tile-btn').addEventListener('click', () => openTileModal(null, null));
+    document.getElementById('ti-close-btn').addEventListener('click', () => { document.getElementById('tile-modal').hidden = true; });
+    document.getElementById('ti-save-btn').addEventListener('click', async () => {
+      const labelEn = document.getElementById('ti-label-en').value.trim();
+      const labelNl = document.getElementById('ti-label-nl').value.trim();
+      const tileType = document.getElementById('ti-type').value;
+      const icon = document.getElementById('ti-icon').value.trim();
+      const linkType = document.getElementById('ti-link-type').value;
+      const linkValue = document.getElementById('ti-link-value').value.trim();
+      const active = document.getElementById('ti-active').checked;
+      if (!labelEn) { showModalError('tile-error', t('errorMissingFields')); return; }
+      try {
+        const body = JSON.stringify({ tileType, labelEn, labelNl, icon, linkType, linkValue, active });
+        if (tiEditingId) {
+          await api(`/api/admin/showcase/tiles/${tiEditingId}`, { method: 'PATCH', body });
+        } else {
+          await api('/api/admin/showcase/tiles', { method: 'POST', body });
+        }
+        document.getElementById('tile-modal').hidden = true;
+        loadShowcaseTiles();
+      } catch {
+        showModalError('tile-error', t('errorGeneric'));
+      }
+    });
+  }
+
+  // ── Showcase: Talk to Mare phrases ──
+  let phEditingId = null;
+
+  async function loadShowcasePhrases() {
+    const container = document.getElementById('showcase-phrases-list');
+    try {
+      const data = await api('/api/admin/showcase/phrases');
+      const rows = data.phrases || [];
+      if (!rows.length) {
+        container.innerHTML = `<p class="admin-empty-note">${escapeHtml(t('adminNoneYet'))}</p>`;
+        return;
+      }
+      container.innerHTML = rows.map(p => `
+        <div class="admin-list-item">
+          <div class="admin-list-item-main">
+            <div class="admin-list-item-title">${escapeHtml(p.phrase_en)}</div>
+            <div class="admin-list-item-sub">
+              <span class="status-badge ${p.active ? 'active' : 'suspended'}">${escapeHtml(t(p.active ? 'adminActive' : 'adminInactive'))}</span>
+            </div>
+          </div>
+          <div class="admin-list-item-actions">
+            <button type="button" class="btn-ghost btn-small" data-edit-ph="${p.id}">${escapeHtml(t('adminEdit'))}</button>
+            <button type="button" class="btn-ghost btn-small" data-delete-ph="${p.id}">${escapeHtml(t('adminDelete'))}</button>
+          </div>
+        </div>
+      `).join('');
+      container.querySelectorAll('[data-edit-ph]').forEach(btn => {
+        btn.addEventListener('click', () => openPhraseModal(btn.getAttribute('data-edit-ph'), rows.find(r => r.id === btn.getAttribute('data-edit-ph'))));
+      });
+      container.querySelectorAll('[data-delete-ph]').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          if (!window.confirm(t('adminDeleteConfirm'))) return;
+          await api(`/api/admin/showcase/phrases/${btn.getAttribute('data-delete-ph')}`, { method: 'DELETE' });
+          loadShowcasePhrases();
+        });
+      });
+    } catch {
+      container.innerHTML = `<p class="admin-empty-note">${escapeHtml(t('adminCouldNotLoadPhrases'))}</p>`;
+    }
+  }
+
+  function openPhraseModal(id, phrase) {
+    phEditingId = id || null;
+    document.getElementById('phrase-error').hidden = true;
+    document.getElementById('phrase-modal-title').textContent = t(id ? 'adminEditPhrase' : 'adminNewPhrase');
+    document.getElementById('ph-en').value = phrase ? phrase.phrase_en : '';
+    document.getElementById('ph-nl').value = phrase ? (phrase.phrase_nl || '') : '';
+    document.getElementById('ph-active').checked = phrase ? !!phrase.active : true;
+    document.getElementById('phrase-modal').hidden = false;
+  }
+
+  function setupPhraseModal() {
+    document.getElementById('new-phrase-btn').addEventListener('click', () => openPhraseModal(null, null));
+    document.getElementById('ph-close-btn').addEventListener('click', () => { document.getElementById('phrase-modal').hidden = true; });
+    document.getElementById('ph-save-btn').addEventListener('click', async () => {
+      const phraseEn = document.getElementById('ph-en').value.trim();
+      const phraseNl = document.getElementById('ph-nl').value.trim();
+      const active = document.getElementById('ph-active').checked;
+      if (!phraseEn) { showModalError('phrase-error', t('errorMissingFields')); return; }
+      try {
+        const body = JSON.stringify({ phraseEn, phraseNl, active });
+        if (phEditingId) {
+          await api(`/api/admin/showcase/phrases/${phEditingId}`, { method: 'PATCH', body });
+        } else {
+          await api('/api/admin/showcase/phrases', { method: 'POST', body });
+        }
+        document.getElementById('phrase-modal').hidden = true;
+        loadShowcasePhrases();
+      } catch {
+        showModalError('phrase-error', t('errorGeneric'));
+      }
+    });
+  }
+
+  // ── Bulk school onboarding ──
+  function setupBulkImport() {
+    document.getElementById('bulk-import-btn').addEventListener('click', async () => {
+      document.getElementById('bulk-import-error').hidden = true;
+      document.getElementById('bulk-import-result').innerHTML = '';
+      const schoolName = document.getElementById('bi-school-name').value.trim();
+      const text = document.getElementById('bi-text').value;
+      if (!text.trim()) {
+        document.getElementById('bulk-import-error').textContent = t('errorMissingFields');
+        document.getElementById('bulk-import-error').hidden = false;
+        return;
+      }
+      const btn = document.getElementById('bulk-import-btn');
+      btn.disabled = true;
+      try {
+        const result = await api('/api/admin/bulk-import', { method: 'POST', body: JSON.stringify({ schoolName, text }) });
+        const detail = await api(`/api/admin/bulk-imports/${result.importId}`);
+        const failedRows = detail.rows.filter(r => r.status === 'failed');
+        document.getElementById('bulk-import-result').innerHTML = `
+          <p class="form-success">${escapeHtml(t('adminBulkImportSummary', { created: result.createdCount, total: result.rowCount }))}</p>
+          ${failedRows.length ? `<div class="admin-list-item-sub" style="margin-bottom:12px;">${
+            failedRows.map(r => `${escapeHtml(t('adminBulkImportRowFailed', { row: r.row_number, name: r.name || '—', error: r.error }))}`).join('<br>')
+          }</div>` : ''}
+        `;
+        if (result.createdCount > 0) {
+          document.getElementById('bi-text').value = '';
+          loadDirectory();
+        }
+      } catch {
+        document.getElementById('bulk-import-error').textContent = t('errorGeneric');
+        document.getElementById('bulk-import-error').hidden = false;
+      } finally {
+        btn.disabled = false;
+      }
+    });
   }
 
   function escapeHtml(str) {

@@ -79,6 +79,7 @@
       <button type="button" class="admin-tab" data-tab="pages" data-i18n="adminTabPages">Pages</button>
       <button type="button" class="admin-tab" data-tab="messaging" data-i18n="adminTabMessaging">Messaging</button>
       <button type="button" class="admin-tab" data-tab="marketing" data-i18n="adminTabMarketing">Sales &amp; Marketing</button>
+      <button type="button" class="admin-tab" data-tab="showcase" data-i18n="adminTabShowcase">Showcase Page</button>
       <button type="button" class="admin-tab" data-tab="directory" data-i18n="adminTabDirectory">Parents &amp; Teachers</button>
       <button type="button" class="admin-tab admin-only-tab" data-tab="staff" hidden data-i18n="adminTabStaff">Staff Accounts</button>
     </div>
@@ -379,7 +380,7 @@
 
       <div class="admin-card">
         <h2 data-i18n="adminMarketingGenTitle">Generate social posts</h2>
-        <p class="admin-card-sub" data-i18n="adminMarketingGenDesc">Paste a What's New item, a resource description, or any short piece of copy \u2014 get platform-ready posts to copy and post by hand. Nothing is posted automatically.</p>
+        <p class="admin-card-sub" data-i18n="adminMarketingGenDesc">Paste a What's New item, a resource description, or any short piece of copy — get platform-ready posts to copy and post by hand. Nothing is posted automatically.</p>
         <div class="field">
           <label for="mkt-source" data-i18n="adminMarketingSource">Source content</label>
           <textarea id="mkt-source" rows="4" placeholder="Paste source content here…"></textarea>
@@ -392,13 +393,141 @@
         </div>
         <label class="mkt-platform-check"><input type="checkbox" id="mkt-include-cta" checked> <span data-i18n="adminMarketingIncludeCta">Include a hook + link to the app</span></label>
         <p class="form-error" id="marketing-error" hidden></p>
-        <button type="button" class="btn-primary" id="marketing-generate-btn" data-i18n="adminGenerate">\u2728 Generate</button>
+        <button type="button" class="btn-primary" id="marketing-generate-btn" data-i18n="adminGenerate">✨ Generate</button>
         <div id="marketing-results"></div>
       </div>
 
       <div class="admin-card">
         <h2 data-i18n="adminMarketingHistoryTitle">Past posts</h2>
         <div id="marketing-history-list"><p class="admin-empty-note" data-i18n="adminLoading">Loading…</p></div>
+      </div>
+    </div>
+
+    <!-- Showcase Page -->
+    <div class="admin-panel" id="panel-showcase">
+      <div class="admin-card">
+        <h2 data-i18n="adminShowcaseWelcomeTitle">Welcome message</h2>
+        <p class="admin-card-sub" data-i18n="adminShowcaseWelcomeDesc">Shown at the top of the public showcase page — the first thing a visitor reads.</p>
+        <div class="field">
+          <label for="sc-welcome-en" data-i18n="adminFieldEnglish">English</label>
+          <textarea id="sc-welcome-en" rows="3"></textarea>
+        </div>
+        <div class="field">
+          <label for="sc-welcome-nl" data-i18n="adminFieldDutch">Dutch</label>
+          <textarea id="sc-welcome-nl" rows="3"></textarea>
+        </div>
+        <p class="form-error" id="showcase-welcome-error" hidden></p>
+        <p class="form-success" id="showcase-welcome-success" hidden></p>
+        <button type="button" class="btn-primary" id="showcase-welcome-save-btn" data-i18n="adminSaveChanges">Save</button>
+      </div>
+
+      <div class="admin-card">
+        <h2 data-i18n="adminShowcaseVideoTitle">Intro video</h2>
+        <p class="admin-card-sub" data-i18n="adminShowcaseVideoDesc">Plays when a visitor clicks the video tile on the showcase page.</p>
+        <p id="showcase-video-status" class="admin-empty-note"></p>
+        <input type="file" id="sc-video-file" accept="video/*" hidden>
+        <button type="button" class="btn-primary" id="sc-video-upload-btn" data-i18n="adminShowcaseUploadVideo">Upload video</button>
+        <button type="button" class="btn-ghost" id="sc-video-clear-btn" data-i18n="adminShowcaseClearVideo" hidden>Remove video</button>
+        <p class="form-error" id="showcase-video-error" hidden></p>
+      </div>
+
+      <div class="admin-card">
+        <div class="admin-card-header-row">
+          <div>
+            <h2 data-i18n="adminShowcaseTilesTitle">Showcase tiles</h2>
+            <p class="admin-card-sub" data-i18n="adminShowcaseTilesDesc">The big clickable icons on the showcase page — read, listen, watch, talk to Mare, buy.</p>
+          </div>
+          <button type="button" class="btn-primary" id="new-tile-btn" data-i18n="adminNewTile">+ New tile</button>
+        </div>
+        <div id="showcase-tiles-list"><p class="admin-empty-note" data-i18n="adminLoading">Loading…</p></div>
+      </div>
+
+      <div class="admin-card">
+        <div class="admin-card-header-row">
+          <div>
+            <h2 data-i18n="adminShowcasePhrasesTitle">Talk to Mare sample phrases</h2>
+            <p class="admin-card-sub" data-i18n="adminShowcasePhrasesDesc">What Mare says in the showcase page's Talk to Mare demo tile.</p>
+          </div>
+          <button type="button" class="btn-primary" id="new-phrase-btn" data-i18n="adminNewPhrase">+ New phrase</button>
+        </div>
+        <div id="showcase-phrases-list"><p class="admin-empty-note" data-i18n="adminLoading">Loading…</p></div>
+      </div>
+    </div>
+
+    <!-- Tile compose modal -->
+    <div class="admin-modal-backdrop" id="tile-modal" hidden>
+      <div class="admin-modal-card">
+        <h3 id="tile-modal-title" data-i18n="adminNewTile">New tile</h3>
+        <div class="field">
+          <label for="ti-label-en" data-i18n="adminFieldLabelEnglish">Label (English)</label>
+          <input type="text" id="ti-label-en">
+        </div>
+        <div class="field">
+          <label for="ti-label-nl" data-i18n="adminFieldLabelDutchOptional">Label (Dutch, optional)</label>
+          <input type="text" id="ti-label-nl">
+        </div>
+        <div class="admin-form-row">
+          <div class="field">
+            <label for="ti-type" data-i18n="adminFieldTileType">Type</label>
+            <select id="ti-type">
+              <option value="read" data-i18n="tileTypeRead">Read</option>
+              <option value="listen" data-i18n="tileTypeListen">Listen</option>
+              <option value="view" data-i18n="tileTypeView">Watch</option>
+              <option value="talk" data-i18n="tileTypeTalk">Talk to Mare</option>
+              <option value="buy" data-i18n="tileTypeBuy">Buy</option>
+              <option value="custom" data-i18n="tileTypeCustom">Other</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="ti-icon" data-i18n="adminFieldIcon">Icon (emoji)</label>
+            <input type="text" id="ti-icon" maxlength="4" placeholder="📖">
+          </div>
+        </div>
+        <div class="admin-form-row">
+          <div class="field">
+            <label for="ti-link-type" data-i18n="adminFieldLinkType">Links to</label>
+            <select id="ti-link-type">
+              <option value="book" data-i18n="linkTypeBook">A book</option>
+              <option value="audio" data-i18n="linkTypeAudio">An audio sample</option>
+              <option value="video" data-i18n="linkTypeVideo">The intro video</option>
+              <option value="talk_demo" data-i18n="linkTypeTalkDemo">Talk to Mare demo</option>
+              <option value="register" data-i18n="linkTypeRegister">Register page</option>
+              <option value="login" data-i18n="linkTypeLogin">Login page</option>
+              <option value="external" data-i18n="linkTypeExternal">External URL</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="ti-link-value" data-i18n="adminFieldLinkValue">Link value</label>
+            <input type="text" id="ti-link-value" placeholder="URL, book id, or R2 key">
+          </div>
+        </div>
+        <label class="mkt-platform-check"><input type="checkbox" id="ti-active" checked> <span data-i18n="adminActive">Active</span></label>
+        <p class="form-error" id="tile-error" hidden></p>
+        <div class="admin-modal-btns">
+          <button type="button" class="btn-ghost" id="ti-close-btn" data-i18n="adminClose">Close</button>
+          <button type="button" class="btn-primary" id="ti-save-btn" data-i18n="adminSaveItem">Save</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Phrase compose modal -->
+    <div class="admin-modal-backdrop" id="phrase-modal" hidden>
+      <div class="admin-modal-card">
+        <h3 id="phrase-modal-title" data-i18n="adminNewPhrase">New phrase</h3>
+        <div class="field">
+          <label for="ph-en" data-i18n="adminFieldPhraseEnglish">Phrase (English)</label>
+          <textarea id="ph-en" rows="2"></textarea>
+        </div>
+        <div class="field">
+          <label for="ph-nl" data-i18n="adminFieldPhraseDutchOptional">Phrase (Dutch, optional)</label>
+          <textarea id="ph-nl" rows="2"></textarea>
+        </div>
+        <label class="mkt-platform-check"><input type="checkbox" id="ph-active" checked> <span data-i18n="adminActive">Active</span></label>
+        <p class="form-error" id="phrase-error" hidden></p>
+        <div class="admin-modal-btns">
+          <button type="button" class="btn-ghost" id="ph-close-btn" data-i18n="adminClose">Close</button>
+          <button type="button" class="btn-primary" id="ph-save-btn" data-i18n="adminSaveItem">Save</button>
+        </div>
       </div>
     </div>
 
@@ -413,6 +542,22 @@
         <h2 data-i18n="adminDirectoryTeachersTitle">Teachers</h2>
         <p class="admin-card-sub" data-i18n="adminDirectoryReadOnly">Read-only — for helping someone confirm what's on file.</p>
         <div id="teachers-table"><p class="admin-empty-note" data-i18n="adminLoading">Loading…</p></div>
+      </div>
+
+      <div class="admin-card">
+        <h2 data-i18n="adminBulkImportTitle">Bulk school onboarding</h2>
+        <p class="admin-card-sub" data-i18n="adminBulkImportDesc">Paste one person per line: role,name,email,extra — extra is the school name for a teacher, or the parent's email for a child (parents must appear before their children). Everyone gets a "set your password" email — no passwords are generated or sent in plain text.</p>
+        <div class="field">
+          <label for="bi-school-name" data-i18n="adminFieldSchoolNameOptional">School name (optional)</label>
+          <input type="text" id="bi-school-name">
+        </div>
+        <div class="field">
+          <label for="bi-text" data-i18n="adminFieldBulkList">List</label>
+          <textarea id="bi-text" rows="8" placeholder="teacher,Ms Jones,jones@school.edu,Riverside Primary&#10;parent,Alice Parent,alice@example.com,&#10;child,Charlie,,alice@example.com"></textarea>
+        </div>
+        <p class="form-error" id="bulk-import-error" hidden></p>
+        <div id="bulk-import-result"></div>
+        <button type="button" class="btn-primary" id="bulk-import-btn" data-i18n="adminBulkImportSubmit">Import</button>
       </div>
     </div>
 
