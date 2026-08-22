@@ -1055,6 +1055,37 @@ app.post('/api/admin/whats-new', auth.requireAuthApi(['admin', 'support']), (req
 // only an existing admin can create another one from inside the dashboard.
 // ─────────────────────────────────────────────────────────────────────
 
+// One-time bootstrap for the very first admin account, since the normal
+// path (an existing admin creates the next one) has no starting point
+// otherwise. Only works while zero staff accounts exist at all —
+// becomes permanently inert (403) the instant the first one is created,
+// same shape as a real one-time-use credential rather than a standing
+// unauthenticated door into the admin system.
+//
+// This runs in-process on the live server deliberately, not as a
+// separate script — sql.js keeps the real database in server memory and
+// periodically saves it to disk; a standalone script touching the same
+// DB file while the real server is also running risks a silent
+// data-loss race (whichever save happens last wins, overwriting the
+// other). Going through this route means there's only ever one process
+// touching the data.
+app.post('/api/admin/bootstrap', async (req, res) => {
+  try {
+    if (db.getAllStaff().length > 0) {
+      return res.status(403).json({ error: 'Bootstrap already used \u2014 a staff account already exists.' });
+    }
+    const { email, password, name } = req.body || {};
+    if (!email || !password || !name) return res.status(400).json({ error: 'email, password, and name required' });
+    if (password.length < 8) return res.status(400).json({ error: 'Password must be at least 8 characters' });
+    const hash = await auth.hashPassword(password);
+    const id = db.createAdmin({ email, passwordHash: hash, name, role: 'admin' });
+    res.json({ ok: true, id });
+  } catch (e) {
+    console.error('bootstrap failed', e);
+    res.status(500).json({ error: 'Could not create admin account' });
+  }
+});
+
 app.get('/api/admin/staff', auth.requireAuthApi(['admin']), (req, res) => {
   res.json({ staff: db.getAllStaff() });
 });
