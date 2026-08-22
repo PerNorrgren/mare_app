@@ -440,5 +440,11 @@
   "adminFieldBulkList": "Lijst",
   "adminBulkImportSubmit": "Importeren",
   "adminBulkImportSummary": "{created} van {total} aangemaakt.",
-  "adminBulkImportRowFailed": "Rij {row} ({name}): {error}"
+  "adminBulkImportRowFailed": "Rij {row} ({name}): {error}",
+  "showcaseLogin": "Inloggen",
+  "showcaseRegister": "Registreren",
+  "showcaseVideoComingSoon": "Er komt binnenkort een korte film van het Fluisterende Woud.",
+  "showcaseBrowseAll": "Bekijk alle verhalen",
+  "showcaseTalkDemoNote": "Een klein voorproefje van hoe Mare klinkt — log in voor een echt gesprek met haar.",
+  "showcaseTalkDemoFallback": "Hoi, ik ben Mare. Fijn om je te ontmoeten."
 }

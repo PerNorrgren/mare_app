@@ -440,5 +440,11 @@
   "adminFieldBulkList": "List",
   "adminBulkImportSubmit": "Import",
   "adminBulkImportSummary": "Created {created} of {total}.",
-  "adminBulkImportRowFailed": "Row {row} ({name}): {error}"
+  "adminBulkImportRowFailed": "Row {row} ({name}): {error}",
+  "showcaseLogin": "Log in",
+  "showcaseRegister": "Register",
+  "showcaseVideoComingSoon": "A short film of the Whispering Woods is on its way.",
+  "showcaseBrowseAll": "Browse all stories",
+  "showcaseTalkDemoNote": "A little of what Mare sounds like — sign in to have a real conversation with her.",
+  "showcaseTalkDemoFallback": "Hi, I'm Mare. It's lovely to meet you."
 }

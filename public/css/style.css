@@ -45,7 +45,21 @@ h1, h2 {
   justify-content: space-between;
   align-items: center;
   padding: 20px clamp(20px, 5vw, 56px) 0;
+  position: relative;
+  z-index: 2;
 }
+/* Same root cause as .admin-shell/.ac-shell in day.css: .bg-slideshow-wrap
+   (z-index:0) and .bg-veil (z-index:1) are unconditional and positioned
+   on every auth-atmosphere page. Without its own stacking context, this
+   unpositioned header paints BELOW those — invisible, not just faint —
+   on every page that uses the atmosphere: login.html, teacher-login.html,
+   admin.html (pre-login), reset-password.html, admin-content.html, and
+   now index.html. Pre-existing on all of them; only surfaced as an
+   actual problem now that the new showcase page's header buttons
+   (Log in / Register) need to be seen and clicked, not just exist in
+   the DOM. Confirmed via the same method as the earlier stacking bugs:
+   computed styles showed the element present with a real bounding box,
+   just painted underneath. */
 .brand { display: flex; align-items: center; gap: 8px; color: var(--gold); }
 .brand-mark { display: flex; }
 .brand-word {

@@ -129,7 +129,7 @@ body.day .lang-btn:not(.active):hover { background: rgba(22,48,92,0.06); }
    body.day's navy-on-light defaults for just this context — scoped by
    descendant selector rather than touching the base rules those same
    classes use everywhere else (dashboard forms, tables, etc.). */
-.auth-atmosphere .brand { color: var(--gold); }
+body.auth-atmosphere .brand { color: var(--gold); }
 .auth-atmosphere .btn-ghost { color: var(--parchment); border-color: rgba(243,236,217,0.3); }
 .auth-atmosphere .btn-ghost:hover { background: rgba(243,236,217,0.08); border-color: var(--gold); }
 .auth-atmosphere .lang-switch { border-color: rgba(243,236,217,0.3); }
@@ -657,3 +657,93 @@ body.day .lang-btn:not(.active):hover { background: rgba(22,48,92,0.06); }
 .mkt-history-item { border-bottom: 1px solid rgba(22,48,92,0.08); padding: 12px 0; }
 .mkt-history-source { font-size: 0.82rem; color: var(--navy-soft); margin-bottom: 6px; }
 .mkt-history-item:last-child { border-bottom: none; }
+
+/* ── Public showcase page (index.html) ── */
+.showcase-main { max-width: 960px; margin: 0 auto; padding: 8px clamp(20px, 5vw, 56px) 40px; position: relative; z-index: 2; }
+
+.showcase-video-card {
+  background: rgba(11,23,18,0.55);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(243,236,217,0.15);
+  border-radius: 22px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+  overflow: hidden;
+  margin: 0 0 32px;
+  aspect-ratio: 16 / 9;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.showcase-video-placeholder {
+  text-align: center;
+  color: rgba(243,236,217,0.75);
+  padding: 20px;
+}
+.showcase-video-play {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: rgba(234,192,102,0.18);
+  color: var(--gold);
+  font-size: 1.4rem;
+  margin-bottom: 14px;
+}
+.showcase-video-placeholder p { margin: 0; font-size: 0.95rem; font-weight: 600; }
+.showcase-video-player { width: 100%; height: 100%; }
+
+.showcase-tile-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 16px;
+  margin-bottom: 32px;
+}
+.showcase-tile {
+  background: rgba(11,23,18,0.55);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(243,236,217,0.15);
+  border-radius: 18px;
+  padding: 24px 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  text-align: center;
+  text-decoration: none;
+  cursor: pointer;
+  transition: transform 0.15s ease, border-color 0.15s ease;
+  font-family: 'Quicksand', sans-serif;
+}
+.showcase-tile:hover { transform: translateY(-3px); border-color: rgba(234,192,102,0.4); }
+.showcase-tile-icon { font-size: 2rem; line-height: 1; }
+.showcase-tile-label { font-weight: 700; color: var(--parchment); font-size: 0.92rem; }
+
+.showcase-browse { margin-top: 8px; }
+
+/* Talk-demo modal — dark/frosted, distinct from .admin-modal-card's
+   light dashboard styling, since this sits on the public atmosphere
+   page rather than inside the admin dashboard. */
+.showcase-talk-modal { background: rgba(11,23,18,0.75); }
+.showcase-talk-card {
+  background: rgba(11,23,18,0.75);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(243,236,217,0.15);
+  max-width: 380px;
+}
+.showcase-talk-bubble {
+  background: rgba(243,236,217,0.08);
+  border-radius: 16px;
+  padding: 20px;
+  font-family: 'Fraunces', serif;
+  font-size: 1.15rem;
+  color: var(--parchment);
+  text-align: center;
+  margin-bottom: 14px;
+}
+.showcase-talk-note { font-size: 0.85rem; color: rgba(243,236,217,0.7); text-align: center; margin: 0 0 8px; }
+.showcase-talk-card .admin-modal-btns { justify-content: center; }
