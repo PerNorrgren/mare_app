@@ -1105,6 +1105,121 @@ app.post('/api/admin/whats-new', auth.requireAuthApi(['admin', 'support']), (req
   const id = db.createWhatsNew({ audience, title, body, linkType, linkValue });
   res.json({ ok: true, id });
 });
+app.get('/api/admin/whats-new-items', auth.requireAuthApi(['admin', 'support']), (req, res) => {
+  res.json({ items: db.getAllWhatsNewAdmin() });
+});
+app.patch('/api/admin/whats-new-items/:id', auth.requireAuthApi(['admin', 'support']), (req, res) => {
+  const { audience, title, body, linkType, linkValue, active } = req.body || {};
+  if (!title) return res.status(400).json({ error: 'Missing fields' });
+  db.updateWhatsNew(req.params.id, { audience, title, body, linkType, linkValue, active });
+  res.json({ ok: true });
+});
+app.delete('/api/admin/whats-new-items/:id', auth.requireAuthApi(['admin', 'support']), (req, res) => {
+  db.deleteWhatsNew(req.params.id);
+  res.json({ ok: true });
+});
+
+// ─────────────────────────────────────────────────────────────────────
+// BROADCASTS — the "comms" system. Admin composes a message with the
+// rich editor, targets parents/teachers/both, and either saves it as a
+// draft, sends a test copy to themself, schedules it for later, or
+// sends it now. sendBroadcastNow() is shared between the immediate-send
+// route and the cron pickup below, so the actual sending logic exists
+// in exactly one place.
+// ─────────────────────────────────────────────────────────────────────
+
+async function sendBroadcastNow(broadcast) {
+  db.markBroadcastSending(broadcast.id);
+  const recipients = db.getBroadcastAudienceEmails(broadcast.audience);
+  let sentCount = 0, failedCount = 0;
+  for (const r of recipients) {
+    const result = await email.sendBroadcastEmail(r.email, broadcast.subject, broadcast.body_html, r.id);
+    if (result.ok) sentCount++; else failedCount++;
+  }
+  db.markBroadcastSent(broadcast.id, { recipientCount: recipients.length, sentCount, failedCount });
+}
+
+app.get('/api/admin/broadcasts', auth.requireAuthApi(['admin', 'support']), (req, res) => {
+  res.json({ broadcasts: db.getAllBroadcasts() });
+});
+app.get('/api/admin/broadcasts/:id', auth.requireAuthApi(['admin', 'support']), (req, res) => {
+  const b = db.getBroadcast(req.params.id);
+  if (!b) return res.status(404).json({ error: 'Not found' });
+  res.json({ broadcast: b });
+});
+app.post('/api/admin/broadcasts', auth.requireAuthApi(['admin', 'support']), (req, res) => {
+  const { subject, bodyHtml, bodyText, audience } = req.body || {};
+  if (!subject || !bodyHtml) return res.status(400).json({ error: 'Missing fields' });
+  const id = db.createBroadcast({ subject, bodyHtml, bodyText, audience, createdById: req.user.id, createdByRole: req.user.role });
+  res.json({ ok: true, id });
+});
+app.patch('/api/admin/broadcasts/:id', auth.requireAuthApi(['admin', 'support']), (req, res) => {
+  const { subject, bodyHtml, bodyText, audience } = req.body || {};
+  if (!subject || !bodyHtml) return res.status(400).json({ error: 'Missing fields' });
+  db.updateBroadcastContent(req.params.id, { subject, bodyHtml, bodyText, audience });
+  res.json({ ok: true });
+});
+app.delete('/api/admin/broadcasts/:id', auth.requireAuthApi(['admin', 'support']), (req, res) => {
+  db.deleteBroadcast(req.params.id);
+  res.json({ ok: true });
+});
+app.post('/api/admin/broadcasts/:id/send-test', auth.requireAuthApi(['admin', 'support']), async (req, res) => {
+  const b = db.getBroadcast(req.params.id);
+  if (!b) return res.status(404).json({ error: 'Not found' });
+  const result = await email.sendBroadcastEmail(req.user.email, `[TEST] ${b.subject}`, b.body_html, req.user.id);
+  if (!result.ok) return res.status(502).json({ error: result.error || 'Test send failed' });
+  res.json({ ok: true });
+});
+app.post('/api/admin/broadcasts/:id/schedule', auth.requireAuthApi(['admin', 'support']), (req, res) => {
+  const { scheduledFor } = req.body || {};
+  if (!scheduledFor) return res.status(400).json({ error: 'Missing fields' });
+  const b = db.getBroadcast(req.params.id);
+  if (!b) return res.status(404).json({ error: 'Not found' });
+  db.scheduleBroadcast(req.params.id, scheduledFor);
+  res.json({ ok: true });
+});
+app.post('/api/admin/broadcasts/:id/unschedule', auth.requireAuthApi(['admin', 'support']), (req, res) => {
+  db.unscheduleBroadcast(req.params.id);
+  res.json({ ok: true });
+});
+app.post('/api/admin/broadcasts/:id/send', auth.requireAuthApi(['admin', 'support']), async (req, res) => {
+  const b = db.getBroadcast(req.params.id);
+  if (!b) return res.status(404).json({ error: 'Not found' });
+  if (b.status === 'sent' || b.status === 'sending') return res.status(409).json({ error: 'Already sent or sending' });
+  // Respond immediately — sending to a real audience can take a while
+  // (one email.js call per recipient) and the admin shouldn't have to
+  // wait on the HTTP request for it. Status is visible via the list/
+  // detail routes once sendBroadcastNow finishes.
+  res.json({ ok: true, status: 'sending' });
+  sendBroadcastNow(b).catch(e => console.error('broadcast send failed:', e.message));
+});
+
+// ─────────────────────────────────────────────────────────────────────
+// OFFERS — discount-code infrastructure for Sales & Marketing. Not yet
+// wired into /api/checkout (no merchandise storefront page exists yet
+// to apply a code from) — this is the admin-management half, ready for
+// whenever that storefront gets built.
+// ─────────────────────────────────────────────────────────────────────
+
+app.get('/api/admin/offers-catalog', auth.requireAuthApi(['admin', 'support']), (req, res) => {
+  res.json({ offers: db.getAllOffers() });
+});
+app.post('/api/admin/offers-catalog', auth.requireAuthApi(['admin', 'support']), (req, res) => {
+  const { code, description, discountType, discountValue, expiresAt } = req.body || {};
+  if (!code || !discountValue) return res.status(400).json({ error: 'Missing fields' });
+  if (db.getOfferByCode(code)) return res.status(409).json({ error: 'Code already exists' });
+  const id = db.createOffer({ code, description, discountType, discountValue, expiresAt });
+  res.json({ ok: true, id });
+});
+app.patch('/api/admin/offers-catalog/:id', auth.requireAuthApi(['admin', 'support']), (req, res) => {
+  const { description, discountType, discountValue, active, expiresAt } = req.body || {};
+  db.updateOffer(req.params.id, { description, discountType, discountValue, active, expiresAt });
+  res.json({ ok: true });
+});
+app.delete('/api/admin/offers-catalog/:id', auth.requireAuthApi(['admin', 'support']), (req, res) => {
+  db.deleteOffer(req.params.id);
+  res.json({ ok: true });
+});
 
 // ─────────────────────────────────────────────────────────────────────
 // STAFF ACCOUNTS — admin only. Creating an admin/support account is
@@ -1281,6 +1396,14 @@ function startCron() {
       // TODO: actually send via Scaleway once "message from Mare" content is written
       console.log(`[mare-message] would send to ${parent.email}`);
       db.logMareMessageSent(parent.id, dateStr);
+    });
+
+    // Scheduled broadcasts — checked every hour tick, same cadence as
+    // everything else in this cron. sendBroadcastNow is the exact same
+    // function the immediate-send API route uses, so scheduled and
+    // send-now broadcasts behave identically once they actually fire.
+    db.getDueScheduledBroadcasts().forEach(b => {
+      sendBroadcastNow(b).catch(e => console.error('scheduled broadcast send failed:', e.message));
     });
   });
 }

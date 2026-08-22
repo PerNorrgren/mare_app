@@ -409,6 +409,51 @@ async function getDb() {
     sort_order INTEGER NOT NULL DEFAULT 0
   )`);
 
+  // ── Broadcasts — admin-composed messages to parents/teachers (the
+  // "comms" system). One row per message, whatever state it's in.
+  // body_html is the rich-editor output; body_text is a plain fallback
+  // for the email's text/plain part (same htmlToText derivation email.js
+  // already does for other sends, just persisted here too so the admin
+  // list can show a clean preview without re-parsing HTML). recipient/
+  // sent/failed counts are snapshotted at send time — not live-queried
+  // against email_log — so a broadcast's own history page reads instantly
+  // and stays accurate even if email_log is later pruned. ──
+  db.run(`CREATE TABLE IF NOT EXISTS broadcasts (
+    id TEXT PRIMARY KEY,
+    subject TEXT NOT NULL,
+    body_html TEXT NOT NULL,
+    body_text TEXT,
+    audience TEXT NOT NULL DEFAULT 'parents', -- 'parents' | 'teachers' | 'both'
+    status TEXT NOT NULL DEFAULT 'draft', -- 'draft' | 'scheduled' | 'sending' | 'sent' | 'failed'
+    scheduled_for TEXT,
+    sent_at TEXT,
+    recipient_count INTEGER NOT NULL DEFAULT 0,
+    sent_count INTEGER NOT NULL DEFAULT 0,
+    failed_count INTEGER NOT NULL DEFAULT 0,
+    created_by_id TEXT,
+    created_by_role TEXT,
+    created_at TEXT DEFAULT (datetime('now')),
+    updated_at TEXT DEFAULT (datetime('now'))
+  )`);
+
+  // ── Offers — discount codes, built ahead of the merchandise storefront
+  // UI existing yet (checkout only takes a raw product list right now).
+  // This is the admin-side infrastructure so codes can be created and
+  // ready the moment a storefront applies them — not wired into
+  // /api/checkout itself in this pass, since there's no live consumer
+  // of a code field yet and wiring it in speculatively risks drifting
+  // from whatever the actual storefront design ends up needing. ──
+  db.run(`CREATE TABLE IF NOT EXISTS offers (
+    id TEXT PRIMARY KEY,
+    code TEXT UNIQUE NOT NULL,
+    description TEXT,
+    discount_type TEXT NOT NULL DEFAULT 'percent', -- 'percent' | 'fixed'
+    discount_value INTEGER NOT NULL DEFAULT 0, -- percent (1-100) or cents, per discount_type
+    active INTEGER NOT NULL DEFAULT 1,
+    expires_at TEXT,
+    created_at TEXT DEFAULT (datetime('now'))
+  )`);
+
   db.run(`CREATE TABLE IF NOT EXISTS orders (
     id TEXT PRIMARY KEY,
     parent_id TEXT NOT NULL,
@@ -552,6 +597,16 @@ function save() {
 }
 
 function uuid() { return crypto.randomUUID(); }
+// Normalizes any JS Date-parseable input to SQLite's own datetime format
+// ('YYYY-MM-DD HH:MM:SS', UTC, space not 'T') so it compares correctly
+// against datetime('now') and other SQLite-generated timestamps — see
+// the comment on createPasswordResetToken for why this matters: a raw
+// ISO string ('...T...Z') sorts after SQLite's own format regardless of
+// actual time, silently breaking any '>' or '<=' comparison between them.
+function toSqliteDatetime(input) {
+  const d = input instanceof Date ? input : new Date(input);
+  return d.toISOString().slice(0, 19).replace('T', ' ');
+}
 
 function run(sql, params = []) {
   db.run(sql, params);
@@ -1255,6 +1310,19 @@ function createWhatsNew({ audience, title, body, linkType, linkValue }) {
     [id, audience || 'both', title, body || null, linkType || null, linkValue || null]);
   return id;
 }
+// ── Admin management — unlike getWhatsNew() above (public-facing, active
+// items only), this returns every item regardless of active status, so
+// the admin list can show and toggle drafts/retired items too. ──
+function getAllWhatsNewAdmin() {
+  return all(`SELECT * FROM whats_new ORDER BY published_at DESC`);
+}
+function updateWhatsNew(id, { audience, title, body, linkType, linkValue, active }) {
+  run(`UPDATE whats_new SET audience=?, title=?, body=?, link_type=?, link_value=?, active=? WHERE id=?`,
+    [audience || 'both', title, body || null, linkType || null, linkValue || null, active ? 1 : 0, id]);
+}
+function deleteWhatsNew(id) {
+  run(`DELETE FROM whats_new WHERE id = ?`, [id]);
+}
 
 // ── Mare email messages (dedup log for the cron) ──
 function hasSentMareMessageToday(parentId, dateStr) {
@@ -1271,11 +1339,19 @@ function getEmailOptInParents(frequency) {
 // 1-hour expiry, single use (used_at set the moment it's redeemed, and
 // getValidPasswordResetToken excludes anything already used or expired
 // so a captured/reused link can't work twice or after the window closes).
+// The expiry is computed by SQLite's own datetime('now', '+1 hour')
+// rather than a JS Date().toISOString() string — a JS ISO string
+// ('2026-08-22T10:00:00.000Z') sorts LEXICOGRAPHICALLY AFTER SQLite's
+// own datetime('now') format ('2026-08-22 10:00:00', space not 'T')
+// because 'T' (char code 84) is greater than ' ' (char code 32). That
+// mismatch meant expires_at > datetime('now') was true for EVERY row
+// regardless of actual time — tokens never actually expired via this
+// check, only via the separate single-use guard. Confirmed and fixed
+// by keeping both sides of every such comparison in SQLite's own format.
 function createPasswordResetToken(role, userId) {
   const token = crypto.randomBytes(32).toString('hex');
-  const expiresAt = new Date(Date.now() + 60 * 60 * 1000).toISOString();
-  run(`INSERT INTO password_reset_tokens (token, role, user_id, expires_at) VALUES (?,?,?,?)`,
-    [token, role, userId, expiresAt]);
+  run(`INSERT INTO password_reset_tokens (token, role, user_id, expires_at) VALUES (?,?,?, datetime('now', '+1 hour'))`,
+    [token, role, userId]);
   return token;
 }
 function getValidPasswordResetToken(token) {
@@ -1325,6 +1401,71 @@ function getAdminOverviewStats() {
   };
 }
 
+// ── Broadcasts (comms) ──
+function createBroadcast({ subject, bodyHtml, bodyText, audience, createdById, createdByRole }) {
+  const id = uuid();
+  run(`INSERT INTO broadcasts (id, subject, body_html, body_text, audience, created_by_id, created_by_role) VALUES (?,?,?,?,?,?,?)`,
+    [id, subject, bodyHtml, bodyText || null, audience || 'parents', createdById || null, createdByRole || null]);
+  return id;
+}
+function getBroadcast(id) {
+  return get(`SELECT * FROM broadcasts WHERE id = ?`, [id]);
+}
+function getAllBroadcasts() {
+  return all(`SELECT * FROM broadcasts ORDER BY created_at DESC`);
+}
+function updateBroadcastContent(id, { subject, bodyHtml, bodyText, audience }) {
+  run(`UPDATE broadcasts SET subject=?, body_html=?, body_text=?, audience=?, updated_at=datetime('now') WHERE id=? AND status='draft'`,
+    [subject, bodyHtml, bodyText || null, audience || 'parents', id]);
+}
+function scheduleBroadcast(id, scheduledFor) {
+  run(`UPDATE broadcasts SET status='scheduled', scheduled_for=?, updated_at=datetime('now') WHERE id=?`, [toSqliteDatetime(scheduledFor), id]);
+}
+function unscheduleBroadcast(id) {
+  run(`UPDATE broadcasts SET status='draft', scheduled_for=NULL, updated_at=datetime('now') WHERE id=?`, [id]);
+}
+function deleteBroadcast(id) {
+  run(`DELETE FROM broadcasts WHERE id = ? AND status IN ('draft','scheduled')`, [id]);
+}
+function getDueScheduledBroadcasts() {
+  return all(`SELECT * FROM broadcasts WHERE status='scheduled' AND scheduled_for <= datetime('now')`);
+}
+function markBroadcastSending(id) {
+  run(`UPDATE broadcasts SET status='sending', updated_at=datetime('now') WHERE id=?`, [id]);
+}
+function markBroadcastSent(id, { recipientCount, sentCount, failedCount }) {
+  run(`UPDATE broadcasts SET status='sent', sent_at=datetime('now'), recipient_count=?, sent_count=?, failed_count=?, updated_at=datetime('now') WHERE id=?`,
+    [recipientCount, sentCount, failedCount, id]);
+}
+function getBroadcastAudienceEmails(audience) {
+  const parents = (audience === 'parents' || audience === 'both')
+    ? all(`SELECT id, email, name FROM parents WHERE status != 'suspended'`) : [];
+  const teachers = (audience === 'teachers' || audience === 'both')
+    ? all(`SELECT id, email, name FROM teachers WHERE status != 'suspended'`) : [];
+  return [...parents, ...teachers];
+}
+
+// ── Offers (sales & marketing) ──
+function getAllOffers() {
+  return all(`SELECT * FROM offers ORDER BY created_at DESC`);
+}
+function getOfferByCode(code) {
+  return get(`SELECT * FROM offers WHERE code = ?`, [code.toUpperCase().trim()]);
+}
+function createOffer({ code, description, discountType, discountValue, expiresAt }) {
+  const id = uuid();
+  run(`INSERT INTO offers (id, code, description, discount_type, discount_value, expires_at) VALUES (?,?,?,?,?,?)`,
+    [id, code.toUpperCase().trim(), description || null, discountType === 'fixed' ? 'fixed' : 'percent', discountValue || 0, expiresAt || null]);
+  return id;
+}
+function updateOffer(id, { description, discountType, discountValue, active, expiresAt }) {
+  run(`UPDATE offers SET description=?, discount_type=?, discount_value=?, active=?, expires_at=? WHERE id=?`,
+    [description || null, discountType === 'fixed' ? 'fixed' : 'percent', discountValue || 0, active ? 1 : 0, expiresAt || null, id]);
+}
+function deleteOffer(id) {
+  run(`DELETE FROM offers WHERE id = ?`, [id]);
+}
+
 module.exports = {
   getDb, save, uuid, run, get, all,
   getParentByEmail, getParentById, createParent, setParentEmailPrefs, updateParentProfile,
@@ -1354,6 +1495,10 @@ module.exports = {
   getClubMareMembership, joinClubMareFree, upgradeClubMareToPaid, getClubMarePosts,
   getActiveProducts, getProduct, createOrder, setOrderStripeSession, markOrderPaid, addOrderItem,
   getReadingProgress, upsertReadingProgress,
-  getWhatsNew, createWhatsNew,
+  getWhatsNew, createWhatsNew, getAllWhatsNewAdmin, updateWhatsNew, deleteWhatsNew,
   hasSentMareMessageToday, logMareMessageSent, getEmailOptInParents,
+  createBroadcast, getBroadcast, getAllBroadcasts, updateBroadcastContent,
+  scheduleBroadcast, unscheduleBroadcast, deleteBroadcast, getDueScheduledBroadcasts,
+  markBroadcastSending, markBroadcastSent, getBroadcastAudienceEmails,
+  getAllOffers, getOfferByCode, createOffer, updateOffer, deleteOffer,
 };

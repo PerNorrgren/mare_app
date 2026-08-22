@@ -123,9 +123,20 @@ function sendPasswordResetEmail(to, name, resetUrl) {
   return sendEmail(to, 'Reset your Mare password', html, { kind: 'password_reset' });
 }
 
+// ── Broadcasts (admin-composed messages) ──
+// bodyHtml is the admin's own rich-editor output, used as-is (not run
+// through wrapHtml's own template) since the composer already produces
+// a complete, styled message — wrapping it again would double the
+// brand header. userId here is the recipient (parent/teacher id), for
+// correlating email_log rows back to a person if needed later.
+function sendBroadcastEmail(to, subject, bodyHtml, userId) {
+  return sendEmail(to, subject, bodyHtml, { kind: 'broadcast', userId });
+}
+
 module.exports = {
   sendEmail,
   sendWelcomeParentEmail,
   sendWelcomeTeacherEmail,
   sendPasswordResetEmail,
+  sendBroadcastEmail,
 };

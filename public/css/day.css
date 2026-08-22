@@ -470,6 +470,101 @@ body.day .lang-btn:not(.active):hover { background: rgba(22,48,92,0.06); }
 .status-badge.suspended { background: rgba(163,59,59,0.12); color: #A33B3B; }
 .btn-small { font-size: 0.78rem; padding: 5px 12px; }
 
+/* ── Card header with an action button on the right (Messages, What's
+   New, Offers cards) ── */
+.admin-card-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+.admin-card-header-row h2 { margin-bottom: 4px; }
+.admin-card-header-row .admin-card-sub { margin-bottom: 0; }
+
+/* ── Admin modals (compose forms) — distinct from the small, centered,
+   dark-theme .modal-card used elsewhere (account deletion confirm,
+   etc.) since these hold a full form and need real width. ── */
+.admin-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(11,23,18,0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  z-index: 20;
+  overflow-y: auto;
+}
+/* Same [hidden]-specificity tie as .auth-main/.mode-switch/.btn-primary/
+   .role-pill elsewhere in this app — display:flex here and the
+   browser's [hidden]{display:none} are both specificity (0,0,1,0).
+   Added proactively this time rather than discovered after shipping. */
+.admin-modal-backdrop[hidden] { display: none; }
+.admin-modal-card {
+  background: #FFFFFF;
+  border-radius: 16px;
+  padding: 24px clamp(20px, 4vw, 32px);
+  max-width: 420px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 40px rgba(22,48,92,0.18);
+}
+.admin-modal-card-wide { max-width: 640px; }
+.admin-modal-card h3 {
+  font-family: 'Fraunces', serif;
+  font-weight: 600;
+  font-size: 1.2rem;
+  color: var(--navy);
+  margin: 0 0 16px;
+}
+.admin-modal-btns { display: flex; gap: 10px; flex-wrap: wrap; justify-content: flex-end; margin-top: 18px; }
+
+/* ── Rich message editor (message-editor.js) ── */
+.me-ql-toolbar { border-radius: 10px 10px 0 0; overflow: hidden; }
+.me-ql-editor .ql-container { border-radius: 0 0 10px 10px; min-height: 180px; font-family: 'Quicksand', sans-serif; font-size: 0.95rem; }
+.me-ql-editor .ql-editor { min-height: 180px; }
+.me-fallback-textarea {
+  width: 100%;
+  font-family: 'Quicksand', sans-serif;
+  font-size: 0.95rem;
+  padding: 11px 14px;
+  border-radius: 10px;
+  border: 1.5px solid rgba(22,48,92,0.2);
+  background: var(--cloud);
+  color: var(--navy);
+  resize: vertical;
+}
+
+/* ── List items shared by Messages / What's New / Offers ── */
+.admin-list-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid rgba(22,48,92,0.10);
+  flex-wrap: wrap;
+}
+.admin-list-item:last-child { border-bottom: none; }
+.admin-list-item-main { flex: 1; min-width: 200px; }
+.admin-list-item-title { font-weight: 700; color: var(--navy); font-size: 0.95rem; }
+.admin-list-item-sub { font-size: 0.78rem; color: var(--navy-soft); margin-top: 2px; }
+.admin-list-item-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+
+/* Broadcast status badges — same shape as .status-badge (active/
+   suspended) but with more states, so this is its own small set rather
+   than overloading that one's two-color meaning. */
+.bc-status { display: inline-block; font-size: 0.72rem; font-weight: 700; padding: 2px 10px; border-radius: 999px; }
+.bc-status.draft { background: rgba(74,92,130,0.12); color: var(--navy-soft); }
+.bc-status.scheduled { background: rgba(234,192,102,0.22); color: var(--gold-soft); }
+.bc-status.sending { background: rgba(44,92,120,0.14); color: var(--moon); }
+.bc-status.sent { background: rgba(46,125,79,0.12); color: #2E7D4F; }
+.bc-status.failed { background: rgba(163,59,59,0.12); color: #A33B3B; }
+
+.admin-card-header-row .btn-primary { flex-shrink: 0; }
+
 .admin-form-row { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
 .admin-form-row .field { flex: 1; min-width: 160px; margin-bottom: 0; }
 .admin-form-row select {

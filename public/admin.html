@@ -9,6 +9,8 @@
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/css/style.css">
 <link rel="stylesheet" href="/css/day.css">
+<link href="https://cdnjs.cloudflare.com/ajax/libs/quill/1.3.7/quill.snow.min.css" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/quill/1.3.7/quill.min.js"></script>
 </head>
 <body class="day auth-atmosphere" id="page-body">
 
@@ -75,7 +77,8 @@
       <button type="button" class="admin-tab active" data-tab="overview" data-i18n="adminTabOverview">Overview</button>
       <button type="button" class="admin-tab" data-tab="resources" data-i18n="adminTabResources">Teacher Resources</button>
       <button type="button" class="admin-tab" data-tab="pages" data-i18n="adminTabPages">Pages</button>
-      <button type="button" class="admin-tab" data-tab="marketing" data-i18n="adminTabMarketing">Marketing</button>
+      <button type="button" class="admin-tab" data-tab="messaging" data-i18n="adminTabMessaging">Messaging</button>
+      <button type="button" class="admin-tab" data-tab="marketing" data-i18n="adminTabMarketing">Sales &amp; Marketing</button>
       <button type="button" class="admin-tab" data-tab="directory" data-i18n="adminTabDirectory">Parents &amp; Teachers</button>
       <button type="button" class="admin-tab admin-only-tab" data-tab="staff" hidden data-i18n="adminTabStaff">Staff Accounts</button>
     </div>
@@ -189,8 +192,155 @@
       </div>
     </div>
 
+    <!-- Messaging (comms) -->
+    <div class="admin-panel" id="panel-messaging">
+      <div class="admin-card">
+        <div class="admin-card-header-row">
+          <div>
+            <h2 data-i18n="adminMessagingTitle">Messages</h2>
+            <p class="admin-card-sub" data-i18n="adminMessagingDesc">Compose a message to parents, teachers, or both. Save as a draft, send a test to yourself, schedule for later, or send now.</p>
+          </div>
+          <button type="button" class="btn-primary" id="new-broadcast-btn" data-i18n="adminNewMessage">+ New message</button>
+        </div>
+        <div id="broadcasts-list"><p class="admin-empty-note" data-i18n="adminLoading">Loading…</p></div>
+      </div>
+
+      <div class="admin-card">
+        <div class="admin-card-header-row">
+          <div>
+            <h2 data-i18n="adminWhatsNewTitle">What's New</h2>
+            <p class="admin-card-sub" data-i18n="adminWhatsNewDesc">Short update items shown to parents and/or teachers inside the app.</p>
+          </div>
+          <button type="button" class="btn-primary" id="new-whats-new-btn" data-i18n="adminNewWhatsNew">+ New item</button>
+        </div>
+        <div id="whats-new-list"><p class="admin-empty-note" data-i18n="adminLoading">Loading…</p></div>
+      </div>
+    </div>
+
+    <!-- Broadcast compose modal -->
+    <div class="admin-modal-backdrop" id="broadcast-modal" hidden>
+      <div class="admin-modal-card admin-modal-card-wide">
+        <h3 id="broadcast-modal-title" data-i18n="adminComposeMessage">Compose message</h3>
+        <div class="field">
+          <label for="bc-subject" data-i18n="adminFieldSubject">Subject</label>
+          <input type="text" id="bc-subject" required>
+        </div>
+        <div class="field">
+          <label for="bc-audience" data-i18n="adminFieldAudience">Send to</label>
+          <select id="bc-audience">
+            <option value="parents" data-i18n="audienceParents">Parents</option>
+            <option value="teachers" data-i18n="audienceTeachers">Teachers</option>
+            <option value="both" data-i18n="audienceBoth">Both</option>
+          </select>
+        </div>
+        <div class="field">
+          <label data-i18n="adminFieldMessage">Message</label>
+          <div id="bc-editor-mount"></div>
+        </div>
+        <p class="form-error" id="broadcast-error" hidden></p>
+        <p class="form-success" id="broadcast-success" hidden></p>
+        <div class="admin-modal-btns">
+          <button type="button" class="btn-ghost" id="bc-close-btn" data-i18n="adminClose">Close</button>
+          <button type="button" class="btn-ghost" id="bc-test-btn" data-i18n="adminSendTest">Send test to me</button>
+          <button type="button" class="btn-ghost" id="bc-save-btn" data-i18n="adminSaveDraft">Save draft</button>
+          <button type="button" class="btn-ghost" id="bc-schedule-btn" data-i18n="adminSchedule">Schedule…</button>
+          <button type="button" class="btn-primary" id="bc-send-btn" data-i18n="adminSendNow">Send now</button>
+        </div>
+        <div class="field" id="bc-schedule-field" hidden>
+          <label for="bc-schedule-time" data-i18n="adminScheduleFor">Send at</label>
+          <input type="datetime-local" id="bc-schedule-time">
+          <button type="button" class="btn-primary btn-small" id="bc-schedule-confirm-btn" data-i18n="adminConfirmSchedule">Confirm schedule</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- What's New compose modal -->
+    <div class="admin-modal-backdrop" id="whats-new-modal" hidden>
+      <div class="admin-modal-card">
+        <h3 id="whats-new-modal-title" data-i18n="adminNewWhatsNew">New item</h3>
+        <div class="field">
+          <label for="wn-title" data-i18n="adminFieldTitle">Title</label>
+          <input type="text" id="wn-title" required>
+        </div>
+        <div class="field">
+          <label for="wn-audience" data-i18n="adminFieldAudience">Audience</label>
+          <select id="wn-audience">
+            <option value="both" data-i18n="audienceBoth">Both</option>
+            <option value="parents" data-i18n="audienceParents">Parents</option>
+            <option value="teachers" data-i18n="audienceTeachers">Teachers</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="wn-body" data-i18n="adminFieldDescriptionOptional">Body (optional)</label>
+          <textarea id="wn-body" rows="3"></textarea>
+        </div>
+        <label class="mkt-platform-check"><input type="checkbox" id="wn-active" checked> <span data-i18n="adminActive">Active</span></label>
+        <p class="form-error" id="whats-new-error" hidden></p>
+        <div class="admin-modal-btns">
+          <button type="button" class="btn-ghost" id="wn-close-btn" data-i18n="adminClose">Close</button>
+          <button type="button" class="btn-primary" id="wn-save-btn" data-i18n="adminSaveItem">Save</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Offer compose modal -->
+    <div class="admin-modal-backdrop" id="offer-modal" hidden>
+      <div class="admin-modal-card">
+        <h3 id="offer-modal-title" data-i18n="adminNewOffer">New offer</h3>
+        <div class="field">
+          <label for="of-code" data-i18n="adminFieldOfferCode">Code</label>
+          <input type="text" id="of-code" placeholder="SUMMER20" style="text-transform:uppercase">
+        </div>
+        <div class="field">
+          <label for="of-description" data-i18n="adminFieldDescriptionOptional">Description (optional)</label>
+          <input type="text" id="of-description">
+        </div>
+        <div class="admin-form-row">
+          <div class="field">
+            <label for="of-type" data-i18n="adminFieldOfferType">Discount type</label>
+            <select id="of-type">
+              <option value="percent" data-i18n="offerTypePercent">Percent off</option>
+              <option value="fixed" data-i18n="offerTypeFixed">Fixed amount off (pence)</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="of-value" data-i18n="adminFieldOfferValue">Value</label>
+            <input type="number" id="of-value" min="0">
+          </div>
+        </div>
+        <div class="field">
+          <label for="of-expires" data-i18n="adminFieldExpiresOptional">Expires (optional)</label>
+          <input type="date" id="of-expires">
+        </div>
+        <label class="mkt-platform-check"><input type="checkbox" id="of-active" checked> <span data-i18n="adminActive">Active</span></label>
+        <p class="form-error" id="offer-error" hidden></p>
+        <div class="admin-modal-btns">
+          <button type="button" class="btn-ghost" id="of-close-btn" data-i18n="adminClose">Close</button>
+          <button type="button" class="btn-primary" id="of-save-btn" data-i18n="adminSaveItem">Save</button>
+        </div>
+      </div>
+    </div>
+
     <!-- Marketing -->
     <div class="admin-panel" id="panel-marketing">
+      <div class="admin-card">
+        <h2 data-i18n="adminOverviewStatsTitle">At a glance</h2>
+        <div class="stat-grid" id="marketing-stat-grid">
+          <p class="admin-empty-note" data-i18n="adminLoading">Loading…</p>
+        </div>
+      </div>
+
+      <div class="admin-card">
+        <div class="admin-card-header-row">
+          <div>
+            <h2 data-i18n="adminOffersTitle">Offers</h2>
+            <p class="admin-card-sub" data-i18n="adminOffersDesc">Discount codes, ready for whenever the merchandise storefront applies them at checkout.</p>
+          </div>
+          <button type="button" class="btn-primary" id="new-offer-btn" data-i18n="adminNewOffer">+ New offer</button>
+        </div>
+        <div id="offers-list"><p class="admin-empty-note" data-i18n="adminLoading">Loading…</p></div>
+      </div>
+
       <div class="admin-card">
         <h2 data-i18n="adminSocialLinksTitle">Social links</h2>
         <p class="admin-card-sub" data-i18n="adminSocialLinksDesc">Mare's own accounts — shown in the site footer.</p>
@@ -216,7 +366,7 @@
           </div>
           <div class="field">
             <label for="sl-url" data-i18n="adminFieldUrl">URL or path</label>
-            <input type="url" id="sl-url" placeholder="https://\u2026" required>
+            <input type="url" id="sl-url" placeholder="https://…" required>
           </div>
           <p class="form-error" id="social-link-error" hidden></p>
           <button type="submit" class="btn-primary" id="social-link-submit-btn" data-i18n="adminAddSocialLink">Add link</button>
@@ -232,7 +382,7 @@
         <p class="admin-card-sub" data-i18n="adminMarketingGenDesc">Paste a What's New item, a resource description, or any short piece of copy \u2014 get platform-ready posts to copy and post by hand. Nothing is posted automatically.</p>
         <div class="field">
           <label for="mkt-source" data-i18n="adminMarketingSource">Source content</label>
-          <textarea id="mkt-source" rows="4" placeholder="Paste source content here\u2026"></textarea>
+          <textarea id="mkt-source" rows="4" placeholder="Paste source content here…"></textarea>
         </div>
         <div class="admin-form-row">
           <label class="mkt-platform-check"><input type="checkbox" class="mkt-platform" value="facebook" checked> Facebook</label>
@@ -310,6 +460,7 @@
 
 <script src="/js/i18n.js"></script>
 <script src="/js/bg-slideshow.js"></script>
+<script src="/js/message-editor.js"></script>
 <script src="/js/admin.js"></script>
 <script>window.MareBgSlideshow.init('bg-slideshow', ['/images/mare-front-cover.jpg', '/images/mare-back-cover.jpg']);</script>
 </body>

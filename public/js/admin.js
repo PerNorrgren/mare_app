@@ -133,12 +133,19 @@
     document.querySelectorAll('.admin-only-tab').forEach(el => { el.hidden = !isAdmin; });
 
     setupTabs();
+    setupBroadcastModal();
+    setupWhatsNewModal();
+    setupOfferModal();
     loadOverview();
     loadResources();
     loadPages();
     loadDirectory();
     loadSocialLinks();
     loadMarketingHistory();
+    loadBroadcasts();
+    loadWhatsNew();
+    loadOffers();
+    loadMarketingStats();
     if (isAdmin) loadStaff();
   }
 
@@ -687,6 +694,358 @@
       container.appendChild(table);
     } catch {
       container.innerHTML = `<p class="admin-empty-note">${escapeHtml(t('adminCouldNotLoadStaff'))}</p>`;
+    }
+  }
+
+  // ── Messaging: broadcasts ──
+  let bcEditor = null; // current MessageEditor instance, mounted per compose-modal open
+  let bcEditingId = null; // id of the broadcast being edited, or null for a fresh compose
+
+  function fmtDate(str) {
+    if (!str) return '—';
+    return str.replace('T', ' ').slice(0, 16);
+  }
+
+  async function loadBroadcasts() {
+    const container = document.getElementById('broadcasts-list');
+    try {
+      const data = await api('/api/admin/broadcasts');
+      const rows = data.broadcasts || [];
+      if (!rows.length) {
+        container.innerHTML = `<p class="admin-empty-note">${escapeHtml(t('adminNoneYet'))}</p>`;
+        return;
+      }
+      container.innerHTML = rows.map(b => `
+        <div class="admin-list-item">
+          <div class="admin-list-item-main">
+            <div class="admin-list-item-title">${escapeHtml(b.subject)}</div>
+            <div class="admin-list-item-sub">
+              <span class="bc-status ${b.status}">${escapeHtml(t('bcStatus_' + b.status))}</span>
+              &nbsp;·&nbsp; ${escapeHtml(t('audience' + capitalize(b.audience)))}
+              ${b.status === 'scheduled' ? ` · ${escapeHtml(t('adminScheduledFor', { time: fmtDate(b.scheduled_for) }))}` : ''}
+              ${b.status === 'sent' ? ` · ${escapeHtml(t('adminSentCount', { sent: b.sent_count, total: b.recipient_count }))}` : ''}
+            </div>
+          </div>
+          <div class="admin-list-item-actions">
+            ${b.status === 'draft' || b.status === 'scheduled' ? `<button type="button" class="btn-ghost btn-small" data-edit="${b.id}">${escapeHtml(t('adminEdit'))}</button>` : ''}
+            ${b.status === 'draft' || b.status === 'scheduled' ? `<button type="button" class="btn-ghost btn-small" data-delete="${b.id}">${escapeHtml(t('adminDelete'))}</button>` : ''}
+          </div>
+        </div>
+      `).join('');
+      container.querySelectorAll('[data-edit]').forEach(btn => {
+        btn.addEventListener('click', () => openBroadcastModal(btn.getAttribute('data-edit')));
+      });
+      container.querySelectorAll('[data-delete]').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          if (!window.confirm(t('adminDeleteConfirm'))) return;
+          await api(`/api/admin/broadcasts/${btn.getAttribute('data-delete')}`, { method: 'DELETE' });
+          loadBroadcasts();
+        });
+      });
+    } catch {
+      container.innerHTML = `<p class="admin-empty-note">${escapeHtml(t('adminCouldNotLoadMessages'))}</p>`;
+    }
+  }
+
+  function capitalize(s) { return s ? s.charAt(0).toUpperCase() + s.slice(1) : s; }
+
+  async function openBroadcastModal(id) {
+    bcEditingId = id || null;
+    document.getElementById('broadcast-error').hidden = true;
+    document.getElementById('broadcast-success').hidden = true;
+    document.getElementById('bc-schedule-field').hidden = true;
+    document.getElementById('broadcast-modal-title').textContent = t(id ? 'adminEditMessage' : 'adminComposeMessage');
+
+    let subject = '', audience = 'parents', bodyHtml = '';
+    if (id) {
+      try {
+        const data = await api(`/api/admin/broadcasts/${id}`);
+        subject = data.broadcast.subject;
+        audience = data.broadcast.audience;
+        bodyHtml = data.broadcast.body_html;
+      } catch {
+        showModalError('broadcast-error', t('errorGeneric'));
+        return;
+      }
+    }
+    document.getElementById('bc-subject').value = subject;
+    document.getElementById('bc-audience').value = audience;
+
+    if (bcEditor) bcEditor.destroy();
+    bcEditor = window.MessageEditor.mountRichEditor('bc-editor-mount', bodyHtml, { placeholder: t('adminMessagePlaceholder') });
+
+    document.getElementById('broadcast-modal').hidden = false;
+  }
+
+  function showModalError(id, message) {
+    const el = document.getElementById(id);
+    el.textContent = message;
+    el.hidden = false;
+  }
+
+  async function saveBroadcast(sendAfter) {
+    const subject = document.getElementById('bc-subject').value.trim();
+    const audience = document.getElementById('bc-audience').value;
+    const bodyHtml = bcEditor ? bcEditor.getHtml() : '';
+    const bodyText = bcEditor ? bcEditor.getText() : '';
+    if (!subject || !bodyText.trim()) {
+      showModalError('broadcast-error', t('errorMissingFields'));
+      return null;
+    }
+    document.getElementById('broadcast-error').hidden = true;
+    try {
+      if (bcEditingId) {
+        await api(`/api/admin/broadcasts/${bcEditingId}`, { method: 'PATCH', body: JSON.stringify({ subject, bodyHtml, bodyText, audience }) });
+        return bcEditingId;
+      }
+      const res = await api('/api/admin/broadcasts', { method: 'POST', body: JSON.stringify({ subject, bodyHtml, bodyText, audience }) });
+      bcEditingId = res.id;
+      return res.id;
+    } catch {
+      showModalError('broadcast-error', t('errorGeneric'));
+      return null;
+    }
+  }
+
+  function setupBroadcastModal() {
+    document.getElementById('new-broadcast-btn').addEventListener('click', () => openBroadcastModal(null));
+    document.getElementById('bc-close-btn').addEventListener('click', () => {
+      document.getElementById('broadcast-modal').hidden = true;
+      if (bcEditor) { bcEditor.destroy(); bcEditor = null; }
+      loadBroadcasts();
+    });
+    document.getElementById('bc-save-btn').addEventListener('click', async () => {
+      const id = await saveBroadcast();
+      if (id) {
+        document.getElementById('broadcast-success').textContent = t('adminDraftSaved');
+        document.getElementById('broadcast-success').hidden = false;
+        loadBroadcasts();
+      }
+    });
+    document.getElementById('bc-test-btn').addEventListener('click', async () => {
+      const id = await saveBroadcast();
+      if (!id) return;
+      const btn = document.getElementById('bc-test-btn');
+      btn.disabled = true;
+      try {
+        await api(`/api/admin/broadcasts/${id}/send-test`, { method: 'POST' });
+        document.getElementById('broadcast-success').textContent = t('adminTestSent');
+        document.getElementById('broadcast-success').hidden = false;
+      } catch {
+        showModalError('broadcast-error', t('adminTestSendFailed'));
+      } finally {
+        btn.disabled = false;
+      }
+    });
+    document.getElementById('bc-schedule-btn').addEventListener('click', () => {
+      document.getElementById('bc-schedule-field').hidden = false;
+    });
+    document.getElementById('bc-schedule-confirm-btn').addEventListener('click', async () => {
+      const id = await saveBroadcast();
+      if (!id) return;
+      const scheduledFor = document.getElementById('bc-schedule-time').value;
+      if (!scheduledFor) return;
+      try {
+        await api(`/api/admin/broadcasts/${id}/schedule`, { method: 'POST', body: JSON.stringify({ scheduledFor }) });
+        document.getElementById('broadcast-modal').hidden = true;
+        if (bcEditor) { bcEditor.destroy(); bcEditor = null; }
+        loadBroadcasts();
+      } catch {
+        showModalError('broadcast-error', t('errorGeneric'));
+      }
+    });
+    document.getElementById('bc-send-btn').addEventListener('click', async () => {
+      if (!window.confirm(t('adminSendNowConfirm'))) return;
+      const id = await saveBroadcast();
+      if (!id) return;
+      try {
+        await api(`/api/admin/broadcasts/${id}/send`, { method: 'POST' });
+        document.getElementById('broadcast-modal').hidden = true;
+        if (bcEditor) { bcEditor.destroy(); bcEditor = null; }
+        loadBroadcasts();
+      } catch {
+        showModalError('broadcast-error', t('errorGeneric'));
+      }
+    });
+  }
+
+  // ── Messaging: What's New ──
+  let wnEditingId = null;
+
+  async function loadWhatsNew() {
+    const container = document.getElementById('whats-new-list');
+    try {
+      const data = await api('/api/admin/whats-new-items');
+      const rows = data.items || [];
+      if (!rows.length) {
+        container.innerHTML = `<p class="admin-empty-note">${escapeHtml(t('adminNoneYet'))}</p>`;
+        return;
+      }
+      container.innerHTML = rows.map(item => `
+        <div class="admin-list-item">
+          <div class="admin-list-item-main">
+            <div class="admin-list-item-title">${escapeHtml(item.title)}</div>
+            <div class="admin-list-item-sub">
+              <span class="status-badge ${item.active ? 'active' : 'suspended'}">${escapeHtml(t(item.active ? 'adminActive' : 'adminInactive'))}</span>
+              &nbsp;·&nbsp; ${escapeHtml(t('audience' + capitalize(item.audience)))}
+            </div>
+          </div>
+          <div class="admin-list-item-actions">
+            <button type="button" class="btn-ghost btn-small" data-edit-wn="${item.id}">${escapeHtml(t('adminEdit'))}</button>
+            <button type="button" class="btn-ghost btn-small" data-delete-wn="${item.id}">${escapeHtml(t('adminDelete'))}</button>
+          </div>
+        </div>
+      `).join('');
+      container.querySelectorAll('[data-edit-wn]').forEach(btn => {
+        btn.addEventListener('click', () => openWhatsNewModal(btn.getAttribute('data-edit-wn'), rows.find(r => r.id === btn.getAttribute('data-edit-wn'))));
+      });
+      container.querySelectorAll('[data-delete-wn]').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          if (!window.confirm(t('adminDeleteConfirm'))) return;
+          await api(`/api/admin/whats-new-items/${btn.getAttribute('data-delete-wn')}`, { method: 'DELETE' });
+          loadWhatsNew();
+        });
+      });
+    } catch {
+      container.innerHTML = `<p class="admin-empty-note">${escapeHtml(t('adminCouldNotLoadWhatsNew'))}</p>`;
+    }
+  }
+
+  function openWhatsNewModal(id, item) {
+    wnEditingId = id || null;
+    document.getElementById('whats-new-error').hidden = true;
+    document.getElementById('whats-new-modal-title').textContent = t(id ? 'adminEditWhatsNew' : 'adminNewWhatsNew');
+    document.getElementById('wn-title').value = item ? item.title : '';
+    document.getElementById('wn-audience').value = item ? item.audience : 'both';
+    document.getElementById('wn-body').value = item ? (item.body || '') : '';
+    document.getElementById('wn-active').checked = item ? !!item.active : true;
+    document.getElementById('whats-new-modal').hidden = false;
+  }
+
+  function setupWhatsNewModal() {
+    document.getElementById('new-whats-new-btn').addEventListener('click', () => openWhatsNewModal(null, null));
+    document.getElementById('wn-close-btn').addEventListener('click', () => { document.getElementById('whats-new-modal').hidden = true; });
+    document.getElementById('wn-save-btn').addEventListener('click', async () => {
+      const title = document.getElementById('wn-title').value.trim();
+      const audience = document.getElementById('wn-audience').value;
+      const body = document.getElementById('wn-body').value.trim();
+      const active = document.getElementById('wn-active').checked;
+      if (!title) { showModalError('whats-new-error', t('errorMissingFields')); return; }
+      try {
+        if (wnEditingId) {
+          await api(`/api/admin/whats-new-items/${wnEditingId}`, { method: 'PATCH', body: JSON.stringify({ audience, title, body, active }) });
+        } else {
+          await api('/api/admin/whats-new', { method: 'POST', body: JSON.stringify({ audience, title, body }) });
+        }
+        document.getElementById('whats-new-modal').hidden = true;
+        loadWhatsNew();
+      } catch {
+        showModalError('whats-new-error', t('errorGeneric'));
+      }
+    });
+  }
+
+  // ── Sales & Marketing: offers ──
+  let ofEditingId = null;
+
+  async function loadOffers() {
+    const container = document.getElementById('offers-list');
+    try {
+      const data = await api('/api/admin/offers-catalog');
+      const rows = data.offers || [];
+      if (!rows.length) {
+        container.innerHTML = `<p class="admin-empty-note">${escapeHtml(t('adminNoneYet'))}</p>`;
+        return;
+      }
+      container.innerHTML = rows.map(o => `
+        <div class="admin-list-item">
+          <div class="admin-list-item-main">
+            <div class="admin-list-item-title">${escapeHtml(o.code)}</div>
+            <div class="admin-list-item-sub">
+              <span class="status-badge ${o.active ? 'active' : 'suspended'}">${escapeHtml(t(o.active ? 'adminActive' : 'adminInactive'))}</span>
+              &nbsp;·&nbsp; ${o.discount_type === 'percent' ? `${o.discount_value}%` : `${(o.discount_value / 100).toFixed(2)}`} ${escapeHtml(t('adminOfferOff'))}
+              ${o.expires_at ? ` · ${escapeHtml(t('adminExpires', { date: o.expires_at }))}` : ''}
+            </div>
+          </div>
+          <div class="admin-list-item-actions">
+            <button type="button" class="btn-ghost btn-small" data-edit-of="${o.id}">${escapeHtml(t('adminEdit'))}</button>
+            <button type="button" class="btn-ghost btn-small" data-delete-of="${o.id}">${escapeHtml(t('adminDelete'))}</button>
+          </div>
+        </div>
+      `).join('');
+      container.querySelectorAll('[data-edit-of]').forEach(btn => {
+        btn.addEventListener('click', () => openOfferModal(btn.getAttribute('data-edit-of'), rows.find(r => r.id === btn.getAttribute('data-edit-of'))));
+      });
+      container.querySelectorAll('[data-delete-of]').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          if (!window.confirm(t('adminDeleteConfirm'))) return;
+          await api(`/api/admin/offers-catalog/${btn.getAttribute('data-delete-of')}`, { method: 'DELETE' });
+          loadOffers();
+        });
+      });
+    } catch {
+      container.innerHTML = `<p class="admin-empty-note">${escapeHtml(t('adminCouldNotLoadOffers'))}</p>`;
+    }
+  }
+
+  function openOfferModal(id, offer) {
+    ofEditingId = id || null;
+    document.getElementById('offer-error').hidden = true;
+    document.getElementById('offer-modal-title').textContent = t(id ? 'adminEditOffer' : 'adminNewOffer');
+    document.getElementById('of-code').value = offer ? offer.code : '';
+    document.getElementById('of-code').disabled = !!id; // code is immutable once created — it's the lookup key
+    document.getElementById('of-description').value = offer ? (offer.description || '') : '';
+    document.getElementById('of-type').value = offer ? offer.discount_type : 'percent';
+    document.getElementById('of-value').value = offer ? offer.discount_value : '';
+    document.getElementById('of-expires').value = offer && offer.expires_at ? offer.expires_at.slice(0, 10) : '';
+    document.getElementById('of-active').checked = offer ? !!offer.active : true;
+    document.getElementById('offer-modal').hidden = false;
+  }
+
+  function setupOfferModal() {
+    document.getElementById('new-offer-btn').addEventListener('click', () => openOfferModal(null, null));
+    document.getElementById('of-close-btn').addEventListener('click', () => { document.getElementById('offer-modal').hidden = true; });
+    document.getElementById('of-save-btn').addEventListener('click', async () => {
+      const code = document.getElementById('of-code').value.trim();
+      const description = document.getElementById('of-description').value.trim();
+      const discountType = document.getElementById('of-type').value;
+      const discountValue = parseInt(document.getElementById('of-value').value, 10) || 0;
+      const expiresAt = document.getElementById('of-expires').value || null;
+      const active = document.getElementById('of-active').checked;
+      if (!code || !discountValue) { showModalError('offer-error', t('errorMissingFields')); return; }
+      try {
+        if (ofEditingId) {
+          await api(`/api/admin/offers-catalog/${ofEditingId}`, { method: 'PATCH', body: JSON.stringify({ description, discountType, discountValue, active, expiresAt }) });
+        } else {
+          await api('/api/admin/offers-catalog', { method: 'POST', body: JSON.stringify({ code, description, discountType, discountValue, expiresAt }) });
+        }
+        document.getElementById('offer-modal').hidden = true;
+        loadOffers();
+      } catch (err) {
+        showModalError('offer-error', err.message === 'Code already exists' ? t('adminOfferCodeTaken') : t('errorGeneric'));
+      }
+    });
+  }
+
+  // ── Sales & Marketing: stats ──
+  async function loadMarketingStats() {
+    const grid = document.getElementById('marketing-stat-grid');
+    try {
+      const stats = await api('/api/admin/report/overview');
+      const items = [
+        { label: t('adminStatParents'), value: stats.parents },
+        { label: t('adminStatClubMembers'), value: stats.clubMembers, sub: t('adminStatOfParents', { count: stats.parents }) },
+        { label: t('adminStatOrders'), value: stats.ordersPaid, sub: t('adminStatOrdersTotal', { count: stats.ordersTotal }) },
+      ];
+      grid.innerHTML = items.map(item => `
+        <div class="stat-item">
+          <div class="stat-value">${escapeHtml(String(item.value))}</div>
+          <div class="stat-label">${escapeHtml(item.label)}</div>
+          ${item.sub ? `<div class="stat-sub">${escapeHtml(item.sub)}</div>` : ''}
+        </div>
+      `).join('');
+    } catch {
+      grid.innerHTML = `<p class="admin-empty-note">${escapeHtml(t('adminCouldNotLoadStats'))}</p>`;
     }
   }
 
