@@ -167,6 +167,12 @@ body.day .lang-btn:not(.active):hover { background: rgba(22,48,92,0.06); }
   padding: 4px;
   margin: 0 auto;
 }
+/* Same [hidden]-specificity tie as .auth-main (see that rule's comment
+   above): display:flex here and the browser's [hidden]{display:none}
+   are both specificity (0,0,1,0), so without this, hiding this element
+   via JS (first done by the new forgot-password toggle) silently fails
+   — the switch would stay visibly on screen. */
+.role-switch[hidden], .mode-switch[hidden] { display: none; }
 .role-switch { max-width: 280px; margin-bottom: 4px; }
 .mode-switch { max-width: 260px; margin-bottom: 22px; }
 .role-btn, .mode-btn {
@@ -219,6 +225,19 @@ body.day .lang-btn:not(.active):hover { background: rgba(22,48,92,0.06); }
   font-weight: 600;
   margin: 0 0 16px;
 }
+.form-success {
+  color: #2E7D4F;
+  background: rgba(46,125,79,0.08);
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin: 0 0 16px;
+}
+
+.auth-links { text-align: center; font-size: 0.85rem; margin: 14px 0 0; }
+.auth-links a { color: var(--navy-soft); text-decoration: underline; }
+.auth-atmosphere .auth-links a { color: rgba(243,236,217,0.75); }
 
 .btn-full { width: 100%; text-align: center; margin-top: 4px; }
 
@@ -411,7 +430,45 @@ body.day .lang-btn:not(.active):hover { background: rgba(22,48,92,0.06); }
   color: var(--moon);
   text-transform: capitalize;
 }
+/* Same [hidden]-specificity tie as .auth-main/.mode-switch/.btn-primary.
+   #who-pill starts hidden directly in the HTML (admin.html) and is only
+   revealed by JS after a successful login — without this, it would show
+   as an empty pill from the very first paint, before anyone's signed in. */
+.role-pill[hidden] { display: none; }
 .role-pill.admin { background: rgba(234,192,102,0.22); color: var(--gold-soft); }
+
+/* ── Overview stats grid ── */
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 14px;
+}
+.stat-item {
+  background: var(--cloud);
+  border-radius: 12px;
+  padding: 14px 16px;
+}
+.stat-value {
+  font-family: 'Fraunces', serif;
+  font-weight: 600;
+  font-size: 1.6rem;
+  color: var(--navy);
+  line-height: 1.1;
+}
+.stat-label { font-size: 0.78rem; color: var(--navy-soft); margin-top: 2px; }
+.stat-sub { font-size: 0.72rem; color: var(--navy-soft); opacity: 0.75; margin-top: 2px; }
+
+/* ── Account status badges (Directory: suspend/reactivate) ── */
+.status-badge {
+  display: inline-block;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 2px 10px;
+  border-radius: 999px;
+}
+.status-badge.active { background: rgba(46,125,79,0.12); color: #2E7D4F; }
+.status-badge.suspended { background: rgba(163,59,59,0.12); color: #A33B3B; }
+.btn-small { font-size: 0.78rem; padding: 5px 12px; }
 
 .admin-form-row { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
 .admin-form-row .field { flex: 1; min-width: 160px; margin-bottom: 0; }

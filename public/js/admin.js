@@ -50,6 +50,45 @@
     'Missing fields': 'errorMissingFields',
   };
 
+  // ── Forgot password ──
+  function setupForgotPassword() {
+    document.getElementById('forgot-link').addEventListener('click', (e) => {
+      e.preventDefault();
+      document.getElementById('admin-login-form').hidden = true;
+      document.getElementById('admin-forgot-wrap').hidden = true;
+      document.getElementById('forgot-form').hidden = false;
+      document.getElementById('forgot-success').hidden = true;
+    });
+    document.getElementById('back-to-login-link').addEventListener('click', (e) => {
+      e.preventDefault();
+      document.getElementById('forgot-form').hidden = true;
+      document.getElementById('admin-login-form').hidden = false;
+      document.getElementById('admin-forgot-wrap').hidden = false;
+    });
+    document.getElementById('forgot-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      document.getElementById('forgot-error').hidden = true;
+      const email = document.getElementById('fp-email').value.trim();
+      const btn = document.getElementById('forgot-submit-btn');
+      btn.disabled = true;
+      try {
+        await fetch('/api/auth/forgot-password', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, role: 'admin' }),
+        });
+        document.getElementById('forgot-success').hidden = false;
+        document.getElementById('forgot-form').querySelector('.field').hidden = true;
+        btn.hidden = true;
+      } catch {
+        document.getElementById('forgot-error').textContent = t('errorGeneric');
+        document.getElementById('forgot-error').hidden = false;
+      } finally {
+        btn.disabled = false;
+      }
+    });
+  }
+
   function setupLoginForm() {
     document.getElementById('admin-login-form').addEventListener('submit', async (e) => {
       e.preventDefault();
@@ -125,6 +164,32 @@
     }
     if (currentUser && currentUser.role === 'admin') {
       document.getElementById('products-note-card').hidden = false;
+    }
+    await loadStatsGrid();
+  }
+
+  async function loadStatsGrid() {
+    const grid = document.getElementById('stat-grid');
+    try {
+      const stats = await api('/api/admin/report/overview');
+      const items = [
+        { label: t('adminStatParents'), value: stats.parents, sub: stats.suspendedParents ? t('adminStatSuspended', { count: stats.suspendedParents }) : null },
+        { label: t('adminStatChildren'), value: stats.children },
+        { label: t('adminStatTeachers'), value: stats.teachers, sub: stats.suspendedTeachers ? t('adminStatSuspended', { count: stats.suspendedTeachers }) : null },
+        { label: t('adminStatTalkSessions7d'), value: stats.talkSessions7d, sub: t('adminStatTalkSessionsTotal', { count: stats.talkSessionsTotal }) },
+        { label: t('adminStatOrders'), value: stats.ordersPaid, sub: t('adminStatOrdersTotal', { count: stats.ordersTotal }) },
+        { label: t('adminStatClubMembers'), value: stats.clubMembers },
+        { label: t('adminStatEmailSent'), value: stats.email.sent, sub: stats.email.failed ? t('adminStatEmailFailed', { count: stats.email.failed }) : null },
+      ];
+      grid.innerHTML = items.map(item => `
+        <div class="stat-item">
+          <div class="stat-value">${escapeHtml(String(item.value))}</div>
+          <div class="stat-label">${escapeHtml(item.label)}</div>
+          ${item.sub ? `<div class="stat-sub">${escapeHtml(item.sub)}</div>` : ''}
+        </div>
+      `).join('');
+    } catch {
+      grid.innerHTML = `<p class="admin-empty-note">${escapeHtml(t('adminCouldNotLoadStats'))}</p>`;
     }
   }
 
@@ -515,19 +580,20 @@
   async function loadDirectory() {
     try {
       const data = await api('/api/admin/parents');
-      renderDirectoryTable('parents-table', data.parents || [], ['name', 'email', 'preferred_locale', 'created_at']);
+      renderAccountsTable('parents-table', data.parents || [], ['name', 'email', 'preferred_locale', 'created_at'], 'parents');
     } catch {
       document.getElementById('parents-table').innerHTML = `<p class="admin-empty-note">${escapeHtml(t('adminCouldNotLoadParents'))}</p>`;
     }
     try {
       const data = await api('/api/admin/teachers');
-      renderDirectoryTable('teachers-table', data.teachers || [], ['name', 'email', 'school', 'preferred_locale', 'created_at']);
+      renderAccountsTable('teachers-table', data.teachers || [], ['name', 'email', 'school', 'preferred_locale', 'created_at'], 'teachers');
     } catch {
       document.getElementById('teachers-table').innerHTML = `<p class="admin-empty-note">${escapeHtml(t('adminCouldNotLoadTeachers'))}</p>`;
     }
   }
 
-  function renderDirectoryTable(containerId, rows, columns) {
+  // kind: 'parents' | 'teachers' — used to build the /api/admin/{kind}/:id/status URL.
+  function renderAccountsTable(containerId, rows, columns, kind) {
     const container = document.getElementById(containerId);
     if (!rows.length) {
       container.innerHTML = `<p class="admin-empty-note">${escapeHtml(t('adminNoneYet'))}</p>`;
@@ -536,12 +602,32 @@
     const table = document.createElement('table');
     table.className = 'admin-table';
     const thead = document.createElement('thead');
-    thead.innerHTML = `<tr>${columns.map(c => `<th>${labelFor(c)}</th>`).join('')}</tr>`;
+    thead.innerHTML = `<tr>${columns.map(c => `<th>${labelFor(c)}</th>`).join('')}<th>${escapeHtml(t('adminFieldStatus'))}</th><th></th></tr>`;
     table.appendChild(thead);
     const tbody = document.createElement('tbody');
     rows.forEach(row => {
       const tr = document.createElement('tr');
-      tr.innerHTML = columns.map(c => `<td>${escapeHtml(row[c] ?? '—')}</td>`).join('');
+      const suspended = row.status === 'suspended';
+      tr.innerHTML = columns.map(c => `<td>${escapeHtml(row[c] ?? '—')}</td>`).join('') +
+        `<td><span class="status-badge ${suspended ? 'suspended' : 'active'}">${escapeHtml(t(suspended ? 'adminStatusSuspended' : 'adminStatusActive'))}</span></td>`;
+      const actionTd = document.createElement('td');
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'btn-ghost btn-small';
+      btn.textContent = t(suspended ? 'adminReactivate' : 'adminSuspend');
+      btn.addEventListener('click', async () => {
+        const nextStatus = suspended ? 'active' : 'suspended';
+        if (!suspended && !window.confirm(t('adminSuspendConfirm', { name: row.name }))) return;
+        btn.disabled = true;
+        try {
+          await api(`/api/admin/${kind}/${row.id}/status`, { method: 'PATCH', body: JSON.stringify({ status: nextStatus }) });
+          loadDirectory();
+        } catch {
+          btn.disabled = false;
+        }
+      });
+      actionTd.appendChild(btn);
+      tr.appendChild(actionTd);
       tbody.appendChild(tr);
     });
     table.appendChild(tbody);
@@ -613,6 +699,7 @@
     await window.MareI18n.ready;
     setupLangSwitch();
     setupLoginForm();
+    setupForgotPassword();
     setupResourceForm();
     setupPageForm();
     setupSocialLinkForm();

@@ -39,6 +39,7 @@ async function loginParent(email, password) {
   if (!parent) return null;
   const valid = await verifyPassword(password, parent.password_hash);
   if (!valid) return null;
+  if (parent.status === 'suspended') return 'suspended';
   return { role: 'parent', id: parent.id, name: parent.name, email: parent.email };
 }
 
@@ -47,6 +48,7 @@ async function loginTeacher(email, password) {
   if (!teacher) return null;
   const valid = await verifyPassword(password, teacher.password_hash);
   if (!valid) return null;
+  if (teacher.status === 'suspended') return 'suspended';
   return { role: 'teacher', id: teacher.id, name: teacher.name, email: teacher.email };
 }
 

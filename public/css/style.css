@@ -104,6 +104,13 @@ h1, h2 {
   text-decoration: none;
   display: inline-block;
 }
+/* Same [hidden]-specificity tie as .auth-main/.mode-switch elsewhere in
+   this app (day.css) — display:inline-block here and the browser's
+   [hidden]{display:none} are both specificity (0,0,1,0). .btn-primary is
+   used everywhere, so fixing it once here at the source rather than
+   only where the bug happened to surface first (the new forgot-password
+   form hiding its own submit button on success). */
+.btn-primary[hidden] { display: none; }
 
 /* ── Hero ── */
 .hero {

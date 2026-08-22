@@ -24,6 +24,7 @@ const db = require('./db');
 const auth = require('./auth');
 const media = require('./media');
 const prompts = require('./prompts');
+const email = require('./email');
 
 const app = express();
 app.use(express.json({ limit: '10mb' }));
@@ -83,15 +84,19 @@ function resolveLocale(req) {
 
 app.post('/api/parent/signup', async (req, res) => {
   try {
-    const { email, password, name } = req.body || {};
-    if (!email || !password || !name) return res.status(400).json({ error: 'Missing fields' });
+    const { email: rawEmail, password, name } = req.body || {};
+    if (!rawEmail || !password || !name) return res.status(400).json({ error: 'Missing fields' });
     if (password.length < 8) return res.status(400).json({ error: 'Password must be at least 8 characters' });
-    if (db.getParentByEmail(email)) return res.status(409).json({ error: 'Email already registered' });
+    if (db.getParentByEmail(rawEmail)) return res.status(409).json({ error: 'Email already registered' });
     const hash = await auth.hashPassword(password);
-    const id = db.createParent({ email, passwordHash: hash, name });
-    const token = auth.createToken({ role: 'parent', id, name, email });
+    const id = db.createParent({ email: rawEmail, passwordHash: hash, name });
+    const token = auth.createToken({ role: 'parent', id, name, email: rawEmail });
     res.cookie(auth.COOKIE_NAME, token, auth.COOKIE_OPTIONS);
     res.json({ ok: true, id });
+    // Fire-and-forget — a slow or failed welcome email should never hold
+    // up or break the signup response itself; the send is fully logged
+    // in email_log either way (see email.js).
+    email.sendWelcomeParentEmail(rawEmail, name).catch(e => console.error('welcome email failed:', e.message));
   } catch (e) {
     console.error('parent signup failed', e);
     res.status(500).json({ error: 'Signup failed' });
@@ -99,8 +104,9 @@ app.post('/api/parent/signup', async (req, res) => {
 });
 
 app.post('/api/parent/login', async (req, res) => {
-  const { email, password } = req.body || {};
-  const result = await auth.loginParent(email || '', password || '');
+  const { email: rawEmail, password } = req.body || {};
+  const result = await auth.loginParent(rawEmail || '', password || '');
+  if (result === 'suspended') return res.status(403).json({ error: 'Account suspended' });
   if (!result) return res.status(401).json({ error: 'Invalid email or password' });
   const token = auth.createToken(result);
   res.cookie(auth.COOKIE_NAME, token, auth.COOKIE_OPTIONS);
@@ -109,15 +115,16 @@ app.post('/api/parent/login', async (req, res) => {
 
 app.post('/api/teacher/signup', async (req, res) => {
   try {
-    const { email, password, name, school } = req.body || {};
-    if (!email || !password || !name) return res.status(400).json({ error: 'Missing fields' });
+    const { email: rawEmail, password, name, school } = req.body || {};
+    if (!rawEmail || !password || !name) return res.status(400).json({ error: 'Missing fields' });
     if (password.length < 8) return res.status(400).json({ error: 'Password must be at least 8 characters' });
-    if (db.getTeacherByEmail(email)) return res.status(409).json({ error: 'Email already registered' });
+    if (db.getTeacherByEmail(rawEmail)) return res.status(409).json({ error: 'Email already registered' });
     const hash = await auth.hashPassword(password);
-    const id = db.createTeacher({ email, passwordHash: hash, name, school });
-    const token = auth.createToken({ role: 'teacher', id, name, email });
+    const id = db.createTeacher({ email: rawEmail, passwordHash: hash, name, school });
+    const token = auth.createToken({ role: 'teacher', id, name, email: rawEmail });
     res.cookie(auth.COOKIE_NAME, token, auth.COOKIE_OPTIONS);
     res.json({ ok: true, id });
+    email.sendWelcomeTeacherEmail(rawEmail, name).catch(e => console.error('welcome email failed:', e.message));
   } catch (e) {
     console.error('teacher signup failed', e);
     res.status(500).json({ error: 'Signup failed' });
@@ -125,8 +132,9 @@ app.post('/api/teacher/signup', async (req, res) => {
 });
 
 app.post('/api/teacher/login', async (req, res) => {
-  const { email, password } = req.body || {};
-  const result = await auth.loginTeacher(email || '', password || '');
+  const { email: rawEmail, password } = req.body || {};
+  const result = await auth.loginTeacher(rawEmail || '', password || '');
+  if (result === 'suspended') return res.status(403).json({ error: 'Account suspended' });
   if (!result) return res.status(401).json({ error: 'Invalid email or password' });
   const token = auth.createToken(result);
   res.cookie(auth.COOKIE_NAME, token, auth.COOKIE_OPTIONS);
@@ -148,6 +156,55 @@ app.post('/api/logout', (req, res) => {
 });
 
 app.get('/api/me', auth.requireAuthApi(), (req, res) => res.json({ user: req.user }));
+
+// ─────────────────────────────────────────────────────────────────────
+// PASSWORD RESET — role-aware (parent/teacher/admin all share this
+// pair of routes; role comes from which form submitted, since the
+// same email address could in principle exist in more than one table).
+// Deliberately returns the same {ok:true} response whether or not the
+// email was found, so this endpoint can't be used to probe which
+// emails have accounts — the token itself is only ever sent by email,
+// never revealed in the response.
+// ─────────────────────────────────────────────────────────────────────
+
+function getAccountByRoleAndEmail(role, emailAddr) {
+  if (role === 'teacher') return db.getTeacherByEmail(emailAddr);
+  if (role === 'admin') return db.getAdminByEmail(emailAddr);
+  return db.getParentByEmail(emailAddr);
+}
+
+app.post('/api/auth/forgot-password', async (req, res) => {
+  const { email: rawEmail, role } = req.body || {};
+  const validRole = ['parent', 'teacher', 'admin'].includes(role) ? role : 'parent';
+  if (!rawEmail) return res.status(400).json({ error: 'Missing fields' });
+
+  const account = getAccountByRoleAndEmail(validRole, rawEmail);
+  if (account) {
+    const token = db.createPasswordResetToken(validRole, account.id);
+    const resetUrl = `${(process.env.APP_URL || 'https://mareapp-production.up.railway.app')}/reset-password.html?token=${token}&role=${validRole}`;
+    email.sendPasswordResetEmail(account.email, account.name, resetUrl)
+      .catch(e => console.error('password reset email failed:', e.message));
+  }
+  // Same response either way — see comment above.
+  res.json({ ok: true });
+});
+
+app.post('/api/auth/reset-password', async (req, res) => {
+  const { token, password } = req.body || {};
+  if (!token || !password) return res.status(400).json({ error: 'Missing fields' });
+  if (password.length < 8) return res.status(400).json({ error: 'Password must be at least 8 characters' });
+
+  const record = db.getValidPasswordResetToken(token);
+  if (!record) return res.status(400).json({ error: 'This reset link is invalid or has expired' });
+
+  const hash = await auth.hashPassword(password);
+  if (record.role === 'teacher') db.updateTeacherPasswordHash(record.user_id, hash);
+  else if (record.role === 'admin') db.updateAdminPasswordHash(record.user_id, hash);
+  else db.updateParentPasswordHash(record.user_id, hash);
+
+  db.markPasswordResetTokenUsed(token);
+  res.json({ ok: true });
+});
 
 // ─────────────────────────────────────────────────────────────────────
 // CHILDREN — profiles that can belong to more than one parent/carer.
@@ -1107,8 +1164,10 @@ app.post('/api/admin/staff', auth.requireAuthApi(['admin']), async (req, res) =>
 // ─────────────────────────────────────────────────────────────────────
 // PARENT / TEACHER DIRECTORY — read-only lookup so support and admin can
 // help someone troubleshoot ("what email did you sign up with", "is your
-// account actually there"). No editing here on purpose — that's a
-// separate, more deliberate decision for later, not bundled into this pass.
+// account actually there"). Status changes (suspend/reactivate) below
+// are the one deliberate exception — blocking login without touching
+// the account's data, for handling abuse/support issues without the
+// heavier, irreversible delete path.
 // ─────────────────────────────────────────────────────────────────────
 
 app.get('/api/admin/parents', auth.requireAuthApi(['admin', 'support']), (req, res) => {
@@ -1116,6 +1175,33 @@ app.get('/api/admin/parents', auth.requireAuthApi(['admin', 'support']), (req, r
 });
 app.get('/api/admin/teachers', auth.requireAuthApi(['admin', 'support']), (req, res) => {
   res.json({ teachers: db.getAllTeachersDirectory() });
+});
+app.patch('/api/admin/parents/:id/status', auth.requireAuthApi(['admin', 'support']), (req, res) => {
+  const { status } = req.body || {};
+  if (!['active', 'suspended'].includes(status)) return res.status(400).json({ error: 'Invalid status' });
+  db.setParentStatus(req.params.id, status);
+  res.json({ ok: true });
+});
+app.patch('/api/admin/teachers/:id/status', auth.requireAuthApi(['admin', 'support']), (req, res) => {
+  const { status } = req.body || {};
+  if (!['active', 'suspended'].includes(status)) return res.status(400).json({ error: 'Invalid status' });
+  db.setTeacherStatus(req.params.id, status);
+  res.json({ ok: true });
+});
+
+// ─────────────────────────────────────────────────────────────────────
+// ADMIN REPORTING — overview counts for the dashboard, and the email
+// delivery log for troubleshooting "did that email actually send".
+// Email log can include email addresses, so admin-only rather than
+// admin+support — same boundary as products/payments elsewhere in
+// this app.
+// ─────────────────────────────────────────────────────────────────────
+
+app.get('/api/admin/report/overview', auth.requireAuthApi(['admin', 'support']), (req, res) => {
+  res.json(db.getAdminOverviewStats());
+});
+app.get('/api/admin/email-log', auth.requireAuthApi(['admin']), (req, res) => {
+  res.json({ log: db.getRecentEmailLog(100) });
 });
 
 // ─────────────────────────────────────────────────────────────────────
@@ -1281,6 +1367,33 @@ server.on('upgrade', (req, socket, head) => {
 });
 
 // ─────────────────────────────────────────────────────────────────────
+
+// ─────────────────────────────────────────────────────────────────────
+// ERROR HANDLING — was missing entirely before this pass. Without this,
+// any unhandled error in a route (a thrown exception, a rejected
+// promise reaching Express's default handler) fell through to Express's
+// default HTML error page, which can leak stack traces, and an
+// oversized request body had no clean failure path. Ported from
+// per_bot's own equivalent, adapted to this app's routes.
+// ─────────────────────────────────────────────────────────────────────
+
+// Anything under /api/ that didn't match a route above is a genuine
+// "not found", not a page-serving fallback — keep it JSON rather than
+// falling through to express.static's default 404 HTML.
+app.use('/api', (req, res) => {
+  res.status(404).json({ error: 'Not found' });
+});
+
+app.use((err, req, res, next) => {
+  if (err?.type === 'entity.too.large') {
+    return res.status(413).json({ error: 'That request was too large.' });
+  }
+  if (err) {
+    console.error('Unhandled error:', err.message);
+    return res.status(500).json({ error: 'Something went wrong. Please try again.' });
+  }
+  next();
+});
 
 app.get('/health', (req, res) => res.json({ ok: true }));
 

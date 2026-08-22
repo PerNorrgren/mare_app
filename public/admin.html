@@ -52,6 +52,20 @@
         <p class="form-error" id="form-error" hidden></p>
         <button type="submit" class="btn-primary btn-full" id="submit-btn" data-i18n="adminSignIn">Sign in</button>
       </form>
+
+      <p class="auth-links" id="admin-forgot-wrap"><a href="#" id="forgot-link" data-i18n="forgotPasswordLink">Forgot your password?</a></p>
+
+      <form id="forgot-form" novalidate hidden>
+        <p class="auth-sub" data-i18n="forgotPasswordSub">Enter your email and we'll send you a link to reset your password.</p>
+        <div class="field">
+          <label for="fp-email" data-i18n="fieldEmail">Email</label>
+          <input type="email" id="fp-email" name="email" autocomplete="email" required>
+        </div>
+        <p class="form-error" id="forgot-error" hidden></p>
+        <p class="form-success" id="forgot-success" hidden data-i18n="forgotPasswordSent">If that email has an account, a reset link is on its way.</p>
+        <button type="submit" class="btn-primary btn-full" id="forgot-submit-btn" data-i18n="forgotPasswordSubmit">Send reset link</button>
+        <p class="auth-links"><a href="#" id="back-to-login-link" data-i18n="backToLoginLink">Back to sign in</a></p>
+      </form>
     </div>
   </section>
 
@@ -68,6 +82,12 @@
 
     <!-- Overview -->
     <div class="admin-panel active" id="panel-overview">
+      <div class="admin-card">
+        <h2 data-i18n="adminOverviewStatsTitle">At a glance</h2>
+        <div class="stat-grid" id="stat-grid">
+          <p class="admin-empty-note" data-i18n="adminLoading">Loading…</p>
+        </div>
+      </div>
       <div class="admin-card">
         <h2 data-i18n="adminOverviewContentTitle">Content library</h2>
         <p class="admin-card-sub" data-i18n="adminOverviewContentDesc">Books, chapters, scenes, hotspots, activities, and merchandise already have working API endpoints from earlier builds. A dedicated content-management UI for those is the natural next piece.</p>

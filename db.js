@@ -470,6 +470,46 @@ async function getDb() {
     sent_date_str TEXT NOT NULL -- dedup key, e.g. '2026-08-20'
   )`);
 
+  // ── Email log — every outbound email (welcome, password reset, and
+  // whatever's added later) gets a row here, same pattern as per_bot's
+  // own email log: a 'pending' row written before the send attempt, then
+  // updated to 'sent' or 'failed' once the Scaleway call resolves. This
+  // is what the admin Overview report reads for delivery stats, and
+  // what an admin can check when a parent says "I never got the email". ──
+  db.run(`CREATE TABLE IF NOT EXISTS email_log (
+    id TEXT PRIMARY KEY,
+    kind TEXT NOT NULL, -- 'welcome_parent' | 'welcome_teacher' | 'password_reset' | 'other'
+    to_email TEXT NOT NULL,
+    subject TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'pending', -- 'pending' | 'sent' | 'failed'
+    provider_id TEXT, -- Scaleway's own email id, once sent
+    error TEXT,
+    user_id TEXT, -- parent/teacher/admin id this email was about, if any
+    created_at TEXT DEFAULT (datetime('now')),
+    updated_at TEXT DEFAULT (datetime('now'))
+  )`);
+
+  // ── Password reset tokens — one-time-use, short-lived. role is stored
+  // alongside the token because the same email address could in theory
+  // exist in more than one of parents/teachers/admins, and the reset
+  // link has to resolve back to exactly the account the request came
+  // from, not guess by trying each table in turn. ──
+  db.run(`CREATE TABLE IF NOT EXISTS password_reset_tokens (
+    token TEXT PRIMARY KEY,
+    role TEXT NOT NULL, -- 'parent' | 'teacher' | 'admin'
+    user_id TEXT NOT NULL,
+    expires_at TEXT NOT NULL,
+    used_at TEXT,
+    created_at TEXT DEFAULT (datetime('now'))
+  )`);
+
+  // ── Account status — lets an admin suspend a parent/teacher account
+  // (blocks login; doesn't delete data) without needing the heavier,
+  // irreversible deleteParentAccount path. Added via ALTER on an
+  // existing DB, same migration pattern as the columns just below. ──
+  try { db.run(`ALTER TABLE parents ADD COLUMN status TEXT NOT NULL DEFAULT 'active'`); } catch {}
+  try { db.run(`ALTER TABLE teachers ADD COLUMN status TEXT NOT NULL DEFAULT 'active'`); } catch {}
+
   // ── Migration: the 'locale'/'group_slug' columns on books didn't exist
   // in the first two deployed versions of this app — CREATE TABLE IF NOT
   // EXISTS above only applies to a brand-new database, so a live Railway
@@ -734,6 +774,9 @@ function createTeacher({ email, passwordHash, name, school }) {
     [id, email.toLowerCase().trim(), passwordHash, name, school || null]);
   return id;
 }
+function updateTeacherPasswordHash(teacherId, passwordHash) {
+  run(`UPDATE teachers SET password_hash = ? WHERE id = ?`, [passwordHash, teacherId]);
+}
 
 // ── Admins / Support (same table, role column distinguishes them) ──
 function getAdminByEmail(email) {
@@ -745,6 +788,9 @@ function createAdmin({ email, passwordHash, name, role }) {
     [id, email.toLowerCase().trim(), passwordHash, name, role === 'support' ? 'support' : 'admin']);
   return id;
 }
+function updateAdminPasswordHash(adminId, passwordHash) {
+  run(`UPDATE admins SET password_hash = ? WHERE id = ?`, [passwordHash, adminId]);
+}
 function getAllStaff() {
   return all(`SELECT id, email, name, role, created_at FROM admins ORDER BY role, created_at`);
 }
@@ -752,10 +798,16 @@ function getAllStaff() {
 // ── Directory lookups for support/admin to help troubleshoot parent and
 // teacher accounts. password_hash deliberately excluded from these. ──
 function getAllParentsDirectory() {
-  return all(`SELECT id, email, name, email_opt_in, email_frequency, preferred_locale, created_at FROM parents ORDER BY created_at DESC`);
+  return all(`SELECT id, email, name, email_opt_in, email_frequency, preferred_locale, status, created_at FROM parents ORDER BY created_at DESC`);
 }
 function getAllTeachersDirectory() {
-  return all(`SELECT id, email, name, school, preferred_locale, created_at FROM teachers ORDER BY created_at DESC`);
+  return all(`SELECT id, email, name, school, preferred_locale, status, created_at FROM teachers ORDER BY created_at DESC`);
+}
+function setParentStatus(id, status) {
+  run(`UPDATE parents SET status = ? WHERE id = ?`, [status === 'suspended' ? 'suspended' : 'active', id]);
+}
+function setTeacherStatus(id, status) {
+  run(`UPDATE teachers SET status = ? WHERE id = ?`, [status === 'suspended' ? 'suspended' : 'active', id]);
 }
 
 // ── Books / chapters / scenes ──
@@ -1215,6 +1267,64 @@ function getEmailOptInParents(frequency) {
   return all(`SELECT * FROM parents WHERE email_opt_in = 1 AND email_frequency = ?`, [frequency]);
 }
 
+// ── Password reset tokens ──
+// 1-hour expiry, single use (used_at set the moment it's redeemed, and
+// getValidPasswordResetToken excludes anything already used or expired
+// so a captured/reused link can't work twice or after the window closes).
+function createPasswordResetToken(role, userId) {
+  const token = crypto.randomBytes(32).toString('hex');
+  const expiresAt = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+  run(`INSERT INTO password_reset_tokens (token, role, user_id, expires_at) VALUES (?,?,?,?)`,
+    [token, role, userId, expiresAt]);
+  return token;
+}
+function getValidPasswordResetToken(token) {
+  return get(
+    `SELECT * FROM password_reset_tokens WHERE token = ? AND used_at IS NULL AND expires_at > datetime('now')`,
+    [token]
+  );
+}
+function markPasswordResetTokenUsed(token) {
+  run(`UPDATE password_reset_tokens SET used_at = datetime('now') WHERE token = ?`, [token]);
+}
+
+// ── Email log — for the admin Overview report and per-account "did this
+// email actually go out" troubleshooting. ──
+function getRecentEmailLog(limit) {
+  return all(`SELECT id, kind, to_email, subject, status, error, created_at FROM email_log ORDER BY created_at DESC LIMIT ?`, [limit || 50]);
+}
+function getEmailStats() {
+  const rows = all(`SELECT status, COUNT(*) as count FROM email_log GROUP BY status`);
+  const stats = { sent: 0, failed: 0, pending: 0 };
+  rows.forEach(r => { stats[r.status] = r.count; });
+  return stats;
+}
+
+// ── Admin overview report — the counts an admin actually wants to see
+// at a glance. Kept as simple, cheap COUNT(*) queries (this app's tables
+// are small) rather than a maintained summary table, matching sql.js's
+// whole-file-in-memory model where a full scan of these tables costs
+// nothing. ──
+function getAdminOverviewStats() {
+  const parents = get(`SELECT COUNT(*) as c FROM parents`).c;
+  const suspendedParents = get(`SELECT COUNT(*) as c FROM parents WHERE status = 'suspended'`).c;
+  const children = get(`SELECT COUNT(*) as c FROM children`).c;
+  const teachers = get(`SELECT COUNT(*) as c FROM teachers`).c;
+  const suspendedTeachers = get(`SELECT COUNT(*) as c FROM teachers WHERE status = 'suspended'`).c;
+  const talkSessionsTotal = get(`SELECT COUNT(*) as c FROM talk_sessions`).c;
+  const talkSessions7d = get(`SELECT COUNT(*) as c FROM talk_sessions WHERE started_at > datetime('now', '-7 days')`).c;
+  const ordersTotal = get(`SELECT COUNT(*) as c FROM orders`).c;
+  const ordersPaid = get(`SELECT COUNT(*) as c FROM orders WHERE status = 'paid'`).c;
+  const clubMembers = get(`SELECT COUNT(*) as c FROM club_mare_members`).c;
+  return {
+    parents, suspendedParents, children, teachers, suspendedTeachers,
+    talkSessionsTotal, talkSessions7d,
+    ordersTotal, ordersPaid,
+    clubMembers,
+    email: getEmailStats(),
+  };
+}
+
 module.exports = {
   getDb, save, uuid, run, get, all,
   getParentByEmail, getParentById, createParent, setParentEmailPrefs, updateParentProfile,
@@ -1222,9 +1332,11 @@ module.exports = {
   getChildrenByParent, createChild, getChild, setChildAgeBand, updateChild, deleteChild,
   canParentAccessChild, isPrimaryParentOfChild, getCarersForChild, addCarerToChild, removeCarerFromChild,
   getAddressesForOwner, getAddress, createAddress, updateAddress, deleteAddress,
-  getTeacherByEmail, createTeacher,
-  getAdminByEmail, createAdmin, getAllStaff,
-  getAllParentsDirectory, getAllTeachersDirectory,
+  getTeacherByEmail, createTeacher, updateTeacherPasswordHash,
+  getAdminByEmail, createAdmin, updateAdminPasswordHash, getAllStaff,
+  getAllParentsDirectory, getAllTeachersDirectory, setParentStatus, setTeacherStatus,
+  createPasswordResetToken, getValidPasswordResetToken, markPasswordResetTokenUsed,
+  getRecentEmailLog, getEmailStats, getAdminOverviewStats,
   getActiveTeacherResources, getAllTeacherResources,
   createTeacherResource, updateTeacherResource, deleteTeacherResource,
   getActiveAppPages, getAllAppPages, createAppPage, updateAppPage, deleteAppPage,

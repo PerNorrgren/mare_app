@@ -25,6 +25,7 @@
   function applyMode() {
     const isSignup = state.mode === 'signup';
     document.querySelectorAll('.signup-only').forEach(el => { el.hidden = !isSignup; });
+    document.querySelectorAll('.login-only').forEach(el => { el.hidden = isSignup; });
     document.getElementById('f-name').required = isSignup;
     document.getElementById('f-confirm').required = isSignup;
     document.getElementById('f-password').autocomplete = isSignup ? 'new-password' : 'current-password';
@@ -68,6 +69,7 @@
     'Email already registered': 'errorEmailTaken',
     'Password must be at least 8 characters': 'errorPasswordTooShort',
     'Missing fields': 'errorMissingFields',
+    'Account suspended': 'errorAccountSuspended',
   };
 
   async function handleSubmit(e) {
@@ -108,10 +110,63 @@
     }
   }
 
+  // ── Forgot password ──
+  function showForgotForm() {
+    document.getElementById('auth-form').hidden = true;
+    document.querySelector('.mode-switch').hidden = true;
+    document.querySelector('.login-only').hidden = true;
+    document.getElementById('forgot-form').hidden = false;
+    document.getElementById('forgot-success').hidden = true;
+    document.getElementById('auth-heading').textContent = window.MareI18n.t('forgotPasswordHeading');
+    document.getElementById('auth-sub').hidden = true;
+  }
+  function showLoginForm() {
+    document.getElementById('forgot-form').hidden = true;
+    document.getElementById('auth-form').hidden = false;
+    document.querySelector('.mode-switch').hidden = false;
+    document.getElementById('auth-sub').hidden = false;
+    applyMode();
+  }
+  function setupForgotPassword() {
+    document.getElementById('forgot-link').addEventListener('click', (e) => {
+      e.preventDefault();
+      showForgotForm();
+    });
+    document.getElementById('back-to-login-link').addEventListener('click', (e) => {
+      e.preventDefault();
+      showLoginForm();
+    });
+    document.getElementById('forgot-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      document.getElementById('forgot-error').hidden = true;
+      const email = document.getElementById('fp-email').value.trim();
+      const btn = document.getElementById('forgot-submit-btn');
+      btn.disabled = true;
+      try {
+        await fetch('/api/auth/forgot-password', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, role: 'parent' }),
+        });
+        // Same success message regardless of whether the email was found
+        // — the server never reveals that either, on purpose.
+        document.getElementById('forgot-success').hidden = false;
+        document.getElementById('forgot-form').querySelector('.field').hidden = true;
+        btn.hidden = true;
+      } catch {
+        document.getElementById('forgot-error').textContent = window.MareI18n.t('errorGeneric');
+        document.getElementById('forgot-error').hidden = false;
+      } finally {
+        btn.disabled = false;
+      }
+    });
+  }
+
   async function init() {
     await window.MareI18n.ready;
     setupLangSwitch();
     setupModeSwitch();
+    setupForgotPassword();
 
     // Deep link support — /login.html?mode=signup preselects signup mode.
     const params = new URLSearchParams(window.location.search);
