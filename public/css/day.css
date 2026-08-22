@@ -36,6 +36,19 @@ body.day .lang-btn:not(.active):hover { background: rgba(22,48,92,0.06); }
   padding: 24px 20px 60px;
   position: relative;
   z-index: 2;
+  /* Own compositing layer, set up front. bg-slideshow.js appends a new
+     .bg-slide div into .bg-slideshow-wrap (position:fixed, already
+     painted) only after the cover image finishes preloading — a late
+     mutation into an already-composited fixed sibling. WebKit has a
+     known quirk where that kind of mutation can re-promote the fixed
+     layer above correctly-stacked positioned content, even though the
+     z-index values here never change. Pinning .auth-main to its own
+     layer up front removes the dependency on paint order entirely, so
+     it can't get bumped behind the background when the image resolves.
+     Hypothesis from code review + confirmed-correct computed styles in
+     headless Chromium — flagged for real-device confirmation, not
+     verified on actual Safari yet. */
+  transform: translateZ(0);
 }
 /* The real bug this fixes: [hidden] and .auth-main{display:flex} have
    identical CSS specificity (0,0,1,0). When JS sets hidden=true after a
