@@ -34,7 +34,19 @@ body.day .lang-btn:not(.active):hover { background: rgba(22,48,92,0.06); }
   align-items: center;
   justify-content: center;
   padding: 24px 20px 60px;
+  position: relative;
+  z-index: 2;
 }
+/* The real bug this fixes: [hidden] and .auth-main{display:flex} have
+   identical CSS specificity (0,0,1,0). When JS sets hidden=true after a
+   successful login, the browser's built-in [hidden]{display:none} rule
+   and this file's own .auth-main{display:flex} rule tie on specificity,
+   and the author stylesheet (this file) loads after the browser
+   default — so it was winning, leaving the login form visibly stacked
+   on top of the dashboard underneath it. Same fix already applied to
+   .modal-backdrop and .social-footer elsewhere in this file; this rule
+   was simply missing here. */
+.auth-main[hidden] { display: none; }
 .auth-card {
   background: #FFFFFF;
   border-radius: 22px;
@@ -58,6 +70,82 @@ body.day .lang-btn:not(.active):hover { background: rgba(22,48,92,0.06); }
   font-weight: 600;
   margin: 0 0 22px;
 }
+
+/* ── Atmospheric login background ── a rotating slideshow of the book's
+   own art (starting with the front cover; more images — the back cover,
+   once it exists — slot in automatically, see bg-slideshow.js), ported
+   from per_bot's own real login-page pattern: absolutely-positioned
+   .slide divs cross-fading via opacity over 3s, rotating every 9s, with
+   a dark veil over the top for text legibility. Applied to the login
+   gate specifically (login.html, teacher-login.html, and the login view
+   of admin.html/admin-content.html before a session exists) — dashboard
+   interiors stay on the plain, readable body.day background once
+   you're actually inside working. ── */
+.bg-slideshow-wrap {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  background: var(--night-deep);
+}
+.bg-slide {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+  opacity: 0;
+  transition: opacity 3s ease-in-out;
+  animation: bg-ken-burns 24s ease-in-out infinite alternate;
+}
+.bg-slide.active { opacity: 1; }
+@keyframes bg-ken-burns {
+  from { transform: scale(1); }
+  to { transform: scale(1.12); }
+}
+.bg-veil {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  background: linear-gradient(180deg, rgba(11,23,18,0.55) 0%, rgba(11,23,18,0.8) 100%);
+}
+@media (prefers-reduced-motion: reduce) {
+  .bg-slide { animation: none; }
+}
+
+/* Everything inside the atmosphere reads light-on-dark, overriding
+   body.day's navy-on-light defaults for just this context — scoped by
+   descendant selector rather than touching the base rules those same
+   classes use everywhere else (dashboard forms, tables, etc.). */
+.auth-atmosphere .brand { color: var(--gold); }
+.auth-atmosphere .btn-ghost { color: var(--parchment); border-color: rgba(243,236,217,0.3); }
+.auth-atmosphere .btn-ghost:hover { background: rgba(243,236,217,0.08); border-color: var(--gold); }
+.auth-atmosphere .lang-switch { border-color: rgba(243,236,217,0.3); }
+.auth-atmosphere .lang-btn { color: var(--parchment); }
+.auth-atmosphere .lang-btn.active { background: var(--gold); color: var(--night); }
+.auth-atmosphere .lang-btn:not(.active):hover { background: rgba(243,236,217,0.08); }
+
+.auth-atmosphere .auth-card {
+  background: rgba(11,23,18,0.55);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(243,236,217,0.15);
+  box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+}
+.auth-atmosphere .auth-card h1 { color: var(--gold); }
+.auth-atmosphere .auth-sub { color: rgba(243,236,217,0.75); }
+.auth-atmosphere .field label { color: var(--parchment); }
+.auth-atmosphere .field input {
+  background: rgba(243,236,217,0.06);
+  border-color: rgba(243,236,217,0.25);
+  color: var(--parchment);
+}
+.auth-atmosphere .field input::placeholder { color: rgba(243,236,217,0.4); }
+.auth-atmosphere .role-switch,
+.auth-atmosphere .mode-switch { background: rgba(243,236,217,0.08); }
+.auth-atmosphere .role-btn,
+.auth-atmosphere .mode-btn { color: rgba(243,236,217,0.65); }
+.auth-atmosphere .role-btn.active,
+.auth-atmosphere .mode-btn.active { background: var(--gold); color: var(--night); box-shadow: none; }
 
 .role-switch, .mode-switch {
   display: flex;
