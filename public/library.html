@@ -8,8 +8,12 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/css/style.css">
+<link rel="stylesheet" href="/css/day.css">
 </head>
-<body>
+<body class="day auth-atmosphere">
+
+<div class="bg-slideshow-wrap" id="bg-slideshow"></div>
+<div class="bg-veil"></div>
 
 <header class="topbar">
   <div class="brand">
@@ -27,7 +31,7 @@
   </nav>
 </header>
 
-<main>
+<main class="library-main">
   <section class="hero">
     <h1 data-i18n="heroTitle">Mare's Story Corner</h1>
     <p class="hero-sub" data-i18n="heroSub">Pick a story. The wood is listening.</p>
@@ -88,6 +92,8 @@
 </div>
 
 <script src="/js/i18n.js"></script>
+<script src="/js/bg-slideshow.js"></script>
 <script src="/js/app.js"></script>
+<script>window.MareBgSlideshow.init('bg-slideshow', ['/images/mare-front-cover.jpg', '/images/mare-back-cover.jpg']);</script>
 </body>
 </html>

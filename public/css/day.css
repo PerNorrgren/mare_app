@@ -785,3 +785,15 @@ body.auth-atmosphere .brand { color: var(--gold); }
   color: rgba(243,236,217,0.7);
   margin: 8px 0 0;
 }
+
+/* ── Story Corner / library.html atmosphere support ── */
+/* Same stacking-context need as every other atmosphere page's main
+   content wrapper (.showcase-main, #public-view, .admin-shell) —
+   .bg-slideshow-wrap/.bg-veil are unconditional and positioned, so
+   content needs its own z-index to paint above them. The book-cover
+   and extra-tile styling underneath was already designed for a dark
+   background (this page rendered on the plain dark body default
+   before), so it reads correctly against the photographic atmosphere
+   without further changes — only the background itself needed to
+   become the same photo/veil treatment as the rest of the app. */
+.library-main { position: relative; z-index: 2; }
