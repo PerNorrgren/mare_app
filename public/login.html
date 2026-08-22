@@ -10,7 +10,10 @@
 <link rel="stylesheet" href="/css/style.css">
 <link rel="stylesheet" href="/css/day.css">
 </head>
-<body class="day">
+<body class="day auth-atmosphere">
+
+<div class="bg-slideshow-wrap" id="bg-slideshow"></div>
+<div class="bg-veil"></div>
 
 <header class="topbar">
   <a href="/" class="brand" style="text-decoration:none;">
@@ -66,6 +69,8 @@
 </main>
 
 <script src="/js/i18n.js"></script>
+<script src="/js/bg-slideshow.js"></script>
 <script src="/js/login.js"></script>
+<script>window.MareBgSlideshow.init('bg-slideshow', ['/images/mare-front-cover.jpg', '/images/mare-back-cover.jpg']);</script>
 </body>
 </html>

@@ -84,6 +84,10 @@
     els['book-bar'].hidden = false;
     els['who-pill'].hidden = false;
     els['who-pill'].textContent = user.name;
+    // Dashboard interiors stay on the plain, readable light background —
+    // the atmosphere (slideshow + dark glass card) is for the login
+    // gate only. See the .auth-atmosphere comment in day.css.
+    document.body.classList.remove('auth-atmosphere');
     loadBooks();
   }
 

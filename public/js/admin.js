@@ -79,6 +79,11 @@
   function enterDashboard(user) {
     document.getElementById('login-view').hidden = true;
     document.getElementById('dashboard-view').hidden = false;
+    // Dashboard interiors stay on the plain, readable light background —
+    // the atmosphere (slideshow + dark glass card) is for the login gate
+    // only, not for reading tables and forms once you're actually
+    // working. See the .auth-atmosphere comment in day.css.
+    document.body.classList.remove('auth-atmosphere');
     const pill = document.getElementById('who-pill');
     pill.hidden = false;
     pill.textContent = `${user.name} · ${t(user.role === 'admin' ? 'staffRoleAdmin' : 'staffRoleSupport')}`;
