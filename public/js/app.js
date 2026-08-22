@@ -103,6 +103,12 @@
     document.getElementById('login-prompt').hidden = true;
   });
 
+  document.getElementById('tile-talk').addEventListener('click', async () => {
+    const user = await checkSession();
+    if (!user) return showLoginPrompt();
+    window.location.href = '/talk.html';
+  });
+
   document.getElementById('tile-club').addEventListener('click', async () => {
     const user = await checkSession();
     if (!user) return showLoginPrompt();

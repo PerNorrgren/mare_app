@@ -5,6 +5,8 @@
   "heroTitle": "Mare's Verhalenhoek",
   "heroSub": "Kies een verhaal. Het bos luistert.",
   "moreStoriesSoon": "Binnenkort meer verhalen",
+  "talkToMare": "Praat met Mare",
+  "talkToMareSub": "Vertel haar wat je bezighoudt",
   "clubMare": "Club Mare",
   "clubMareSub": "Nieuwe verhalen, alleen voor leden",
   "maresShop": "Mare's Winkel",
@@ -291,5 +293,21 @@
   "acErrorTitleSlugRequired": "Titel en slug zijn verplicht.",
   "acErrorFileRequired": "Kies eerst een bestand.",
   "acErrorNoNarrationYet": "Upload eerst vertelaudio.",
-  "acErrorGeneric": "Er ging iets mis \u2014 probeer het opnieuw."
+  "acErrorGeneric": "Er ging iets mis \u2014 probeer het opnieuw.",
+
+  "talkBack": "Terug",
+  "talkWhoIsTalking": "Wie praat er vandaag met Mare?",
+  "talkNoChildren": "Nog geen kinderen op dit account.",
+  "talkAddChildLink": "Voeg er een toe in Mijn Account",
+  "talkLeave": "Verlaten",
+  "talkToggleCaptions": "Ondertiteling tonen",
+  "talkTapToTalk": "Tik om te praten",
+  "talkConfirmLeave": "Gedag zeggen tegen Mare en teruggaan?",
+  "talkLeaveConfirm": "Ja, terug",
+  "talkErrorGeneric": "Mare kan je nu even niet goed horen \u2014 probeer het zo nog eens.",
+  "talkStateIdle": "Tik op het lichtje om met Mare te praten",
+  "talkStateListening": "Mare luistert\u2026",
+  "talkStateThinking": "Mare denkt na\u2026",
+  "talkStateSpeaking": "Mare praat",
+  "talkStateDisabled": "Mare zoeken\u2026"
 }

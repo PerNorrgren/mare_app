@@ -189,7 +189,7 @@ async function getDb() {
     { label: 'Sign in / create account (Parent)', url: '/login.html', kind: 'internal', status: 'live', description: 'Parent-only login + signup. Teachers use their own separate page (see below).', sortOrder: 10 },
     { label: 'Teacher sign in / create account', url: '/teacher-login.html', kind: 'internal', status: 'live', description: 'Dedicated teacher login + signup, separate from the parent page.', sortOrder: 15 },
     { label: 'For Teachers', url: '/teacher.html', kind: 'internal', status: 'live', description: 'Public teacher splash when signed out; resources + What\u2019s New hub when signed in as a teacher.', sortOrder: 20 },
-    { label: 'Talk to Mare (test harness)', url: '/talk.html', kind: 'internal', status: 'stub', description: 'Bare test page proving the mic -> Deepgram -> Claude -> ElevenLabs pipeline works. Not the real reader-embedded experience yet.', sortOrder: 25 },
+    { label: 'Talk to Mare', url: '/talk.html', kind: 'internal', status: 'live', description: 'The real experience: child picker, then a full-screen glowing-orb conversation with Mare. Reachable from the Story Corner\u2019s Talk to Mare tile.', sortOrder: 25 },
     { label: 'Admin', url: '/admin.html', kind: 'internal', status: 'live', description: 'Staff login and dashboard (this page).', sortOrder: 30 },
     { label: 'Reader', url: '/reader.html', kind: 'internal', status: 'planned', description: 'The audio-follows-text reading experience — not built yet, the core still-open piece.', sortOrder: 40 },
     { label: 'Club Mare', url: '/club-mare.html', kind: 'internal', status: 'planned', description: 'Member posts, gated by tier.', sortOrder: 50 },

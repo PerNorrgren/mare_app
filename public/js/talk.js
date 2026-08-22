@@ -1,14 +1,16 @@
 (function () {
-  // ── Talk to Mare — test harness client ──
-  // Deliberately simple: toggle mic (tap to start, tap to stop) rather
-  // than press-and-hold, and wait for speech_final/UtteranceEnd before
-  // treating a transcript as final rather than acting on the first
-  // is_final chunk — both lessons already learned the hard way building
-  // per_bot's own voice pipeline (an early is_final-only version there
-  // fired too early or more than once). No reason to relearn that here.
+  // ── talk.js — the real Talk to Mare experience ──
+  // The underlying pipeline (mic capture -> /listen -> /api/talk/chat ->
+  // /api/speak) is unchanged from the test harness that proved it works
+  // — same distance-threshold-free toggle mic, same wait-for-speech_final
+  // logic, same PCM16 downsampling. What's new here is entirely the
+  // presentation: a single glowing orb standing in for Mare's presence,
+  // with idle/listening/thinking/speaking states, instead of a status
+  // line and a mic button.
 
   let currentUser = null;
   let children = [];
+  let selectedChild = null;
   let sessionId = null;
   let locale = 'en';
 
@@ -19,27 +21,20 @@
   let listenSocket = null;
   let listening = false;
   let latestTranscript = '';
+  let captionsOn = false;
 
-  const els = {
-    childSelect: document.getElementById('child-select'),
-    startBtn: document.getElementById('start-btn'),
-    endBtn: document.getElementById('end-btn'),
-    status: document.getElementById('status'),
-    transcript: document.getElementById('transcript'),
-    micRow: document.getElementById('mic-row'),
-    micBtn: document.getElementById('mic-btn'),
-    player: document.getElementById('player'),
-  };
-
-  function setStatus(text) { els.status.textContent = text; }
-
-  function addLine(who, text) {
-    const div = document.createElement('div');
-    div.className = `talk-line ${who}`;
-    div.textContent = text;
-    els.transcript.appendChild(div);
-    els.transcript.scrollTop = els.transcript.scrollHeight;
+  const els = {};
+  function cacheEls() {
+    ['picker-view', 'child-grid', 'no-children-msg',
+     'talk-view', 'talk-child-name', 'leave-btn', 'captions-btn',
+     'orb-btn', 'state-label', 'captions-bar', 'caption-line',
+     'leave-confirm', 'leave-cancel-btn', 'leave-confirm-btn',
+     'talk-loading',
+    ].forEach(id => { els[id] = document.getElementById(id); });
   }
+
+  function setViewportHeight() { document.documentElement.style.setProperty('--vh-px', window.innerHeight + 'px'); }
+  function setViewportHeightDelayed() { [50, 150, 300].forEach(d => setTimeout(setViewportHeight, d)); }
 
   async function checkSession() {
     try {
@@ -52,37 +47,76 @@
     }
   }
 
-  async function loadChildren() {
-    const res = await fetch('/api/children');
-    const data = await res.json();
-    children = data.children || [];
-    els.childSelect.innerHTML = '';
-    if (!children.length) {
-      const opt = document.createElement('option');
-      opt.textContent = 'No children on this account yet';
-      els.childSelect.appendChild(opt);
-      els.startBtn.disabled = true;
-      return;
-    }
-    children.forEach(c => {
-      const opt = document.createElement('option');
-      opt.value = c.id;
-      opt.textContent = c.name + (c.age_band ? ` (${c.age_band})` : ' (no age band set)');
-      els.childSelect.appendChild(opt);
+  function setupLangSwitch() {
+    document.querySelectorAll('#lang-switch .lang-btn').forEach(btn => {
+      const lang = btn.getAttribute('data-lang');
+      btn.classList.toggle('active', lang === window.MareI18n.locale);
+      btn.addEventListener('click', () => window.MareI18n.switchLocale(lang));
     });
   }
 
-  // ── PCM16 mic capture ──
-  // Deepgram's /listen query string (server-side) asks for linear16 at
-  // 16000Hz mono — browsers give mic audio at their own native rate
-  // (usually 48000), so this downsamples in-browser before sending.
+  // ── Orb state machine ──
+  // idle -> (tap) -> listening -> (speech_final) -> thinking -> (reply) -> speaking -> idle
+  function setOrbState(state) {
+    els['orb-btn'].className = 'talk-orb-wrap' + (state !== 'idle' && state !== 'disabled' ? ` state-${state}` : '');
+    if (state === 'disabled') els['orb-btn'].classList.add('state-disabled');
+    const t = window.MareI18n.t;
+    const labels = {
+      idle: 'talkStateIdle',
+      listening: 'talkStateListening',
+      thinking: 'talkStateThinking',
+      speaking: 'talkStateSpeaking',
+      disabled: 'talkStateDisabled',
+    };
+    els['state-label'].textContent = t(labels[state] || 'talkStateIdle');
+  }
+
+  function showCaption(text) {
+    if (!captionsOn || !text) return;
+    els['caption-line'].textContent = text;
+  }
+
+  // ── Child picker ──
+  const AVATAR_COLORS = ['#EAC066', '#7FB5A8', '#D98E73', '#8CA9D9', '#C98CC9', '#A8C97E'];
+  async function loadChildren() {
+    const data = await api('/api/children');
+    children = data.children || [];
+    els['child-grid'].innerHTML = '';
+    if (!children.length) {
+      els['no-children-msg'].hidden = false;
+      return;
+    }
+    children.forEach((c, i) => {
+      const card = document.createElement('button');
+      card.type = 'button';
+      card.className = 'talk-child-card';
+      const avatar = document.createElement('span');
+      avatar.className = 'talk-child-avatar';
+      avatar.style.background = AVATAR_COLORS[i % AVATAR_COLORS.length];
+      avatar.textContent = (c.name || '?').charAt(0).toUpperCase();
+      card.appendChild(avatar);
+      const name = document.createElement('span');
+      name.className = 'talk-child-name';
+      name.textContent = c.name;
+      card.appendChild(name);
+      card.addEventListener('click', () => beginConversation(c));
+      els['child-grid'].appendChild(card);
+    });
+  }
+
+  async function api(path, options) {
+    const res = await fetch(path, { headers: { 'Content-Type': 'application/json' }, ...options });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || 'Request failed');
+    return data;
+  }
+
+  // ── PCM16 mic capture — unchanged from the proven test harness ──
   function downsampleTo16k(float32Input, inputSampleRate) {
     const ratio = inputSampleRate / 16000;
     const outLength = Math.round(float32Input.length / ratio);
     const out = new Float32Array(outLength);
-    for (let i = 0; i < outLength; i++) {
-      out[i] = float32Input[Math.round(i * ratio)] || 0;
-    }
+    for (let i = 0; i < outLength; i++) out[i] = float32Input[Math.round(i * ratio)] || 0;
     return out;
   }
   function floatTo16BitPCM(float32) {
@@ -97,26 +131,19 @@
 
   async function startListening() {
     if (listening) return;
+    setOrbState('listening');
     micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
     audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     sourceNode = audioCtx.createMediaStreamSource(micStream);
-    // ScriptProcessorNode is deprecated but the simplest reliable way to
-    // get raw PCM frames across browsers for a first working version of
-    // this pipeline — an AudioWorklet rewrite is a reasonable later
-    // improvement, not a blocker for proving the pipeline works at all.
     processorNode = audioCtx.createScriptProcessor(4096, 1, 1);
 
     listenSocket = new WebSocket(`wss://${location.host}/listen?session=${encodeURIComponent(sessionId)}&locale=${locale}`);
-    listenSocket.onopen = () => console.log('[talk] /listen connected');
     listenSocket.onerror = (e) => console.error('[talk] /listen error', e);
-    listenSocket.onclose = () => console.log('[talk] /listen closed');
     listenSocket.onmessage = (e) => {
       let data;
       try { data = JSON.parse(e.data); } catch { return; }
       const alt = data?.channel?.alternatives?.[0];
       if (alt?.transcript) latestTranscript = alt.transcript;
-      // Only act once Deepgram itself says the utterance is done —
-      // is_final fires on every short pause and would send half-sentences.
       if ((data.speech_final || data.type === 'UtteranceEnd') && latestTranscript.trim()) {
         const finalText = latestTranscript.trim();
         latestTranscript = '';
@@ -124,27 +151,20 @@
         handleFinalTranscript(finalText);
       }
     };
-
     processorNode.onaudioprocess = (e) => {
-      if (listenSocket.readyState !== WebSocket.OPEN) return;
+      if (!listenSocket || listenSocket.readyState !== WebSocket.OPEN) return;
       const input = e.inputBuffer.getChannelData(0);
       const down = downsampleTo16k(input, audioCtx.sampleRate);
       listenSocket.send(floatTo16BitPCM(down));
     };
     sourceNode.connect(processorNode);
     processorNode.connect(audioCtx.destination);
-
     listening = true;
-    els.micBtn.classList.add('listening');
-    els.micBtn.textContent = '⏹';
-    setStatus('Listening…');
   }
 
   function stopListening() {
     if (!listening) return;
     listening = false;
-    els.micBtn.classList.remove('listening');
-    els.micBtn.textContent = '🎤';
     if (processorNode) { processorNode.disconnect(); processorNode = null; }
     if (sourceNode) { sourceNode.disconnect(); sourceNode = null; }
     if (audioCtx) { audioCtx.close(); audioCtx = null; }
@@ -153,111 +173,102 @@
   }
 
   async function handleFinalTranscript(text) {
-    addLine('child', text);
-    setStatus('Mare is thinking…');
-    els.micBtn.disabled = true;
+    showCaption(text);
+    setOrbState('thinking');
     try {
-      const res = await fetch('/api/talk/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sessionId, message: text }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setStatus(data.error || 'Something went wrong.');
-        return;
-      }
-      addLine('mare', data.reply);
+      const data = await api('/api/talk/chat', { method: 'POST', body: JSON.stringify({ sessionId, message: text }) });
       await speak(data.reply);
-      setStatus('Tap the microphone to talk.');
     } catch {
-      setStatus('Something went wrong — try again.');
-    } finally {
-      els.micBtn.disabled = false;
+      setOrbState('idle');
     }
   }
 
   async function speak(text) {
+    setOrbState('speaking');
+    showCaption(text);
     try {
-      const res = await fetch('/api/speak', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text }),
-      });
-      if (!res.ok) return; // voice not configured — text already shown, fine to skip audio
+      const res = await fetch('/api/speak', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text }) });
+      if (!res.ok) { setOrbState('idle'); return; }
       const blob = await res.blob();
-      els.player.src = URL.createObjectURL(blob);
-      await els.player.play();
-    } catch (e) {
-      console.error('[talk] speak failed', e);
+      const audio = new Audio(URL.createObjectURL(blob));
+      audio.addEventListener('ended', () => setOrbState('idle'));
+      audio.addEventListener('error', () => setOrbState('idle'));
+      await audio.play();
+    } catch {
+      setOrbState('idle');
     }
   }
 
-  async function beginConversation() {
-    const childId = els.childSelect.value;
-    if (!childId) return;
-    els.startBtn.disabled = true;
-    setStatus('Finding Mare…');
+  async function beginConversation(child) {
+    selectedChild = child;
+    els['picker-view'].hidden = true;
+    els['talk-view'].hidden = false;
+    els['talk-child-name'].textContent = child.name;
+    setOrbState('disabled');
+
     try {
-      const res = await fetch('/api/talk/session', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ childId }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setStatus(data.error || 'Could not start a conversation.');
-        els.startBtn.disabled = false;
-        return;
-      }
+      const data = await api('/api/talk/session', { method: 'POST', body: JSON.stringify({ childId: child.id }) });
       sessionId = data.sessionId;
       locale = data.locale;
+      const openData = await api(`/api/talk/session/${sessionId}/opening`, { method: 'POST' });
+      await speak(openData.reply);
+    } catch (err) {
+      setOrbState('idle');
+      els['state-label'].textContent = err.message || window.MareI18n.t('talkErrorGeneric');
+    }
+  }
 
-      els.transcript.hidden = false;
-      els.micRow.hidden = false;
-      els.endBtn.hidden = false;
-      document.getElementById('child-select').closest('.talk-field').hidden = true;
-      els.startBtn.hidden = true;
-
-      setStatus('Mare is saying hello…');
-      const openRes = await fetch(`/api/talk/session/${sessionId}/opening`, { method: 'POST' });
-      const openData = await openRes.json();
-      if (openRes.ok) {
-        addLine('mare', openData.reply);
-        await speak(openData.reply);
+  function setupOrb() {
+    els['orb-btn'].addEventListener('click', () => {
+      if (els['orb-btn'].classList.contains('state-disabled')) return;
+      if (listening) {
+        stopListening();
+        setOrbState('idle');
+      } else if (!els['orb-btn'].classList.contains('state-thinking') && !els['orb-btn'].classList.contains('state-speaking')) {
+        startListening();
       }
-      setStatus('Tap the microphone to talk.');
-    } catch {
-      setStatus('Could not reach the server — try again.');
-      els.startBtn.disabled = false;
-    }
+    });
   }
 
-  async function endConversation() {
+  function setupCaptions() {
+    els['captions-btn'].addEventListener('click', () => {
+      captionsOn = !captionsOn;
+      els['captions-btn'].classList.toggle('active', captionsOn);
+      els['captions-bar'].hidden = !captionsOn;
+    });
+  }
+
+  async function endConversationAndLeave() {
     stopListening();
-    if (sessionId) {
-      await fetch(`/api/talk/session/${sessionId}/end`, { method: 'POST' }).catch(() => {});
-    }
-    sessionId = null;
-    setStatus('Conversation ended.');
-    els.micRow.hidden = true;
-    els.endBtn.hidden = true;
+    if (sessionId) await api(`/api/talk/session/${sessionId}/end`, { method: 'POST' }).catch(() => {});
+    window.location.href = '/';
   }
-
-  els.startBtn.addEventListener('click', beginConversation);
-  els.endBtn.addEventListener('click', endConversation);
-  els.micBtn.addEventListener('click', () => {
-    if (listening) stopListening();
-    else startListening();
-  });
+  function setupLeave() {
+    els['leave-btn'].addEventListener('click', () => { els['leave-confirm'].hidden = false; });
+    els['leave-cancel-btn'].addEventListener('click', () => { els['leave-confirm'].hidden = true; });
+    els['leave-confirm-btn'].addEventListener('click', endConversationAndLeave);
+  }
 
   async function init() {
+    cacheEls();
+    await window.MareI18n.ready;
+    setViewportHeight();
+    window.addEventListener('resize', setViewportHeight);
+    window.addEventListener('orientationchange', setViewportHeightDelayed);
+    window.addEventListener('resize', setViewportHeightDelayed);
+
+    setupLangSwitch();
+    setupOrb();
+    setupCaptions();
+    setupLeave();
+
     currentUser = await checkSession();
     if (!currentUser || currentUser.role !== 'parent') {
       window.location.href = '/login.html';
       return;
     }
     await loadChildren();
+    els['talk-loading'].hidden = true;
   }
   init();
 })();

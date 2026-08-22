@@ -5,6 +5,8 @@
   "heroTitle": "Mare's Story Corner",
   "heroSub": "Pick a story. The wood is listening.",
   "moreStoriesSoon": "More stories soon",
+  "talkToMare": "Talk to Mare",
+  "talkToMareSub": "Tell her what's on your mind",
   "clubMare": "Club Mare",
   "clubMareSub": "New stories, just for members",
   "maresShop": "Mare's Shop",
@@ -291,5 +293,21 @@
   "acErrorTitleSlugRequired": "Title and slug are required.",
   "acErrorFileRequired": "Choose a file first.",
   "acErrorNoNarrationYet": "Upload narration audio first.",
-  "acErrorGeneric": "Something went wrong \u2014 please try again."
+  "acErrorGeneric": "Something went wrong \u2014 please try again.",
+
+  "talkBack": "Back",
+  "talkWhoIsTalking": "Who's talking to Mare today?",
+  "talkNoChildren": "No children on this account yet.",
+  "talkAddChildLink": "Add one in My Account",
+  "talkLeave": "Leave",
+  "talkToggleCaptions": "Show captions",
+  "talkTapToTalk": "Tap to talk",
+  "talkConfirmLeave": "Say goodbye to Mare and go back?",
+  "talkLeaveConfirm": "Yes, go back",
+  "talkErrorGeneric": "Mare is having trouble hearing right now \u2014 try again in a moment.",
+  "talkStateIdle": "Tap the light to talk to Mare",
+  "talkStateListening": "Mare is listening\u2026",
+  "talkStateThinking": "Mare is thinking\u2026",
+  "talkStateSpeaking": "Mare is talking",
+  "talkStateDisabled": "Finding Mare\u2026"
 }

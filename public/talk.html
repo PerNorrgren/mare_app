@@ -2,74 +2,79 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Mare — Talk to Mare (test)</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Mare — Talk to Mare</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/css/style.css">
-<style>
-  /* Bare test-harness styling — not meant to be pretty. This page exists
-     to prove the pipeline works end to end (mic -> Deepgram -> Claude ->
-     ElevenLabs) before any of it is designed into the real reader
-     experience. Night theme reused as-is from style.css. */
-  main.talk-main { max-width: 640px; margin: 0 auto; padding: 24px 20px 80px; }
-  .talk-notice { background: rgba(234,192,102,0.12); border: 1px solid rgba(234,192,102,0.3); border-radius: 12px; padding: 14px 18px; font-size: 0.85rem; margin-bottom: 24px; }
-  .talk-field { margin-bottom: 16px; }
-  .talk-field label { display: block; font-weight: 700; font-size: 0.85rem; margin-bottom: 6px; }
-  .talk-field select { width: 100%; padding: 10px 14px; border-radius: 10px; border: 1.5px solid rgba(243,236,217,0.3); background: rgba(243,236,217,0.06); color: var(--parchment); font-family: 'Quicksand', sans-serif; }
-  .talk-status { font-size: 0.85rem; opacity: 0.75; margin: 10px 0; min-height: 1.2em; }
-  .talk-transcript { border: 1px solid rgba(243,236,217,0.15); border-radius: 12px; padding: 16px; min-height: 200px; margin: 20px 0; display: flex; flex-direction: column; gap: 12px; }
-  .talk-line { padding: 10px 14px; border-radius: 10px; max-width: 85%; font-size: 0.92rem; line-height: 1.4; }
-  .talk-line.mare { background: rgba(44,92,120,0.35); align-self: flex-start; }
-  .talk-line.child { background: rgba(234,192,102,0.15); align-self: flex-end; }
-  .talk-controls { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
-  .mic-btn { width: 64px; height: 64px; border-radius: 50%; border: none; background: var(--gold); color: var(--night); font-size: 1.5rem; cursor: pointer; }
-  .mic-btn.listening { background: #c0392b; color: #fff; animation: pulse 1.2s ease-in-out infinite; }
-  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.6; } }
-  .mic-btn:disabled { opacity: 0.4; cursor: not-allowed; animation: none; }
-</style>
+<link rel="stylesheet" href="/css/talk.css">
 </head>
-<body>
+<body class="talk-body">
 
-<header class="topbar">
-  <a href="/" class="brand" style="text-decoration:none;">
-    <span class="brand-mark" aria-hidden="true">
-      <svg viewBox="0 0 40 40" width="28" height="28"><path d="M20 4c-7 0-13 6-13 14 0 9 8 15 13 18 5-3 13-9 13-18 0-8-6-14-13-14z" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="20" cy="17" r="3" fill="currentColor"/></svg>
-    </span>
-    <span class="brand-word">Mare</span>
-  </a>
-  <nav class="topbar-actions">
-    <a href="/" class="btn-ghost">Back to stories</a>
-  </nav>
-</header>
+<!-- ── Who's talking? ── -->
+<div class="talk-picker" id="picker-view">
+  <header class="talk-picker-topbar">
+    <a href="/" class="talk-icon-btn" aria-label="Back" data-i18n-aria="talkBack">
+      <svg viewBox="0 0 24 24" width="22" height="22"><path d="M15 4l-8 8 8 8" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </a>
+    <div class="lang-switch" id="lang-switch" aria-label="Language">
+      <button type="button" class="lang-btn" data-lang="en">EN</button>
+      <button type="button" class="lang-btn" data-lang="nl">NL</button>
+    </div>
+  </header>
+  <h1 class="talk-picker-title" data-i18n="talkWhoIsTalking">Who's talking to Mare today?</h1>
+  <div class="talk-child-grid" id="child-grid"></div>
+  <p class="talk-picker-empty" id="no-children-msg" hidden>
+    <span data-i18n="talkNoChildren">No children on this account yet.</span>
+    <a href="/account.html" data-i18n="talkAddChildLink">Add one in My Account</a>
+  </p>
+</div>
 
-<main class="talk-main">
-  <h1>Talk to Mare — test harness</h1>
-  <p class="talk-notice">This is a bare test page, not the real experience — it exists to prove the pipeline (microphone → Deepgram → Claude → ElevenLabs) works end to end before any of this is designed into the actual reader. Needs a real browser and microphone; won't do anything useful without <code>ANTHROPIC_API_KEY</code> and <code>DEEPGRAM_API_KEY</code> set on the server.</p>
+<!-- ── The wood ── -->
+<div class="talk-scene" id="talk-view" hidden>
+  <div class="talk-backdrop"></div>
+  <div class="talk-vignette"></div>
 
-  <div class="talk-field">
-    <label for="child-select">Which child?</label>
-    <select id="child-select"></select>
+  <header class="talk-topbar">
+    <button type="button" class="talk-icon-btn" id="leave-btn" aria-label="Leave" data-i18n-aria="talkLeave">
+      <svg viewBox="0 0 24 24" width="22" height="22"><path d="M15 4l-8 8 8 8" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </button>
+    <span class="talk-child-name" id="talk-child-name"></span>
+    <button type="button" class="talk-icon-btn" id="captions-btn" aria-label="Show captions" data-i18n-aria="talkToggleCaptions">
+      <svg viewBox="0 0 24 24" width="18" height="18"><path d="M4 6h16M4 12h16M4 18h10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+    </button>
+  </header>
+
+  <main class="talk-stage">
+    <button type="button" class="talk-orb-wrap" id="orb-btn" aria-label="Tap to talk" data-i18n-aria="talkTapToTalk">
+      <span class="talk-orb-ring"></span>
+      <span class="talk-orb"></span>
+    </button>
+    <p class="talk-state-label" id="state-label"></p>
+  </main>
+
+  <div class="talk-captions" id="captions-bar" hidden>
+    <p class="talk-caption-line" id="caption-line"></p>
   </div>
+</div>
 
-  <div class="talk-controls">
-    <button type="button" class="btn-primary" id="start-btn">Start talking with Mare</button>
-    <button type="button" class="btn-ghost" id="end-btn" hidden>End conversation</button>
+<!-- Leave confirm -->
+<div class="talk-modal-backdrop" id="leave-confirm" hidden>
+  <div class="talk-modal-card">
+    <p data-i18n="talkConfirmLeave">Say goodbye to Mare and go back?</p>
+    <div class="talk-modal-actions">
+      <button type="button" class="btn-ghost" id="leave-cancel-btn" data-i18n="accCancel">Cancel</button>
+      <button type="button" class="btn-primary" id="leave-confirm-btn" data-i18n="talkLeaveConfirm">Yes, go back</button>
+    </div>
   </div>
+</div>
 
-  <div class="talk-status" id="status"></div>
+<div class="talk-loading" id="talk-loading">
+  <div class="talk-loading-spinner"></div>
+</div>
 
-  <div class="talk-transcript" id="transcript" hidden></div>
-
-  <div class="talk-controls" id="mic-row" hidden>
-    <button type="button" class="mic-btn" id="mic-btn" title="Tap to talk">🎤</button>
-    <span id="mic-hint">Tap to talk, tap again to stop</span>
-  </div>
-
-  <audio id="player" hidden></audio>
-</main>
-
+<script src="/js/i18n.js"></script>
 <script src="/js/talk.js"></script>
 </body>
 </html>

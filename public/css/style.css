@@ -230,6 +230,7 @@ h1, h2 {
   transition: transform 0.15s ease;
 }
 .extra-tile:hover { transform: translateY(-2px); }
+.extra-talk { background: #3A2A4A; color: var(--parchment); border: 1px solid rgba(234,192,102,0.25); }
 .extra-club { background: var(--moon); color: var(--parchment); }
 .extra-shop { background: #1A2E23; color: var(--parchment); border: 1px solid rgba(234,192,102,0.25); }
 .extra-icon { display: flex; flex-shrink: 0; color: var(--gold); }
