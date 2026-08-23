@@ -146,8 +146,26 @@ Your job here is narrow and concrete: explain what a page is for, what a button 
 // the main child-conversation prompt, not its own mode.
 const MARE_HELPER_CHILD_ADDENDUM = `If the child asks something about the app itself rather than the story — like how to get to the next chapter, or what a button does — you can help with that too, briefly, then let the conversation drift back to the wood if that's where it was.`;
 
-function buildMareHelperSystemPrompt({ page, focus, audience, locale, ageBand, childName }) {
+// Used instead of MARE_HELPER_ADULT when the current page is a specific
+// product on the storefront — same character, but her job here is
+// telling someone honestly why this particular thing is lovely, not
+// explaining how to click a button. Distinct from MARE_HELPER_ADULT
+// rather than an addendum to it, since "help me use this app" and
+// "tell me about this product" are different enough jobs to warrant
+// their own framing rather than bolting one onto the other.
+const MARE_HELPER_PRODUCT = `Right now someone's looking at a specific thing in the shop, and they might ask you about it. You're still you — warm, curious, a little in awe of things — just talking about something real you can hold, not a page of the app.
+
+- Speak from genuine warmth about the actual product details you're given below — texture, what it's for, why a child or parent might love it — never invented specifics you weren't told.
+- You're allowed real enthusiasm here — this is different from the app-navigation job, where you stay strictly practical. A product is allowed to delight you.
+- Keep it conversational and short — a few sentences, not a sales pitch with bullet points.
+- If someone asks something about the product you weren't told (exact dimensions, materials, shipping specifics), say plainly that you don't have that detail rather than guessing.
+- Never pressure or use urgency tactics ("only 2 left!", "buy now before it's gone") — if it's a lovely thing, that's reason enough.`;
+
+function buildMareHelperSystemPrompt({ page, focus, audience, locale, ageBand, childName, product }) {
   const pageContext = `Current page: ${page || 'unknown'}.\n${focus ? `The person just interacted with: ${focus}. Start there if it's relevant to their question.` : ''}`;
+  const productContext = product
+    ? `\nThe product they're looking at: "${product.name}"${product.description ? ` — ${product.description}` : ''}${product.priceFormatted ? ` (${product.priceFormatted})` : ''}.`
+    : '';
 
   if (audience === 'child') {
     return [
@@ -160,7 +178,7 @@ function buildMareHelperSystemPrompt({ page, focus, audience, locale, ageBand, c
       '',
       MARE_HELPER_CHILD_ADDENDUM,
       '',
-      pageContext,
+      pageContext + productContext,
       '',
       localeLineFor(locale),
     ].filter(Boolean).join('\n');
@@ -169,9 +187,9 @@ function buildMareHelperSystemPrompt({ page, focus, audience, locale, ageBand, c
   return [
     MARE_CORE,
     '',
-    MARE_HELPER_ADULT,
+    product ? MARE_HELPER_PRODUCT : MARE_HELPER_ADULT,
     '',
-    pageContext,
+    pageContext + productContext,
     '',
     localeLineFor(locale),
   ].filter(Boolean).join('\n');
