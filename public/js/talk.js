@@ -201,6 +201,10 @@
 
   async function beginConversation(child) {
     selectedChild = child;
+    // Lets the site-wide Mare Helper widget (if opened while this Talk
+    // to Mare conversation is active) use the same age-appropriate
+    // register, rather than defaulting to the adult/app-helper voice.
+    window.MareHelperContext = { isChild: true, ageBand: child.age_band, childName: child.name };
     els['picker-view'].hidden = true;
     els['talk-view'].hidden = false;
     els['talk-child-name'].textContent = child.name;

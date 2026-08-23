@@ -347,3 +347,166 @@ h1, h2 {
   transition: border-color 0.15s ease, color 0.15s ease;
 }
 .social-footer a:hover { border-color: var(--gold); color: var(--gold); }
+
+/* ── Mare Helper widget (mare-helper-widget.js) ── */
+/* Deliberately self-contained styling (own dark/gold palette, own
+   z-index) rather than inheriting from day/atmosphere theme rules —
+   this widget appears on every page regardless of that page's own
+   theme, so it needs to look consistent everywhere rather than
+   picking up whatever background treatment the host page happens to
+   have. Sits above everything else in the app (z-index 100) — it's a
+   floating overlay, not page content competing for a stacking context
+   like the .admin-shell/.topbar fixes elsewhere in this file. */
+#mare-helper-root { position: fixed; z-index: 100; bottom: 20px; right: 20px; font-family: 'Quicksand', sans-serif; }
+
+#mh-launcher {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  border: 3px solid var(--gold);
+  padding: 0;
+  cursor: pointer;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.35);
+  overflow: hidden;
+  background: var(--night-deep);
+  transition: transform 0.15s ease;
+}
+#mh-launcher:hover { transform: scale(1.05); }
+#mh-launcher-avatar, #mh-panel-avatar {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background-image: url('/images/mare-avatar.jpg');
+  background-size: cover;
+  background-position: center;
+}
+#mh-panel-avatar { width: 40px; height: 40px; border-radius: 50%; flex-shrink: 0; border: 2px solid var(--gold); }
+
+#mh-greeting-bubble {
+  position: absolute;
+  bottom: 82px;
+  right: 0;
+  max-width: 220px;
+  background: #FFFFFF;
+  color: var(--navy);
+  padding: 12px 16px;
+  border-radius: 16px 16px 4px 16px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.25);
+  cursor: pointer;
+}
+#mh-greeting-bubble[hidden] { display: none; }
+
+#mh-panel {
+  position: absolute;
+  bottom: 88px;
+  right: 0;
+  width: min(340px, calc(100vw - 40px));
+  height: min(480px, calc(100vh - 140px));
+  background: var(--night-deep);
+  border: 1px solid rgba(234,192,102,0.25);
+  border-radius: 20px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+#mh-panel[hidden] { display: none; }
+
+#mh-panel-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px;
+  border-bottom: 1px solid rgba(243,236,217,0.1);
+}
+#mh-panel-title-wrap { flex: 1; min-width: 0; }
+#mh-panel-title { font-family: 'Fraunces', serif; font-weight: 600; color: var(--gold); font-size: 1rem; }
+#mh-panel-sub { font-size: 0.72rem; color: rgba(243,236,217,0.6); }
+#mh-speak-toggle { cursor: pointer; opacity: 0.5; font-size: 1rem; }
+#mh-speak-toggle:has(input:checked) { opacity: 1; }
+#mh-speak-toggle input { position: absolute; opacity: 0; pointer-events: none; }
+#mh-close-btn {
+  background: none;
+  border: none;
+  color: rgba(243,236,217,0.6);
+  cursor: pointer;
+  font-size: 1rem;
+  padding: 4px;
+}
+#mh-close-btn:hover { color: var(--parchment); }
+
+#mh-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.mh-bubble {
+  max-width: 85%;
+  padding: 10px 14px;
+  border-radius: 14px;
+  font-size: 0.88rem;
+  line-height: 1.5;
+}
+.mh-bubble-assistant {
+  background: rgba(243,236,217,0.08);
+  color: var(--parchment);
+  align-self: flex-start;
+  border-bottom-left-radius: 4px;
+}
+.mh-bubble-user {
+  background: var(--gold);
+  color: var(--night);
+  align-self: flex-end;
+  border-bottom-right-radius: 4px;
+  font-weight: 600;
+}
+.mh-typing { display: flex; gap: 4px; align-items: center; padding: 12px 14px; }
+.mh-typing span {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: rgba(243,236,217,0.5);
+  animation: mh-typing-bounce 1.2s infinite ease-in-out;
+}
+.mh-typing span:nth-child(2) { animation-delay: 0.2s; }
+.mh-typing span:nth-child(3) { animation-delay: 0.4s; }
+@keyframes mh-typing-bounce { 0%, 60%, 100% { transform: translateY(0); opacity: 0.5; } 30% { transform: translateY(-4px); opacity: 1; } }
+
+#mh-input-form {
+  display: flex;
+  gap: 8px;
+  padding: 12px;
+  border-top: 1px solid rgba(243,236,217,0.1);
+}
+#mh-input {
+  flex: 1;
+  background: rgba(243,236,217,0.06);
+  border: 1px solid rgba(243,236,217,0.2);
+  border-radius: 999px;
+  padding: 10px 16px;
+  color: var(--parchment);
+  font-family: 'Quicksand', sans-serif;
+  font-size: 0.88rem;
+}
+#mh-input::placeholder { color: rgba(243,236,217,0.4); }
+#mh-input:focus { outline: none; border-color: var(--gold); }
+#mh-send-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: none;
+  background: var(--gold);
+  color: var(--night);
+  font-size: 1.1rem;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+@media (max-width: 480px) {
+  #mare-helper-root { bottom: 12px; right: 12px; }
+  #mh-launcher { width: 60px; height: 60px; }
+  #mh-panel { bottom: 72px; }
+}

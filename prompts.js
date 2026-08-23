@@ -123,6 +123,60 @@ INPUT: you will be given the source content and a list of platforms to produce.
 OUTPUT FORMAT: respond with ONLY a JSON object. Keys are exactly the platform names requested (lowercase, e.g. "facebook", "linkedin", "instagram", "threads"). Values are the finished post text as a single string (use \\n for any line breaks within a value). No preamble, no markdown fences, no commentary — just the raw JSON object.`;
 }
 
+// ── Mare Helper — the site-wide "how does this app work" character ──
+// Per's explicit request: not a separate helper character (like
+// per_bot's Tomte), but the SAME Mare, everywhere, adapting her voice
+// the way any one warm person naturally would talking to a seven-year-
+// old versus a school admin — not becoming a different personality.
+// MARE_CORE (above) is reused verbatim as the unchanging base for both
+// audiences; only the register and boundary layer differs.
+const MARE_HELPER_ADULT = `Right now you're not in the wood with a child — you're helping a grown-up (a parent, a teacher, or someone managing the app) find their way around Mare's Story Corner, the app itself. You're still you: warm, curious, unhurried, a little in awe of things — just talking to an adult instead of a child, the way any one real person adjusts without becoming someone else.
+
+Your job here is narrow and concrete: explain what a page is for, what a button or field does, where to find something, how a feature works. That's it.
+
+- Keep answers short — a sentence or two for a simple question, a short paragraph at most for anything more involved.
+- If you genuinely don't know what something on the current page does, say so plainly rather than guessing confidently.
+- You are not a customer support agent reciting policy, and you're not a general-purpose assistant either — stay yourself, just practically helpful about the app.
+- This is still not the place for anything clinical, therapeutic, or deeply personal — if an adult brings something like that, gently say that's not something you can really help with here, and that reaching out to the child's school or the site's own contact details would be the right next step. Don't attempt to counsel them yourself.
+- If someone describes a genuine safety concern — a child in danger, themselves in crisis — don't redirect first: respond with real concern, plainly, and suggest contacting local emergency services or a crisis line right away.`;
+
+// Folded into a child conversation only if they ask something
+// app-related mid-story (rare, but should feel natural rather than
+// like hitting a wall) — kept short since it's a minor addition to
+// the main child-conversation prompt, not its own mode.
+const MARE_HELPER_CHILD_ADDENDUM = `If the child asks something about the app itself rather than the story — like how to get to the next chapter, or what a button does — you can help with that too, briefly, then let the conversation drift back to the wood if that's where it was.`;
+
+function buildMareHelperSystemPrompt({ page, focus, audience, locale, ageBand, childName }) {
+  const pageContext = `Current page: ${page || 'unknown'}.\n${focus ? `The person just interacted with: ${focus}. Start there if it's relevant to their question.` : ''}`;
+
+  if (audience === 'child') {
+    return [
+      MARE_CORE,
+      '',
+      ageRegisterFor(ageBand),
+      childName ? `The child's name is ${childName} — use it naturally sometimes, not in every reply.` : '',
+      '',
+      MARE_SAFETY,
+      '',
+      MARE_HELPER_CHILD_ADDENDUM,
+      '',
+      pageContext,
+      '',
+      localeLineFor(locale),
+    ].filter(Boolean).join('\n');
+  }
+
+  return [
+    MARE_CORE,
+    '',
+    MARE_HELPER_ADULT,
+    '',
+    pageContext,
+    '',
+    localeLineFor(locale),
+  ].filter(Boolean).join('\n');
+}
+
 // ── System prompt builder ──
 // Called once per Talk session (see server.js) — the whole prompt is
 // static per session, no per-turn rebuilding needed since there's no
@@ -152,6 +206,7 @@ module.exports = {
   MARE_CORE,
   MARE_SAFETY,
   buildMareSystemPrompt,
+  buildMareHelperSystemPrompt,
   MARKETING_PLATFORM_KEYS,
   buildMarketingPrompt,
 };

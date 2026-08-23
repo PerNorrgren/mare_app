@@ -450,5 +450,10 @@
   "adminAddTeacherDesc": "Leraaraccounts worden hier aangemaakt — er is geen openbare zelfregistratie. Nieuwe leraren krijgen een e-mail om \"je wachtwoord in te stellen\".",
   "adminAddTeacher": "Leraar toevoegen",
   "adminTeacherAdded": "{name} toegevoegd — er is een welkomstmail onderweg.",
-  "teacherSignupNote": "Nieuw bij Mare? Vraag je school om toegang te regelen."
+  "teacherSignupNote": "Nieuw bij Mare? Vraag je school om toegang te regelen.",
+  "mareHelperUnavailable": "Ik heb even een rustig moment — probeer het zo weer.",
+  "mareHelperRateLimited": "Laten we even pauzeren — probeer het straks weer.",
+  "mareHelperBubble": "Hulp nodig? Vraag het gerust.",
+  "mareHelperInputPlaceholder": "Vraag Mare iets…",
+  "mareHelperPanelSub": "Hier om te helpen, of gewoon om te praten."
 }

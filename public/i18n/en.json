@@ -450,5 +450,10 @@
   "adminAddTeacherDesc": "Teacher accounts are created here — there's no public self-signup. New teachers get a \"set your password\" email.",
   "adminAddTeacher": "Add teacher",
   "adminTeacherAdded": "{name} added — a welcome email is on its way.",
-  "teacherSignupNote": "New to Mare? Ask your school to arrange access."
+  "teacherSignupNote": "New to Mare? Ask your school to arrange access.",
+  "mareHelperUnavailable": "I'm having a quiet moment — try again shortly.",
+  "mareHelperRateLimited": "Let's pause a moment — try again in a little while.",
+  "mareHelperBubble": "Need a hand? Just ask.",
+  "mareHelperInputPlaceholder": "Ask Mare anything…",
+  "mareHelperPanelSub": "Here to help, or just to talk."
 }

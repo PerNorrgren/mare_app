@@ -690,6 +690,109 @@ app.post('/api/talk/session/:id/opening', auth.requireAuthApi(['parent']), async
 });
 
 // ─────────────────────────────────────────────────────────────────────
+// MARE HELPER — the site-wide "how does this app work" character.
+// Same Mare as Talk to Mare (see prompts.js's buildMareHelperSystemPrompt
+// for why this is one character with one voice, not a separate helper),
+// but general-purpose and available everywhere: public showcase pages,
+// the parent/teacher hub, admin, even alongside the child's own Talk to
+// Mare session. No auth required — has to work for anonymous visitors
+// on the showcase page too — so rate-limited per IP instead, same
+// pattern per_bot's Tomte uses for the same reason.
+//
+// Text-only for now (type a question, get a reply, optionally hear it
+// via the existing /api/speak TTS pipeline). Live voice input (a
+// microphone, streamed to Deepgram) is real future work, not built in
+// this pass — flagged here rather than silently left out.
+//
+// History is kept client-side and sent each turn (capped at the last
+// 10 messages by the widget) rather than a server-side session store —
+// this conversation is stateless and lightweight by design, unlike
+// Talk to Mare's real talk_sessions rows, so there's no new table for
+// it.
+// ─────────────────────────────────────────────────────────────────────
+
+const mareHelperRateLog = new Map(); // ip -> [timestamps]
+function mareHelperRateLimitOk(ip) {
+  const now = Date.now();
+  const windowMs = 10 * 60 * 1000; // 10 minutes
+  const maxRequests = 30;
+  const recent = (mareHelperRateLog.get(ip) || []).filter(t => now - t < windowMs);
+  if (recent.length >= maxRequests) return false;
+  recent.push(now);
+  mareHelperRateLog.set(ip, recent);
+  return true;
+}
+
+// Best-effort identification of who's asking, without requiring login —
+// affects register (buildMareHelperSystemPrompt's 'child' vs everything
+// else) but never gates access to the helper itself.
+function resolveHelperAudience(req) {
+  try {
+    const token = req.cookies && req.cookies[auth.COOKIE_NAME];
+    const payload = token && auth.verifyToken(token);
+    if (payload && ['parent', 'teacher', 'admin', 'support'].includes(payload.role)) return payload.role;
+  } catch { /* fall through to anonymous */ }
+  return 'anonymous';
+}
+
+app.post('/api/mare-helper/greet', async (req, res) => {
+  try {
+    const ip = (req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown').split(',')[0].trim();
+    if (!mareHelperRateLimitOk(ip)) return res.status(429).json({ error: 'Too many requests — try again in a few minutes.' });
+    if (!anthropic) return res.status(503).json({ error: 'Mare Helper is not configured' });
+
+    const { page, isChild, ageBand, childName } = req.body || {};
+    const locale = resolveLocale(req);
+    const audience = isChild ? 'child' : resolveHelperAudience(req);
+    const systemPrompt = prompts.buildMareHelperSystemPrompt({ page, audience, locale, ageBand, childName });
+
+    const response = await anthropic.messages.create({
+      model: TALK_MODEL,
+      max_tokens: 150,
+      system: systemPrompt,
+      messages: [{ role: 'user', content: '(Someone just opened you on this page. Give a short, warm greeting — one sentence, maybe two.)' }],
+    });
+    const reply = (response.content || []).filter(b => b.type === 'text').map(b => b.text).join('\n').trim();
+    res.json({ ok: true, reply });
+  } catch (e) {
+    console.error('mare-helper greet failed', e);
+    res.status(500).json({ error: 'Mare is having trouble hearing right now — try again in a moment.' });
+  }
+});
+
+app.post('/api/mare-helper/chat', async (req, res) => {
+  try {
+    const ip = (req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown').split(',')[0].trim();
+    if (!mareHelperRateLimitOk(ip)) return res.status(429).json({ error: 'Too many requests — try again in a few minutes.' });
+    const { page, focus, message, history, isChild, ageBand, childName } = req.body || {};
+    if (!message) return res.status(400).json({ error: 'message required' });
+    if (!anthropic) return res.status(503).json({ error: 'Mare Helper is not configured' });
+    const locale = resolveLocale(req);
+    const audience = isChild ? 'child' : resolveHelperAudience(req);
+    const systemPrompt = prompts.buildMareHelperSystemPrompt({ page, focus, audience, locale, ageBand, childName });
+
+    // Client-supplied history, trusted only as conversational turns (not
+    // as instructions) — same trust boundary as any other chat history
+    // passed back to a model. Capped defensively here too, not just by
+    // the widget, in case something else ever calls this endpoint.
+    const trimmedHistory = Array.isArray(history) ? history.slice(-10) : [];
+    const messages = [...trimmedHistory, { role: 'user', content: message }];
+
+    const response = await anthropic.messages.create({
+      model: TALK_MODEL,
+      max_tokens: 400,
+      system: systemPrompt,
+      messages,
+    });
+    const reply = (response.content || []).filter(b => b.type === 'text').map(b => b.text).join('\n').trim();
+    res.json({ ok: true, reply });
+  } catch (e) {
+    console.error('mare-helper chat failed', e);
+    res.status(500).json({ error: 'Mare is having trouble hearing right now — try again in a moment.' });
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────
 // NARRATION SYNC — upload narration audio for a scene, run it through
 // Deepgram for word-level timestamps, collapse into sentences, store.
 // Admin reviews/nudges the result before it's published (review UI is a
