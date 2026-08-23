@@ -142,6 +142,8 @@
     setupPhraseModal();
     setupBulkImport();
     setupAddTeacherForm();
+    setupClubMarePostModal();
+    setupProductModal();
     loadOverview();
     loadResources();
     loadPages();
@@ -151,10 +153,14 @@
     loadBroadcasts();
     loadWhatsNew();
     loadOffers();
+    loadProducts();
     loadMarketingStats();
     loadShowcaseContent();
     loadShowcaseTiles();
     loadShowcasePhrases();
+    loadClubMareMembers();
+    loadClubMarePosts();
+    loadClubMareStats();
     if (isAdmin) loadStaff();
   }
 
@@ -1348,6 +1354,333 @@
         document.getElementById('bulk-import-error').hidden = false;
       } finally {
         btn.disabled = false;
+      }
+    });
+  }
+
+  // ── Club Mare: stats ──
+  async function loadClubMareStats() {
+    const grid = document.getElementById('clubmare-stat-grid');
+    try {
+      const stats = await api('/api/admin/report/overview');
+      const items = [
+        { label: t('adminStatClubMembers'), value: stats.clubMembers, sub: t('adminStatOfParents', { count: stats.parents }) },
+      ];
+      grid.innerHTML = items.map(item => `
+        <div class="stat-item">
+          <div class="stat-value">${escapeHtml(String(item.value))}</div>
+          <div class="stat-label">${escapeHtml(item.label)}</div>
+          ${item.sub ? `<div class="stat-sub">${escapeHtml(item.sub)}</div>` : ''}
+        </div>
+      `).join('');
+    } catch {
+      grid.innerHTML = `<p class="admin-empty-note">${escapeHtml(t('adminCouldNotLoadStats'))}</p>`;
+    }
+  }
+
+  // ── Club Mare: members ──
+  async function loadClubMareMembers() {
+    const container = document.getElementById('clubmare-members-table');
+    try {
+      const data = await api('/api/admin/club-mare/members');
+      const rows = data.members || [];
+      if (!rows.length) {
+        container.innerHTML = `<p class="admin-empty-note">${escapeHtml(t('adminNoneYet'))}</p>`;
+        return;
+      }
+      const table = document.createElement('table');
+      table.className = 'admin-table';
+      table.innerHTML = `<thead><tr>
+        <th>${escapeHtml(t('fieldName'))}</th><th>${escapeHtml(t('fieldEmail'))}</th>
+        <th>${escapeHtml(t('adminClubMareTier'))}</th><th>${escapeHtml(t('adminClubMareJoined'))}</th><th></th>
+      </tr></thead>`;
+      const tbody = document.createElement('tbody');
+      rows.forEach(m => {
+        const tr = document.createElement('tr');
+        const isPaid = m.tier === 2;
+        tr.innerHTML = `
+          <td>${escapeHtml(m.parent_name || '—')}</td>
+          <td>${escapeHtml(m.parent_email || '—')}</td>
+          <td><span class="status-badge ${isPaid ? 'active' : 'suspended'}">${escapeHtml(t(isPaid ? 'adminClubMarePaid' : 'adminClubMareFree'))}</span></td>
+          <td>${escapeHtml((m.joined_at || '').slice(0, 10))}</td>
+        `;
+        const actionTd = document.createElement('td');
+        const toggleBtn = document.createElement('button');
+        toggleBtn.type = 'button';
+        toggleBtn.className = 'btn-ghost btn-small';
+        toggleBtn.textContent = t(isPaid ? 'adminClubMareDowngrade' : 'adminClubMareUpgrade');
+        toggleBtn.addEventListener('click', async () => {
+          toggleBtn.disabled = true;
+          try {
+            await api(`/api/admin/club-mare/members/${m.parent_id}/tier`, { method: 'PATCH', body: JSON.stringify({ tier: isPaid ? 1 : 2 }) });
+            loadClubMareMembers();
+          } catch { toggleBtn.disabled = false; }
+        });
+        const removeBtn = document.createElement('button');
+        removeBtn.type = 'button';
+        removeBtn.className = 'btn-ghost btn-small';
+        removeBtn.textContent = t('adminDelete');
+        removeBtn.style.marginLeft = '6px';
+        removeBtn.addEventListener('click', async () => {
+          if (!window.confirm(t('adminClubMareRemoveConfirm', { name: m.parent_name }))) return;
+          await api(`/api/admin/club-mare/members/${m.parent_id}`, { method: 'DELETE' });
+          loadClubMareMembers();
+        });
+        actionTd.appendChild(toggleBtn);
+        actionTd.appendChild(removeBtn);
+        tr.appendChild(actionTd);
+        tbody.appendChild(tr);
+      });
+      table.appendChild(tbody);
+      container.innerHTML = '';
+      container.appendChild(table);
+    } catch {
+      container.innerHTML = `<p class="admin-empty-note">${escapeHtml(t('adminCouldNotLoadMembers'))}</p>`;
+    }
+  }
+
+  // ── Club Mare: exclusive posts ──
+  let cmpEditingId = null;
+  let cmpUploadedImageKey = null;
+
+  async function loadClubMarePosts() {
+    const container = document.getElementById('clubmare-posts-list');
+    try {
+      const data = await api('/api/admin/club-mare/posts');
+      const rows = data.posts || [];
+      if (!rows.length) {
+        container.innerHTML = `<p class="admin-empty-note">${escapeHtml(t('adminNoneYet'))}</p>`;
+        return;
+      }
+      container.innerHTML = rows.map(post => `
+        <div class="admin-list-item">
+          <div class="admin-list-item-main">
+            <div class="admin-list-item-title">${escapeHtml(post.title)}</div>
+            <div class="admin-list-item-sub">
+              <span class="status-badge ${post.active ? 'active' : 'suspended'}">${escapeHtml(t(post.active ? 'adminActive' : 'adminInactive'))}</span>
+              &nbsp;·&nbsp; ${escapeHtml(t(post.min_tier === 2 ? 'clubMareTierPaidOnly' : 'clubMareTierFreeAndPaid'))}
+            </div>
+          </div>
+          <div class="admin-list-item-actions">
+            <button type="button" class="btn-ghost btn-small" data-edit-cmp="${post.id}">${escapeHtml(t('adminEdit'))}</button>
+            <button type="button" class="btn-ghost btn-small" data-delete-cmp="${post.id}">${escapeHtml(t('adminDelete'))}</button>
+          </div>
+        </div>
+      `).join('');
+      container.querySelectorAll('[data-edit-cmp]').forEach(btn => {
+        btn.addEventListener('click', () => openClubMarePostModal(btn.getAttribute('data-edit-cmp'), rows.find(r => r.id === btn.getAttribute('data-edit-cmp'))));
+      });
+      container.querySelectorAll('[data-delete-cmp]').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          if (!window.confirm(t('adminDeleteConfirm'))) return;
+          await api(`/api/admin/club-mare/posts/${btn.getAttribute('data-delete-cmp')}`, { method: 'DELETE' });
+          loadClubMarePosts();
+        });
+      });
+    } catch {
+      container.innerHTML = `<p class="admin-empty-note">${escapeHtml(t('adminCouldNotLoadPosts'))}</p>`;
+    }
+  }
+
+  function openClubMarePostModal(id, post) {
+    cmpEditingId = id || null;
+    cmpUploadedImageKey = post ? (post.image_key || null) : null;
+    document.getElementById('clubmare-post-error').hidden = true;
+    document.getElementById('clubmare-post-modal-title').textContent = t(id ? 'adminEditPost' : 'adminNewPost');
+    document.getElementById('cmp-title').value = post ? post.title : '';
+    document.getElementById('cmp-body').value = post ? (post.body || '') : '';
+    document.getElementById('cmp-min-tier').value = post ? String(post.min_tier) : '1';
+    document.getElementById('cmp-active').checked = post ? !!post.active : true;
+    document.getElementById('cmp-image-status').textContent = cmpUploadedImageKey ? t('adminImageAttached') : '';
+    document.getElementById('cmp-image-file').value = '';
+    document.getElementById('clubmare-post-modal').hidden = false;
+  }
+
+  function setupClubMarePostModal() {
+    document.getElementById('new-clubmare-post-btn').addEventListener('click', () => openClubMarePostModal(null, null));
+    document.getElementById('cmp-close-btn').addEventListener('click', () => { document.getElementById('clubmare-post-modal').hidden = true; });
+    document.getElementById('cmp-image-file').addEventListener('change', async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const status = document.getElementById('cmp-image-status');
+      status.textContent = t('adminUploading');
+      try {
+        const key = `club-mare/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
+        const { url } = await api('/api/admin/upload-url', { method: 'POST', body: JSON.stringify({ key, contentType: file.type || 'application/octet-stream' }) });
+        const putRes = await fetch(url, { method: 'PUT', headers: { 'Content-Type': file.type || 'application/octet-stream' }, body: file });
+        if (!putRes.ok) throw new Error(t('adminErrorUploadFailed'));
+        cmpUploadedImageKey = key;
+        status.textContent = t('adminUploaded');
+      } catch (err) {
+        status.textContent = err.message || t('errorGeneric');
+      }
+    });
+    document.getElementById('cmp-save-btn').addEventListener('click', async () => {
+      const title = document.getElementById('cmp-title').value.trim();
+      const body = document.getElementById('cmp-body').value.trim();
+      const minTier = document.getElementById('cmp-min-tier').value;
+      const active = document.getElementById('cmp-active').checked;
+      if (!title) { showModalError('clubmare-post-error', t('errorMissingFields')); return; }
+      try {
+        const payload = JSON.stringify({ title, body, minTier, active, imageKey: cmpUploadedImageKey });
+        if (cmpEditingId) {
+          await api(`/api/admin/club-mare/posts/${cmpEditingId}`, { method: 'PATCH', body: payload });
+        } else {
+          await api('/api/admin/club-mare/posts', { method: 'POST', body: payload });
+        }
+        document.getElementById('clubmare-post-modal').hidden = true;
+        loadClubMarePosts();
+      } catch {
+        showModalError('clubmare-post-error', t('errorGeneric'));
+      }
+    });
+  }
+
+  // ── Merchandise: products ──
+  let prEditingId = null;
+  let prUploadedImageKeys = [];
+  let prUploadedVideoKey = null;
+
+  function fmtPrice(cents, currency) {
+    try {
+      return new Intl.NumberFormat('en-GB', { style: 'currency', currency: (currency || 'gbp').toUpperCase() }).format((cents || 0) / 100);
+    } catch { return `${(cents || 0) / 100}`; }
+  }
+
+  async function loadProducts() {
+    const container = document.getElementById('products-list');
+    try {
+      const data = await api('/api/admin/products');
+      const rows = data.products || [];
+      if (!rows.length) {
+        container.innerHTML = `<p class="admin-empty-note">${escapeHtml(t('adminNoneYet'))}</p>`;
+        return;
+      }
+      container.innerHTML = rows.map(p => `
+        <div class="admin-list-item">
+          <div class="admin-list-item-main">
+            <div class="admin-list-item-title">${escapeHtml(p.name)} — ${escapeHtml(fmtPrice(p.price_cents, p.currency))}</div>
+            <div class="admin-list-item-sub">
+              <span class="status-badge ${p.active ? 'active' : 'suspended'}">${escapeHtml(t(p.active ? 'adminActive' : 'adminInactive'))}</span>
+              &nbsp;·&nbsp; ${escapeHtml(t('adminProductPhotoCount', { count: (p.image_keys || []).length }))}
+              ${p.video_key ? ` · ${escapeHtml(t('adminProductHasVideo'))}` : ''}
+              ${p.stock != null ? ` · ${escapeHtml(t('adminProductStock', { count: p.stock }))}` : ''}
+            </div>
+          </div>
+          <div class="admin-list-item-actions">
+            <button type="button" class="btn-ghost btn-small" data-edit-pr="${p.id}">${escapeHtml(t('adminEdit'))}</button>
+            <button type="button" class="btn-ghost btn-small" data-delete-pr="${p.id}">${escapeHtml(t('adminDelete'))}</button>
+          </div>
+        </div>
+      `).join('');
+      container.querySelectorAll('[data-edit-pr]').forEach(btn => {
+        btn.addEventListener('click', () => openProductModal(btn.getAttribute('data-edit-pr'), rows.find(r => r.id === btn.getAttribute('data-edit-pr'))));
+      });
+      container.querySelectorAll('[data-delete-pr]').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          if (!window.confirm(t('adminDeleteConfirm'))) return;
+          await api(`/api/admin/products/${btn.getAttribute('data-delete-pr')}`, { method: 'DELETE' });
+          loadProducts();
+        });
+      });
+    } catch {
+      container.innerHTML = `<p class="admin-empty-note">${escapeHtml(t('adminCouldNotLoadProducts'))}</p>`;
+    }
+  }
+
+  function renderImageChips() {
+    const wrap = document.getElementById('pr-image-list');
+    wrap.innerHTML = prUploadedImageKeys.map((key, i) => `
+      <span class="admin-image-chip">${escapeHtml(t('adminPhotoLabel', { n: i + 1 }))} <button type="button" data-remove-img="${i}" aria-label="Remove">✕</button></span>
+    `).join('');
+    wrap.querySelectorAll('[data-remove-img]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        prUploadedImageKeys.splice(Number(btn.getAttribute('data-remove-img')), 1);
+        renderImageChips();
+      });
+    });
+  }
+
+  function openProductModal(id, product) {
+    prEditingId = id || null;
+    prUploadedImageKeys = product ? [...(product.image_keys || [])] : [];
+    prUploadedVideoKey = product ? (product.video_key || null) : null;
+    document.getElementById('product-error').hidden = true;
+    document.getElementById('product-modal-title').textContent = t(id ? 'adminEditProduct' : 'adminNewProduct');
+    document.getElementById('pr-name').value = product ? product.name : '';
+    document.getElementById('pr-description').value = product ? (product.description || '') : '';
+    document.getElementById('pr-price').value = product ? (product.price_cents / 100).toFixed(2) : '';
+    document.getElementById('pr-currency').value = product ? product.currency : 'gbp';
+    document.getElementById('pr-stock').value = product && product.stock != null ? product.stock : '';
+    document.getElementById('pr-active').checked = product ? !!product.active : true;
+    document.getElementById('pr-image-file').value = '';
+    document.getElementById('pr-video-file').value = '';
+    document.getElementById('pr-video-status').textContent = prUploadedVideoKey ? t('adminVideoAttached') : '';
+    renderImageChips();
+    document.getElementById('product-modal').hidden = false;
+  }
+
+  function setupProductModal() {
+    document.getElementById('new-product-btn').addEventListener('click', () => openProductModal(null, null));
+    document.getElementById('pr-close-btn').addEventListener('click', () => { document.getElementById('product-modal').hidden = true; });
+
+    document.getElementById('pr-image-file').addEventListener('change', async (e) => {
+      const files = Array.from(e.target.files || []);
+      for (const file of files) {
+        try {
+          const key = `products/${Date.now()}-${Math.random().toString(36).slice(2, 7)}-${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
+          const { url } = await api('/api/admin/upload-url', { method: 'POST', body: JSON.stringify({ key, contentType: file.type || 'application/octet-stream' }) });
+          const putRes = await fetch(url, { method: 'PUT', headers: { 'Content-Type': file.type || 'application/octet-stream' }, body: file });
+          if (!putRes.ok) throw new Error();
+          prUploadedImageKeys.push(key);
+        } catch {
+          showModalError('product-error', t('adminErrorUploadFailed'));
+        }
+      }
+      renderImageChips();
+      e.target.value = '';
+    });
+
+    document.getElementById('pr-video-file').addEventListener('change', async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const status = document.getElementById('pr-video-status');
+      status.textContent = t('adminUploading');
+      try {
+        const key = `products/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
+        const { url } = await api('/api/admin/upload-url', { method: 'POST', body: JSON.stringify({ key, contentType: file.type || 'video/mp4' }) });
+        const putRes = await fetch(url, { method: 'PUT', headers: { 'Content-Type': file.type || 'video/mp4' }, body: file });
+        if (!putRes.ok) throw new Error(t('adminErrorUploadFailed'));
+        prUploadedVideoKey = key;
+        status.textContent = t('adminUploaded');
+      } catch (err) {
+        status.textContent = err.message || t('errorGeneric');
+      }
+    });
+
+    document.getElementById('pr-save-btn').addEventListener('click', async () => {
+      const name = document.getElementById('pr-name').value.trim();
+      const description = document.getElementById('pr-description').value.trim();
+      const priceVal = parseFloat(document.getElementById('pr-price').value);
+      const currency = document.getElementById('pr-currency').value;
+      const stockVal = document.getElementById('pr-stock').value;
+      const active = document.getElementById('pr-active').checked;
+      if (!name || !priceVal || priceVal <= 0) { showModalError('product-error', t('errorMissingFields')); return; }
+      try {
+        const payload = JSON.stringify({
+          name, description, priceCents: Math.round(priceVal * 100), currency,
+          imageKeys: prUploadedImageKeys, videoKey: prUploadedVideoKey,
+          stock: stockVal === '' ? null : Number(stockVal), active,
+        });
+        if (prEditingId) {
+          await api(`/api/admin/products/${prEditingId}`, { method: 'PATCH', body: payload });
+        } else {
+          await api('/api/admin/products', { method: 'POST', body: payload });
+        }
+        document.getElementById('product-modal').hidden = true;
+        loadProducts();
+      } catch {
+        showModalError('product-error', t('errorGeneric'));
       }
     });
   }
