@@ -2,14 +2,18 @@
 // Separate Railway service from per_bot, same project. Own repo, own
 // deploy.sh, own admin, own accounts. Ported from per_bot: auth pattern,
 // R2 media plumbing, ElevenLabs TTS, Deepgram word-timestamp STT, and
-// (this pass) the Talk architecture — a raw Deepgram STT proxy over its
+// (that pass) the Talk architecture — a raw Deepgram STT proxy over its
 // own websocket plus plain HTTP for the Claude reply, the same split
 // per_bot itself borrowed from the original standalone Mare Bot
-// prototype (see the '/listen' comment below). Not ported: courses,
-// comms, Tomte-as-open-chat, Stripe subscription tiers (merchandise here
-// uses one-off Stripe Checkout instead), and — deliberately, for
-// now — Talk's arc/history/knowledge-base layers (see prompts.js and the
-// talk_sessions schema comment in db.js for why).
+// prototype (see the '/listen' comment below). Since then, also built:
+// comms (broadcasts, scheduling, What's New) and a site-wide helper
+// character — deliberately NOT a separate Tomte-style persona, but Mare
+// herself, adapting register by audience (see prompts.js's
+// buildMareHelperSystemPrompt). Not ported, still: courses, Stripe
+// subscription tiers (merchandise here uses one-off Stripe Checkout
+// instead). Deliberately deferred, for now: Talk's arc/history/
+// knowledge-base layers (see prompts.js and the talk_sessions schema
+// comment in db.js for why).
 
 const http = require('http');
 const crypto = require('crypto');
@@ -711,6 +715,19 @@ app.post('/api/talk/session/:id/opening', auth.requireAuthApi(['parent']), async
 // it.
 // ─────────────────────────────────────────────────────────────────────
 
+// Formats a real DB product row for Mare Helper's prompt — never used
+// with client-supplied product data (see the productId lookup at each
+// call site), so what she's told about a product is always what's
+// actually in the catalog, not something a request could put words in
+// her mouth about.
+function formatProductForMareHelper(product, locale) {
+  if (!product || !product.active) return null;
+  const priceFormatted = new Intl.NumberFormat(locale === 'nl' ? 'nl-NL' : 'en-GB', {
+    style: 'currency', currency: (product.currency || 'gbp').toUpperCase(),
+  }).format((product.price_cents || 0) / 100);
+  return { name: product.name, description: product.description, priceFormatted };
+}
+
 const mareHelperRateLog = new Map(); // ip -> [timestamps]
 function mareHelperRateLimitOk(ip) {
   const now = Date.now();
@@ -741,10 +758,11 @@ app.post('/api/mare-helper/greet', async (req, res) => {
     if (!mareHelperRateLimitOk(ip)) return res.status(429).json({ error: 'Too many requests — try again in a few minutes.' });
     if (!anthropic) return res.status(503).json({ error: 'Mare Helper is not configured' });
 
-    const { page, isChild, ageBand, childName } = req.body || {};
+    const { page, isChild, ageBand, childName, productId } = req.body || {};
     const locale = resolveLocale(req);
     const audience = isChild ? 'child' : resolveHelperAudience(req);
-    const systemPrompt = prompts.buildMareHelperSystemPrompt({ page, audience, locale, ageBand, childName });
+    const product = productId ? formatProductForMareHelper(db.getProduct(productId), locale) : null;
+    const systemPrompt = prompts.buildMareHelperSystemPrompt({ page, audience, locale, ageBand, childName, product });
 
     const response = await anthropic.messages.create({
       model: TALK_MODEL,
@@ -764,12 +782,13 @@ app.post('/api/mare-helper/chat', async (req, res) => {
   try {
     const ip = (req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown').split(',')[0].trim();
     if (!mareHelperRateLimitOk(ip)) return res.status(429).json({ error: 'Too many requests — try again in a few minutes.' });
-    const { page, focus, message, history, isChild, ageBand, childName } = req.body || {};
+    const { page, focus, message, history, isChild, ageBand, childName, productId } = req.body || {};
     if (!message) return res.status(400).json({ error: 'message required' });
     if (!anthropic) return res.status(503).json({ error: 'Mare Helper is not configured' });
     const locale = resolveLocale(req);
     const audience = isChild ? 'child' : resolveHelperAudience(req);
-    const systemPrompt = prompts.buildMareHelperSystemPrompt({ page, focus, audience, locale, ageBand, childName });
+    const product = productId ? formatProductForMareHelper(db.getProduct(productId), locale) : null;
+    const systemPrompt = prompts.buildMareHelperSystemPrompt({ page, focus, audience, locale, ageBand, childName, product });
 
     // Client-supplied history, trusted only as conversational turns (not
     // as instructions) — same trust boundary as any other chat history
@@ -887,6 +906,50 @@ app.get('/api/club-mare/posts', auth.requireAuthApi(['parent']), (req, res) => {
 });
 
 // ─────────────────────────────────────────────────────────────────────
+// CLUB MARE ADMIN — member visibility/tier management, and full CRUD
+// for the tier-gated exclusive posts. Nothing here touches Stripe
+// directly; a tier override here is a manual admin decision (comping
+// someone, or stepping a paid member back to free by hand), completely
+// separate from whatever a real Stripe subscription is doing — see the
+// comment on db.setClubMareMemberTier for why a downgrade here
+// deliberately doesn't touch stripe_subscription_id.
+// ─────────────────────────────────────────────────────────────────────
+
+app.get('/api/admin/club-mare/members', auth.requireAuthApi(['admin', 'support']), (req, res) => {
+  res.json({ members: db.getAllClubMareMembersAdmin() });
+});
+app.patch('/api/admin/club-mare/members/:parentId/tier', auth.requireAuthApi(['admin', 'support']), (req, res) => {
+  const { tier } = req.body || {};
+  if (![1, 2].includes(Number(tier))) return res.status(400).json({ error: 'Invalid tier' });
+  db.setClubMareMemberTier(req.params.parentId, Number(tier));
+  res.json({ ok: true });
+});
+app.delete('/api/admin/club-mare/members/:parentId', auth.requireAuthApi(['admin', 'support']), (req, res) => {
+  db.removeClubMareMembership(req.params.parentId);
+  res.json({ ok: true });
+});
+
+app.get('/api/admin/club-mare/posts', auth.requireAuthApi(['admin', 'support']), (req, res) => {
+  res.json({ posts: db.getAllClubMarePostsAdmin() });
+});
+app.post('/api/admin/club-mare/posts', auth.requireAuthApi(['admin', 'support']), (req, res) => {
+  const { title, body, imageKey, minTier } = req.body || {};
+  if (!title || !title.trim()) return res.status(400).json({ error: 'Title is required' });
+  const id = db.createClubMarePost({ title, body, imageKey, minTier: Number(minTier) });
+  res.json({ ok: true, id });
+});
+app.patch('/api/admin/club-mare/posts/:id', auth.requireAuthApi(['admin', 'support']), (req, res) => {
+  const { title, body, imageKey, minTier, active } = req.body || {};
+  if (!title || !title.trim()) return res.status(400).json({ error: 'Title is required' });
+  db.updateClubMarePost(req.params.id, { title, body, imageKey, minTier: Number(minTier), active });
+  res.json({ ok: true });
+});
+app.delete('/api/admin/club-mare/posts/:id', auth.requireAuthApi(['admin', 'support']), (req, res) => {
+  db.deleteClubMarePost(req.params.id);
+  res.json({ ok: true });
+});
+
+// ─────────────────────────────────────────────────────────────────────
 // MERCHANDISE — in-app Stripe Checkout
 // ─────────────────────────────────────────────────────────────────────
 
@@ -895,25 +958,59 @@ app.get('/api/products', (req, res) => res.json({ products: db.getActiveProducts
 app.post('/api/checkout', auth.requireAuthApi(['parent']), async (req, res) => {
   try {
     if (!stripe) return res.status(503).json({ error: 'Payments not configured' });
-    const { items } = req.body || {}; // [{ productId, qty, variant }]
+    const { items, offerCode } = req.body || {}; // items: [{ productId, qty, variant }]
     if (!Array.isArray(items) || !items.length) return res.status(400).json({ error: 'No items' });
 
-    let totalCents = 0;
-    const lineItems = [];
+    // Resolve the offer code once, up front — same validity checks
+    // whether one item or several, and validated here rather than
+    // trusting a discount amount the client might send.
+    let offer = null;
+    if (offerCode && offerCode.trim()) {
+      offer = db.getOfferByCode(offerCode.trim());
+      if (!offer || !offer.active) return res.status(400).json({ error: 'That code isn\'t valid.' });
+      if (offer.expires_at && new Date(offer.expires_at) < new Date()) return res.status(400).json({ error: 'That code has expired.' });
+    }
+
+    let originalTotalCents = 0;
+    const lineInputs = [];
     for (const item of items) {
       const product = db.getProduct(item.productId);
       if (!product) return res.status(400).json({ error: `Unknown product ${item.productId}` });
       const qty = item.qty || 1;
-      totalCents += product.price_cents * qty;
-      lineItems.push({
+      const lineTotal = product.price_cents * qty;
+      originalTotalCents += lineTotal;
+      lineInputs.push({ product, qty, lineTotal });
+    }
+
+    // Percent discounts apply identically to every line, so no
+    // proportional split is needed. A fixed discount is a flat amount
+    // off the WHOLE order, not per item, so it's distributed across
+    // lines by each line's share of the original total — a £5-off code
+    // on a £20 cart takes 25% off every line, keeping Stripe's own
+    // line-item totals internally consistent with the order total
+    // rather than just knocking the discount off one arbitrary item.
+    let totalCents = 0;
+    const lineItems = lineInputs.map(({ product, qty, lineTotal }) => {
+      let unitAmount = product.price_cents;
+      if (offer) {
+        if (offer.discount_type === 'percent') {
+          unitAmount = Math.round(unitAmount * (1 - offer.discount_value / 100));
+        } else if (offer.discount_type === 'fixed' && originalTotalCents > 0) {
+          const lineShare = lineTotal / originalTotalCents;
+          const lineDiscount = Math.round(offer.discount_value * lineShare);
+          unitAmount = Math.max(0, Math.round(unitAmount - lineDiscount / qty));
+        }
+      }
+      totalCents += unitAmount * qty;
+      return {
         price_data: {
           currency: product.currency,
           product_data: { name: product.name },
-          unit_amount: product.price_cents,
+          unit_amount: unitAmount,
         },
         quantity: qty,
-      });
-    }
+      };
+    });
 
     const orderId = db.createOrder(req.user.id, totalCents, 'gbp');
     items.forEach(item => {
@@ -925,9 +1022,9 @@ app.post('/api/checkout', auth.requireAuthApi(['parent']), async (req, res) => {
       mode: 'payment',
       payment_method_types: ['card'],
       line_items: lineItems,
-      success_url: `${process.env.APP_URL || ''}/merchandise?success=1`,
-      cancel_url: `${process.env.APP_URL || ''}/merchandise?cancelled=1`,
-      metadata: { orderId },
+      success_url: `${process.env.APP_URL || ''}/merchandise.html?success=1`,
+      cancel_url: `${process.env.APP_URL || ''}/merchandise.html?cancelled=1`,
+      metadata: { orderId, offerCode: offer ? offer.code : '' },
     });
     db.setOrderStripeSession(orderId, session.id);
     res.json({ url: session.url });
@@ -1186,14 +1283,26 @@ app.post('/api/admin/activities', auth.requireAuthApi(['admin', 'support']), (re
 
 // Products/payments — admin only, never support, per Per's scoping of the
 // support role (content + helping parents/teachers, no payment settings).
+app.get('/api/admin/products', auth.requireAuthApi(['admin']), (req, res) => {
+  res.json({ products: db.getAllProductsAdmin() });
+});
 app.post('/api/admin/products', auth.requireAuthApi(['admin']), (req, res) => {
-  const { name, description, priceCents, currency, imageKey, variantOptions, stock } = req.body || {};
-  const id = db.uuid();
-  db.run(
-    `INSERT INTO products (id, name, description, price_cents, currency, image_key, variant_options_json, stock) VALUES (?,?,?,?,?,?,?,?)`,
-    [id, name, description || null, priceCents, currency || 'gbp', imageKey || null, JSON.stringify(variantOptions || {}), stock ?? null]
-  );
+  const { name, description, priceCents, currency, imageKey, imageKeys, videoKey, variantOptions, stock, sortOrder } = req.body || {};
+  if (!name || !name.trim()) return res.status(400).json({ error: 'Name is required' });
+  if (!priceCents || priceCents <= 0) return res.status(400).json({ error: 'A valid price is required' });
+  const id = db.createProduct({ name, description, priceCents, currency, imageKey, imageKeys, videoKey, variantOptions, stock, sortOrder });
   res.json({ ok: true, id });
+});
+app.patch('/api/admin/products/:id', auth.requireAuthApi(['admin']), (req, res) => {
+  const { name, description, priceCents, currency, imageKey, imageKeys, videoKey, variantOptions, stock, active, sortOrder } = req.body || {};
+  if (!name || !name.trim()) return res.status(400).json({ error: 'Name is required' });
+  if (!priceCents || priceCents <= 0) return res.status(400).json({ error: 'A valid price is required' });
+  db.updateProduct(req.params.id, { name, description, priceCents, currency, imageKey, imageKeys, videoKey, variantOptions, stock, active, sortOrder });
+  res.json({ ok: true });
+});
+app.delete('/api/admin/products/:id', auth.requireAuthApi(['admin']), (req, res) => {
+  db.deleteProduct(req.params.id);
+  res.json({ ok: true });
 });
 
 app.post('/api/admin/whats-new', auth.requireAuthApi(['admin', 'support']), (req, res) => {

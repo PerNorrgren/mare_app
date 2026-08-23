@@ -403,11 +403,15 @@ async function getDb() {
     price_cents INTEGER NOT NULL,
     currency TEXT NOT NULL DEFAULT 'gbp',
     image_key TEXT,
+    image_keys_json TEXT, -- ordered array of R2 keys for the 360° spin viewer; image_key (above) is the cover/fallback shown before the viewer loads, and doubles as frame 0 if this is empty
+    video_key TEXT,
     variant_options_json TEXT, -- e.g. sizes: {"size": ["S","M","L"]}
     stock INTEGER,
     active INTEGER NOT NULL DEFAULT 1,
     sort_order INTEGER NOT NULL DEFAULT 0
   )`);
+  try { db.run(`ALTER TABLE products ADD COLUMN image_keys_json TEXT`); } catch {}
+  try { db.run(`ALTER TABLE products ADD COLUMN video_key TEXT`); } catch {}
 
   // ── Broadcasts — admin-composed messages to parents/teachers (the
   // "comms" system). One row per message, whatever state it's in.
@@ -1192,12 +1196,95 @@ function getClubMarePosts(maxTierVisible) {
     [maxTierVisible]);
 }
 
+// ── Club Mare admin ──
+// Joined against parents for name/email — admin needs to see who a
+// member actually is, not just a bare parent_id. LEFT JOIN rather than
+// INNER, defensively: a membership row should never outlive its parent
+// (deleteParentAccount cleans these up — see the comment near there),
+// but a LEFT JOIN means this list degrades gracefully instead of
+// silently hiding a row if that invariant is ever violated.
+function getAllClubMareMembersAdmin() {
+  return all(`
+    SELECT cm.*, p.name as parent_name, p.email as parent_email
+    FROM club_mare_members cm
+    LEFT JOIN parents p ON p.id = cm.parent_id
+    ORDER BY cm.joined_at DESC
+  `);
+}
+// Admin-side manual tier override — comping someone to paid, or
+// stepping a paid member back to free, without touching Stripe at all.
+// Deliberately does NOT clear stripe_subscription_id when downgrading
+// to free — if a real Stripe subscription is still live underneath,
+// that's a billing question for Stripe/the checkout flow to resolve on
+// its own next sync, not something this override should silently erase
+// and lose track of.
+function setClubMareMemberTier(parentId, tier) {
+  run(`UPDATE club_mare_members SET tier = ? WHERE parent_id = ?`, [tier === 2 ? 2 : 1, parentId]);
+}
+function removeClubMareMembership(parentId) {
+  run(`DELETE FROM club_mare_members WHERE parent_id = ?`, [parentId]);
+}
+
+function getAllClubMarePostsAdmin() {
+  return all(`SELECT * FROM club_mare_posts ORDER BY published_at DESC`);
+}
+function createClubMarePost({ title, body, imageKey, minTier }) {
+  const id = uuid();
+  run(`INSERT INTO club_mare_posts (id, title, body, image_key, min_tier) VALUES (?,?,?,?,?)`,
+    [id, title, body || null, imageKey || null, minTier === 2 ? 2 : 1]);
+  return id;
+}
+function updateClubMarePost(id, { title, body, imageKey, minTier, active }) {
+  run(`UPDATE club_mare_posts SET title=?, body=?, image_key=?, min_tier=?, active=? WHERE id=?`,
+    [title, body || null, imageKey || null, minTier === 2 ? 2 : 1, active ? 1 : 0, id]);
+}
+function deleteClubMarePost(id) {
+  run(`DELETE FROM club_mare_posts WHERE id = ?`, [id]);
+}
+
 // ── Merchandise ──
+// image_keys_json is parsed here (not left as a raw string) for the
+// same reason recurrence_config is parsed before responding elsewhere
+// in this app — the frontend consumes it as a real array, not JSON
+// text it has to remember to parse itself.
+function parseProductRow(row) {
+  if (!row) return row;
+  let imageKeys = [];
+  try { imageKeys = row.image_keys_json ? JSON.parse(row.image_keys_json) : []; } catch { imageKeys = []; }
+  return { ...row, image_keys: imageKeys };
+}
 function getActiveProducts() {
-  return all(`SELECT * FROM products WHERE active = 1 ORDER BY sort_order`);
+  return all(`SELECT * FROM products WHERE active = 1 ORDER BY sort_order`).map(parseProductRow);
 }
 function getProduct(id) {
-  return get(`SELECT * FROM products WHERE id = ?`, [id]);
+  return parseProductRow(get(`SELECT * FROM products WHERE id = ?`, [id]));
+}
+function getAllProductsAdmin() {
+  return all(`SELECT * FROM products ORDER BY sort_order, name`).map(parseProductRow);
+}
+function createProduct({ name, description, priceCents, currency, imageKey, imageKeys, videoKey, variantOptions, stock, sortOrder }) {
+  const id = uuid();
+  run(
+    `INSERT INTO products (id, name, description, price_cents, currency, image_key, image_keys_json, video_key, variant_options_json, stock, sort_order)
+     VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
+    [id, name, description || null, priceCents, currency || 'gbp',
+     imageKey || (imageKeys && imageKeys[0]) || null,
+     JSON.stringify(imageKeys || []), videoKey || null,
+     JSON.stringify(variantOptions || {}), stock ?? null, sortOrder || 0]
+  );
+  return id;
+}
+function updateProduct(id, { name, description, priceCents, currency, imageKey, imageKeys, videoKey, variantOptions, stock, active, sortOrder }) {
+  run(
+    `UPDATE products SET name=?, description=?, price_cents=?, currency=?, image_key=?, image_keys_json=?, video_key=?, variant_options_json=?, stock=?, active=?, sort_order=? WHERE id=?`,
+    [name, description || null, priceCents, currency || 'gbp',
+     imageKey || (imageKeys && imageKeys[0]) || null,
+     JSON.stringify(imageKeys || []), videoKey || null,
+     JSON.stringify(variantOptions || {}), stock ?? null, active ? 1 : 0, sortOrder || 0, id]
+  );
+}
+function deleteProduct(id) {
+  run(`DELETE FROM products WHERE id = ?`, [id]);
 }
 function createOrder(parentId, totalCents, currency) {
   const id = uuid();
@@ -1649,7 +1736,10 @@ module.exports = {
   getBookFullTree,
   getActivitiesForBook, getActivitiesForChapter, createActivity,
   getClubMareMembership, joinClubMareFree, upgradeClubMareToPaid, getClubMarePosts,
-  getActiveProducts, getProduct, createOrder, setOrderStripeSession, markOrderPaid, addOrderItem,
+  getAllClubMareMembersAdmin, setClubMareMemberTier, removeClubMareMembership,
+  getAllClubMarePostsAdmin, createClubMarePost, updateClubMarePost, deleteClubMarePost,
+  getActiveProducts, getProduct, getAllProductsAdmin, createProduct, updateProduct, deleteProduct,
+  createOrder, setOrderStripeSession, markOrderPaid, addOrderItem,
   getReadingProgress, upsertReadingProgress,
   getWhatsNew, createWhatsNew, getAllWhatsNewAdmin, updateWhatsNew, deleteWhatsNew,
   hasSentMareMessageToday, logMareMessageSent, getEmailOptInParents,
