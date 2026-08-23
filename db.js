@@ -1251,7 +1251,9 @@ function parseProductRow(row) {
   if (!row) return row;
   let imageKeys = [];
   try { imageKeys = row.image_keys_json ? JSON.parse(row.image_keys_json) : []; } catch { imageKeys = []; }
-  return { ...row, image_keys: imageKeys };
+  let variantOptions = {};
+  try { variantOptions = row.variant_options_json ? JSON.parse(row.variant_options_json) : {}; } catch { variantOptions = {}; }
+  return { ...row, image_keys: imageKeys, variant_options: variantOptions };
 }
 function getActiveProducts() {
   return all(`SELECT * FROM products WHERE active = 1 ORDER BY sort_order`).map(parseProductRow);

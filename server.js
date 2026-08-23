@@ -899,6 +899,11 @@ app.post('/api/club-mare/join', auth.requireAuthApi(['parent']), (req, res) => {
   res.json({ ok: true });
 });
 
+app.get('/api/club-mare/membership', auth.requireAuthApi(['parent']), (req, res) => {
+  const membership = db.getClubMareMembership(req.user.id);
+  res.json({ tier: membership ? membership.tier : 0 });
+});
+
 app.get('/api/club-mare/posts', auth.requireAuthApi(['parent']), (req, res) => {
   const membership = db.getClubMareMembership(req.user.id);
   const tier = membership ? membership.tier : 0;

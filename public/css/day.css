@@ -797,3 +797,135 @@ body.auth-atmosphere .brand { color: var(--gold); }
    without further changes — only the background itself needed to
    become the same photo/veil treatment as the rest of the app. */
 .library-main { position: relative; z-index: 2; }
+
+/* ── Merchandise storefront (merchandise.html) ── */
+.shop-main { max-width: 1000px; margin: 0 auto; padding: 8px clamp(20px, 5vw, 56px) 40px; position: relative; z-index: 2; }
+
+.shop-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 18px;
+  margin-top: 24px;
+}
+.shop-product-card {
+  background: rgba(11,23,18,0.55);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(243,236,217,0.15);
+  border-radius: 18px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  text-align: left;
+  cursor: pointer;
+  transition: transform 0.15s ease, border-color 0.15s ease;
+  font-family: 'Quicksand', sans-serif;
+}
+.shop-product-card:hover { transform: translateY(-3px); border-color: rgba(234,192,102,0.4); }
+.shop-product-image {
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 12px;
+  background-size: cover;
+  background-position: center;
+  background-color: rgba(255,255,255,0.05);
+}
+.shop-product-name { font-weight: 700; color: var(--parchment); font-size: 0.95rem; }
+.shop-product-price { color: var(--gold); font-weight: 700; font-size: 0.88rem; }
+
+/* ── Product detail modal ── */
+.shop-detail-card {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  max-width: 720px;
+  position: relative;
+}
+@media (max-width: 640px) {
+  .shop-detail-card { grid-template-columns: 1fr; }
+}
+.shop-detail-close {
+  position: absolute;
+  top: 12px; right: 12px;
+  background: none; border: none;
+  color: var(--navy-soft);
+  font-size: 1.1rem;
+  cursor: pointer;
+  z-index: 2;
+}
+.shop-detail-media { display: flex; flex-direction: column; gap: 10px; }
+.shop-spin-viewer {
+  position: relative;
+  aspect-ratio: 1;
+  border-radius: 14px;
+  overflow: hidden;
+  background: var(--cloud);
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+.shop-spin-viewer:active { cursor: grabbing; }
+.shop-spin-viewer img { width: 100%; height: 100%; object-fit: cover; pointer-events: none; }
+.shop-spin-hint {
+  position: absolute;
+  bottom: 10px; left: 50%;
+  transform: translateX(-50%);
+  background: rgba(11,23,18,0.7);
+  color: var(--parchment);
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 4px 12px;
+  border-radius: 999px;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+}
+#pd-video { width: 100%; border-radius: 14px; background: #000; }
+.shop-media-tabs { display: flex; gap: 6px; }
+/* Same [hidden]-specificity tie as .mode-switch/.btn-primary/.role-pill/
+   .topbar elsewhere in this app — display:flex here and the browser's
+   [hidden]{display:none} are both specificity (0,0,1,0). Caught this
+   time by actually opening a product with no video and seeing the
+   Photos/Video tabs show anyway — video_key was correctly null, the
+   bug was purely this rule never getting hidden. */
+.shop-media-tabs[hidden] { display: none; }
+.shop-media-tab {
+  flex: 1;
+  border: 1px solid rgba(22,48,92,0.15);
+  background: transparent;
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--navy-soft);
+  cursor: pointer;
+}
+.shop-media-tab.active { background: var(--navy); color: #fff; border-color: var(--navy); }
+
+.shop-detail-info h2 { font-family: 'Fraunces', serif; font-weight: 600; color: var(--navy); margin: 0 0 4px; }
+.shop-detail-price { font-size: 1.1rem; font-weight: 700; color: var(--gold-soft); margin: 0 0 10px; }
+.shop-detail-desc { font-size: 0.9rem; color: var(--navy-soft); line-height: 1.5; margin: 0 0 14px; }
+.shop-qty-row { display: flex; align-items: center; gap: 10px; margin: 12px 0; }
+.shop-qty-row label { margin: 0; }
+.shop-qty-row input { width: 70px; padding: 8px; border-radius: 8px; border: 1.5px solid rgba(22,48,92,0.2); }
+
+/* ── Cart ── */
+.shop-cart-row { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid rgba(22,48,92,0.08); }
+.shop-cart-row:last-child { border-bottom: none; }
+.shop-cart-row-name { font-weight: 700; color: var(--navy); font-size: 0.9rem; }
+.shop-cart-row-sub { font-size: 0.78rem; color: var(--navy-soft); }
+.shop-cart-total { font-weight: 700; color: var(--navy); text-align: right; margin: 10px 0; }
+
+/* ── Club Mare (club-mare.html) ── */
+.clubmare-tier-note {
+  text-align: center;
+  color: rgba(243,236,217,0.7);
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin: 0 0 24px;
+}
+.clubmare-posts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 18px;
+}

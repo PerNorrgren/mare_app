@@ -117,6 +117,7 @@
       isChild: !!ctx.isChild,
       ageBand: ctx.ageBand,
       childName: ctx.childName,
+      productId: ctx.productId || undefined,
     };
   }
 
@@ -202,6 +203,33 @@
     document.getElementById('mh-panel').hidden = true;
     document.getElementById('mh-launcher').setAttribute('aria-expanded', 'false');
   }
+  // Clears the in-memory thread and greeted flag — used when a page
+  // wants to open the widget fresh about something specific (a
+  // product) rather than continuing whatever was already being
+  // discussed. Without this, opening the widget for product B after
+  // already chatting about product A would carry A's messages into B's
+  // conversation, confusing both the transcript shown and the model's
+  // own context.
+  function resetConversation() {
+    history = [];
+    hasGreeted = false;
+    document.getElementById('mh-messages').innerHTML = '';
+  }
+
+  // Small public API — for pages (like the merchandise storefront)
+  // that want to actively open the widget about something specific,
+  // rather than waiting for the person to click the launcher
+  // themselves. window.MareHelperContext still carries the actual
+  // context (see currentContext() above); this just triggers a clean
+  // open once that context is set.
+  window.MareHelperAPI = {
+    openForProduct(productId) {
+      window.MareHelperContext = { productId };
+      resetConversation();
+      openPanel();
+    },
+    close: () => closePanel(),
+  };
 
   function setupInteractions() {
     document.getElementById('mh-launcher').addEventListener('click', () => {

@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mare — Shop</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/style.css">
+<link rel="stylesheet" href="/css/day.css">
+</head>
+<body class="day auth-atmosphere">
+
+<div class="bg-slideshow-wrap" id="bg-slideshow"></div>
+<div class="bg-veil"></div>
+
+<header class="topbar">
+  <a href="/library.html" class="brand" style="text-decoration:none;">
+    <span class="brand-mark" aria-hidden="true">
+      <svg viewBox="0 0 40 40" width="28" height="28"><path d="M20 4c-7 0-13 6-13 14 0 9 8 15 13 18 5-3 13-9 13-18 0-8-6-14-13-14z" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="20" cy="17" r="3" fill="currentColor"/></svg>
+    </span>
+    <span class="brand-word" data-i18n="brand">Mare</span>
+  </a>
+  <nav class="topbar-actions">
+    <div class="lang-switch" id="lang-switch" aria-label="Language">
+      <button type="button" class="lang-btn" data-lang="en">EN</button>
+      <button type="button" class="lang-btn" data-lang="nl">NL</button>
+    </div>
+    <button type="button" class="btn-ghost" id="cart-btn"><span data-i18n="shopCart">Cart</span> (<span id="cart-count">0</span>)</button>
+    <a href="/library.html" class="btn-ghost" data-i18n="backToStories">Back to stories</a>
+  </nav>
+</header>
+
+<main class="shop-main">
+
+  <section class="hero">
+    <h1 data-i18n="shopTitle">Mare's Shop</h1>
+    <p class="hero-sub" data-i18n="shopSub">Bring a little of the wood home.</p>
+  </section>
+
+  <section class="shop-grid" id="shop-grid" aria-label="Products">
+    <p class="admin-empty-note" data-i18n="shopLoading">Loading…</p>
+  </section>
+
+</main>
+
+<!-- Product detail modal -->
+<div class="admin-modal-backdrop shop-modal" id="product-detail-modal" hidden>
+  <div class="admin-modal-card admin-modal-card-wide shop-detail-card">
+    <button type="button" class="shop-detail-close" id="pd-close-btn" aria-label="Close">✕</button>
+
+    <div class="shop-detail-media">
+      <div class="shop-spin-viewer" id="pd-spin-viewer">
+        <img id="pd-spin-image" alt="">
+        <div class="shop-spin-hint" id="pd-spin-hint" data-i18n="shopSpinHint">Drag to spin</div>
+      </div>
+      <video id="pd-video" controls playsinline hidden></video>
+      <div class="shop-media-tabs" id="pd-media-tabs" hidden>
+        <button type="button" class="shop-media-tab active" data-media="photos" data-i18n="shopPhotos">Photos</button>
+        <button type="button" class="shop-media-tab" data-media="video" data-i18n="shopVideo">Video</button>
+      </div>
+    </div>
+
+    <div class="shop-detail-info">
+      <h2 id="pd-name"></h2>
+      <p class="shop-detail-price" id="pd-price"></p>
+      <p class="shop-detail-desc" id="pd-desc"></p>
+
+      <div class="field" id="pd-variant-field" hidden>
+        <label for="pd-variant" id="pd-variant-label"></label>
+        <select id="pd-variant"></select>
+      </div>
+
+      <div class="shop-qty-row">
+        <label for="pd-qty" data-i18n="shopQty">Quantity</label>
+        <input type="number" id="pd-qty" min="1" value="1">
+      </div>
+
+      <button type="button" class="btn-primary btn-full" id="pd-add-btn" data-i18n="shopAddToCart">Add to cart</button>
+
+      <button type="button" class="btn-ghost btn-full" id="pd-ask-mare-btn" style="margin-top:10px;" data-i18n="shopAskMare">💬 Ask Mare about this</button>
+    </div>
+  </div>
+</div>
+
+<!-- Cart modal -->
+<div class="admin-modal-backdrop shop-modal" id="cart-modal" hidden>
+  <div class="admin-modal-card">
+    <h3 data-i18n="shopCartTitle">Your cart</h3>
+    <div id="cart-items"></div>
+    <div class="field">
+      <label for="cart-offer-code" data-i18n="shopOfferCode">Discount code (optional)</label>
+      <input type="text" id="cart-offer-code" placeholder="SUMMER20" style="text-transform:uppercase">
+    </div>
+    <p class="shop-cart-total" id="cart-total"></p>
+    <p class="form-error" id="cart-error" hidden></p>
+    <div class="admin-modal-btns">
+      <button type="button" class="btn-ghost" id="cart-close-btn" data-i18n="adminClose">Close</button>
+      <button type="button" class="btn-primary" id="cart-checkout-btn" data-i18n="shopCheckout">Checkout</button>
+    </div>
+  </div>
+</div>
+
+<!-- Sign-in prompt (checkout needs a parent account) -->
+<div class="modal-backdrop" id="login-prompt" hidden>
+  <div class="modal-card">
+    <p data-i18n="shopSignInPrompt">You'll need to sign in as a parent first to check out.</p>
+    <div class="modal-actions">
+      <a href="/login.html" class="btn-primary" data-i18n="signIn">Sign in</a>
+      <button type="button" class="btn-ghost" id="close-login-prompt" data-i18n="notNow">Not now</button>
+    </div>
+  </div>
+</div>
+
+<footer class="wood-horizon" aria-hidden="true">
+  <svg viewBox="0 0 1200 140" preserveAspectRatio="none" class="horizon-svg">
+    <path d="M0,140 L0,80 C60,40 90,100 150,70 C210,40 240,90 300,60 C360,30 390,95 450,65 C510,35 540,100 600,70 C660,40 690,90 750,60 C810,30 840,95 900,65 C960,35 990,100 1050,70 C1110,40 1140,90 1200,60 L1200,140 Z" fill="#1D3327"/>
+    <path d="M0,140 L0,100 C80,70 120,120 200,95 C280,70 320,115 400,90 C480,65 520,120 600,95 C680,70 720,115 800,90 C880,65 920,120 1000,95 C1080,70 1120,115 1200,90 L1200,140 Z" fill="#0B1712"/>
+  </svg>
+</footer>
+
+<script src="/js/i18n.js"></script>
+<script src="/js/mare-helper-widget.js"></script>
+<script src="/js/bg-slideshow.js"></script>
+<script src="/js/merchandise.js"></script>
+<script>window.MareBgSlideshow.init('bg-slideshow', ['/images/mare-front-cover.jpg', '/images/mare-back-cover.jpg']);</script>
+</body>
+</html>
