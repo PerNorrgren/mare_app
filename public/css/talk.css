@@ -12,6 +12,13 @@ body.talk-body { margin: 0; background: var(--night-deep); overflow: hidden; fon
   position: fixed; inset: 0; background: var(--night-deep);
   display: flex; align-items: center; justify-content: center; z-index: 50;
 }
+/* Same [hidden]-specificity tie as .reader-loading in reader.css —
+   equally severe here: confirmed via an isolated CSS test that once
+   Talk to Mare finishes loading and sets hidden=true, this full-screen
+   overlay stayed rendered, permanently covering the actual
+   conversation interface. A child would never have reached Talk to
+   Mare at all — just an endless loading spinner. */
+.talk-loading[hidden] { display: none; }
 .talk-loading-spinner {
   width: 40px; height: 40px; border-radius: 50%;
   border: 3px solid rgba(234,192,102,0.25); border-top-color: var(--gold);
@@ -127,6 +134,10 @@ body.talk-body { margin: 0; background: var(--night-deep); overflow: hidden; fon
   position: fixed; inset: 0; background: rgba(11,23,18,0.75); display: flex; align-items: center; justify-content: center;
   z-index: 40; padding: 20px;
 }
+/* Same [hidden]-specificity tie as everywhere else in this app —
+   confirmed broken: canceling the "leave the conversation?" prompt set
+   hidden=true but it stayed visible. */
+.talk-modal-backdrop[hidden] { display: none; }
 .talk-modal-card {
   background: var(--parchment); border-radius: 16px; padding: 24px; max-width: 340px; text-align: center;
 }

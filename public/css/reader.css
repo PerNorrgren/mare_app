@@ -234,6 +234,12 @@ body.reader-body {
   display: flex;
   flex-direction: column;
 }
+/* [hidden]-specificity tie, same bug class found repeatedly across
+   this app — display:flex here and the browser's own
+   [hidden]{display:none} are both specificity (0,0,1,0). Confirmed
+   broken via an isolated CSS test before this fix: closeToc() sets
+   hidden=true but the panel stayed visibly open. */
+.reader-toc-panel[hidden] { display: none; }
 .reader-toc-header {
   display: flex;
   align-items: center;
@@ -270,6 +276,13 @@ body.reader-body {
   z-index: 30;
   padding: 20px;
 }
+/* Same [hidden]-specificity tie as .reader-toc-panel above and
+   .ac-modal-backdrop in admin-content.css — confirmed broken via an
+   isolated CSS test: #hotspot-modal starts hidden directly in the raw
+   HTML, but without this override it was fully rendered — position:
+   fixed, full-screen, z-index:30 — from the very first page load,
+   before any hotspot was ever clicked. */
+.reader-modal-backdrop[hidden] { display: none; }
 .reader-modal-card {
   background: var(--parchment);
   border-radius: 16px;
@@ -303,6 +316,16 @@ body.reader-body {
   align-items: center;
   justify-content: center;
 }
+/* Same [hidden]-specificity tie found repeatedly across this app.
+   THIS is the most severe instance found this session: confirmed via
+   an isolated CSS test that once the reader finishes loading and sets
+   hidden=true on this element, it stayed fully rendered — position:
+   fixed, full-screen — permanently covering the actual book content.
+   Every reading session would have appeared stuck on the loading
+   spinner forever, regardless of how well anything else in the reader
+   worked. Directly relevant to why real-device testing was flagged as
+   the top open risk before this was found. */
+.reader-loading[hidden] { display: none; }
 .reader-loading-spinner {
   width: 40px; height: 40px;
   border-radius: 50%;

@@ -78,6 +78,47 @@
     });
   }
 
+  // Same forgot-password flow as admin.html's login gate — this page
+  // is its own separate login (content-authoring admin), so it needs
+  // its own copy of the link/form rather than sharing admin.html's.
+  function setupForgotPassword() {
+    els['forgot-link'].addEventListener('click', (e) => {
+      e.preventDefault();
+      els['admin-login-form'].hidden = true;
+      els['admin-forgot-wrap'].hidden = true;
+      els['forgot-form'].hidden = false;
+      els['forgot-success'].hidden = true;
+    });
+    els['back-to-login-link'].addEventListener('click', (e) => {
+      e.preventDefault();
+      els['forgot-form'].hidden = true;
+      els['admin-login-form'].hidden = false;
+      els['admin-forgot-wrap'].hidden = false;
+    });
+    els['forgot-form'].addEventListener('submit', async (e) => {
+      e.preventDefault();
+      els['forgot-error'].hidden = true;
+      const email = els['fp-email'].value.trim();
+      const btn = els['forgot-submit-btn'];
+      btn.disabled = true;
+      try {
+        await fetch('/api/auth/forgot-password', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, role: 'admin' }),
+        });
+        els['forgot-success'].hidden = false;
+        els['forgot-form'].querySelector('.field').hidden = true;
+        btn.hidden = true;
+      } catch {
+        els['forgot-error'].textContent = t('errorGeneric');
+        els['forgot-error'].hidden = false;
+      } finally {
+        btn.disabled = false;
+      }
+    });
+  }
+
   function enterApp(user) {
     currentUser = user;
     els['login-view'].hidden = true;
@@ -666,6 +707,7 @@
     await window.MareI18n.ready;
     setupLangSwitch();
     setupLogin();
+    setupForgotPassword();
     setupBookPicker();
     setupAddChapter();
     setupAddScene();

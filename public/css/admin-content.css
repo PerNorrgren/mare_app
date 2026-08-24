@@ -125,6 +125,20 @@
   position: fixed; inset: 0; background: rgba(22,48,92,0.45);
   display: flex; align-items: center; justify-content: center; z-index: 40; padding: 20px;
 }
+/* Same [hidden]-specificity tie found repeatedly elsewhere in this app
+   (.mode-switch, .btn-primary, .role-pill, .topbar, .shop-media-tabs)
+   — display:flex here and the browser's [hidden]{display:none} are
+   both specificity (0,0,1,0). This one is more severe than the others:
+   both modals in this file (new-book-modal, new-chapter-modal) start
+   hidden directly in the static HTML, so without this fix they were
+   fully rendered — position:fixed, z-index:40, covering the whole
+   viewport — from the very first page load, before any modal was ever
+   opened. Confirmed directly: computed display was "flex" with
+   hidden===true on a completely fresh page load, meaning every click
+   anywhere on this page was being intercepted by an invisible-in-
+   appearance-only overlay. Not a cosmetic bug — this made the page
+   non-interactive. */
+.ac-modal-backdrop[hidden] { display: none; }
 .ac-modal-card {
   background: #fff; border-radius: 16px; padding: 24px; max-width: 400px; width: 100%;
   box-shadow: 0 20px 60px rgba(22,48,92,0.25);
