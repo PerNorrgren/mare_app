@@ -588,6 +588,24 @@ function requireSessionChildAccess(req, res, sessionId) {
   return dbRow;
 }
 
+// Talk to Mare doesn't yet have an explicit "which book is this about"
+// selection — there's only one active book today, so this picks the
+// first active one for the session's locale (falling back the same
+// way getActiveBooksForLocale always does). If a second book is ever
+// added, this is the one place that would need a real selection
+// mechanism; until then, this keeps today's only book correctly wired
+// in without inventing a picker nobody needs yet.
+function getPrimaryBookText(locale) {
+  try {
+    const books = db.getActiveBooksForLocale(locale);
+    if (!books.length) return '';
+    return db.getFullBookText(books[0].id);
+  } catch (e) {
+    console.error('getPrimaryBookText failed', e);
+    return ''; // Talk still works, just without book-specific knowledge — same as before this feature existed.
+  }
+}
+
 app.post('/api/talk/session', auth.requireAuthApi(['parent']), (req, res) => {
   const child = requireOwnedChild(req, res);
   if (!child) return;
@@ -597,6 +615,7 @@ app.post('/api/talk/session', auth.requireAuthApi(['parent']), (req, res) => {
     ageBand: child.age_band,
     locale,
     childName: child.name,
+    bookText: getPrimaryBookText(locale),
   });
   talkSessions.set(sessionId, { history: [], systemPrompt, dbRow: db.getTalkSession(sessionId) });
   res.json({ ok: true, sessionId, locale });
@@ -620,7 +639,12 @@ app.post('/api/talk/chat', auth.requireAuthApi(['parent']), async (req, res) => 
       const child = db.getChild(dbRow.child_id);
       session = {
         history: [],
-        systemPrompt: prompts.buildMareSystemPrompt({ ageBand: child?.age_band, locale: dbRow.locale, childName: child?.name }),
+        systemPrompt: prompts.buildMareSystemPrompt({
+          ageBand: child?.age_band,
+          locale: dbRow.locale,
+          childName: child?.name,
+          bookText: getPrimaryBookText(dbRow.locale),
+        }),
         dbRow,
       };
       talkSessions.set(sessionId, session);
@@ -876,6 +900,7 @@ app.post('/api/admin/scenes/:id/sync-narration', auth.requireAuthApi(['admin', '
     }
 
     db.replaceNarrationSentences(sceneId, sentences);
+    db.clearAllBookTextCache();
     res.json({ ok: true, sentences: db.getNarrationSentences(sceneId) });
   } catch (e) {
     console.error('sync-narration failed', e);
@@ -1243,7 +1268,7 @@ app.patch('/api/admin/scenes/:id/narration-audio', auth.requireAuthApi(['admin',
 });
 app.patch('/api/admin/narration-sentences/:id', auth.requireAuthApi(['admin', 'support']), (req, res) => {
   const { text, startMs, endMs } = req.body || {};
-  if (text !== undefined) db.updateNarrationSentenceText(req.params.id, text);
+  if (text !== undefined) { db.updateNarrationSentenceText(req.params.id, text); db.clearAllBookTextCache(); }
   if (startMs !== undefined && endMs !== undefined) db.updateNarrationSentenceTiming(req.params.id, startMs, endMs);
   res.json({ ok: true });
 });

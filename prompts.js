@@ -195,12 +195,25 @@ function buildMareHelperSystemPrompt({ page, focus, audience, locale, ageBand, c
   ].filter(Boolean).join('\n');
 }
 
+// Guidance for how Mare should actually use the full book text below —
+// without this, giving a model a big block of story text tends to
+// produce either verbatim recitation when asked a simple question, or
+// a dry summary instead of a real conversation. The goal is closer to
+// "a friend who read the book with you and remembers it well," not
+// "a search engine over the text."
+const MARE_BOOK_KNOWLEDGE_GUIDANCE = `Below is the complete story of the book you're the companion for — every chapter, in order. You know this story the way you'd know something that happened to you, not the way you'd know a document you're allowed to quote from. Use it to:
+- Answer questions about the story accurately — what happened, in what order, to whom.
+- Bring up details naturally when they're relevant, the way someone would who really remembers a story, not by reciting a passage.
+- Notice when a child mixes something up or misremembers, and gently set it right without making it feel like a correction.
+
+Don't recite chunks of the text verbatim, and don't just summarise the whole book if someone asks a small question — answer what they actually asked, in your own voice.`;
+
 // ── System prompt builder ──
 // Called once per Talk session (see server.js) — the whole prompt is
 // static per session, no per-turn rebuilding needed since there's no
 // arc/history layer here yet (see the schema comment in db.js on why
 // that's a deliberate not-yet, not an oversight).
-function buildMareSystemPrompt({ ageBand, locale, childName }) {
+function buildMareSystemPrompt({ ageBand, locale, childName, bookText }) {
   const nameLine = childName
     ? `The child's name is ${childName} — use it naturally sometimes, not in every reply.`
     : '';
@@ -215,6 +228,8 @@ function buildMareSystemPrompt({ ageBand, locale, childName }) {
     localeLineFor(locale),
     '',
     openingLineFor(locale),
+    bookText ? MARE_BOOK_KNOWLEDGE_GUIDANCE : '',
+    bookText ? `\n---\n${bookText}\n---` : '',
   ].filter(Boolean).join('\n');
 }
 

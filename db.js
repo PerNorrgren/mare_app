@@ -1068,6 +1068,51 @@ function replaceNarrationSentences(sceneId, sentences) {
 function getNarrationSentences(sceneId) {
   return all(`SELECT * FROM narration_sentences WHERE scene_id = ? ORDER BY sort_order`, [sceneId]);
 }
+
+// ── Full book text, for Talk to Mare's system prompt ──
+// Walks chapters (in order) -> scenes (in order) -> narration
+// sentences (in order) and joins them into one plain-text block, so
+// Mare can be given the whole story to draw on rather than having no
+// story awareness at all. Cached in memory per book — this is a real
+// multi-table join, and the underlying content is static, admin-edited
+// narration that changes rarely, not something worth re-assembling on
+// every single chat turn (the system prompt is resent to the model on
+// every turn regardless, since the API itself is stateless — this
+// cache is what keeps that cheap). Invalidated explicitly by
+// invalidateBookTextCache() wherever narration is actually edited,
+// rather than left to go stale silently — see the two call sites in
+// server.js's narration-sentence edit routes.
+const bookTextCache = new Map(); // bookId -> assembled text
+function getFullBookText(bookId) {
+  if (bookTextCache.has(bookId)) return bookTextCache.get(bookId);
+  const book = getBook(bookId);
+  if (!book) return '';
+  const chapters = getChaptersByBook(bookId);
+  const parts = [];
+  for (const chapter of chapters) {
+    const scenes = getScenesByChapter(chapter.id);
+    const chapterLines = [];
+    for (const scene of scenes) {
+      const sentences = getNarrationSentences(scene.id);
+      if (sentences.length) chapterLines.push(sentences.map(s => s.text).join(' '));
+    }
+    if (chapterLines.length) parts.push(`Chapter: ${chapter.title}\n${chapterLines.join('\n\n')}`);
+  }
+  const text = parts.join('\n\n');
+  bookTextCache.set(bookId, text);
+  return text;
+}
+function invalidateBookTextCache(bookId) {
+  bookTextCache.delete(bookId);
+}
+// Clears every book's cached text, used by narration-edit routes that
+// only have a sentence/scene id in hand, not the book id — resolving
+// that full chain on every edit for the sake of a more targeted clear
+// isn't worth it given how rare these edits are and how cheap this
+// cache is to rebuild on next use.
+function clearAllBookTextCache() {
+  bookTextCache.clear();
+}
 function updateNarrationSentenceTiming(id, startMs, endMs) {
   run(`UPDATE narration_sentences SET start_ms = ?, end_ms = ? WHERE id = ?`, [startMs, endMs, id]);
 }
@@ -1733,6 +1778,7 @@ module.exports = {
   getChaptersByBook, getChapter, createChapter, updateChapter, deleteChapter, reorderChapters,
   getScenesByChapter, getScene, createScene, updateSceneKind, deleteScene, reorderScenes, setSceneImage, setSceneNarrationAudio,
   replaceNarrationSentences, getNarrationSentences, updateNarrationSentenceTiming, updateNarrationSentenceText,
+  getFullBookText, invalidateBookTextCache, clearAllBookTextCache,
   getHotspotsByScene, getAllHotspotsByScene, getHotspot, createHotspot, updateHotspot, deleteHotspot,
   getAudioCuesByScene, getAudioCue, createAudioCue, updateAudioCue, deleteAudioCue,
   getBookFullTree,
