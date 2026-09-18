@@ -16,7 +16,7 @@ const db = require('./db');
 const SCW_SECRET_KEY = process.env.SCW_SECRET_KEY;
 const SCW_PROJECT_ID = process.env.SCW_PROJECT_ID;
 const SCW_TEM_REGION = process.env.SCW_TEM_REGION || 'fr-par';
-const EMAIL_FROM = process.env.EMAIL_FROM || 'mare@deepermindfulness.org';
+const EMAIL_FROM = process.env.EMAIL_FROM || 'per@deepermindfulness.org';
 const EMAIL_FROM_NAME = process.env.EMAIL_FROM_NAME || 'Mare';
 const APP_URL = process.env.APP_URL || 'https://mareapp-production.up.railway.app';
 
