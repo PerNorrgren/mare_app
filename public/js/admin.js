@@ -172,6 +172,13 @@
         document.querySelectorAll('#admin-tabs .admin-tab').forEach(b => b.classList.toggle('active', b === btn));
         const target = btn.getAttribute('data-tab');
         document.querySelectorAll('.admin-panel').forEach(p => p.classList.toggle('active', p.id === `panel-${target}`));
+        // Data loaded once on page load goes stale the moment an action
+        // elsewhere (add teacher, resend invite, suspend) changes it —
+        // refresh the tab's own data every time it's switched into,
+        // rather than making the admin manually reload the page to see
+        // their own action reflected.
+        if (target === 'emaillog' && currentUser && currentUser.role === 'admin') loadEmailLog();
+        if (target === 'directory') loadDirectory();
       });
     });
   }
@@ -662,6 +669,7 @@
           try {
             await api(`/api/admin/teachers/${row.id}/resend-invite`, { method: 'POST' });
             resendBtn.textContent = t('adminResendInviteSent');
+            if (currentUser && currentUser.role === 'admin') loadEmailLog();
             setTimeout(() => { resendBtn.textContent = original; resendBtn.disabled = false; }, 3000);
           } catch {
             resendBtn.textContent = original;
@@ -1381,6 +1389,7 @@
         document.getElementById('add-teacher-success').hidden = false;
         document.getElementById('add-teacher-form').reset();
         loadDirectory();
+        if (currentUser && currentUser.role === 'admin') loadEmailLog();
       } catch (err) {
         document.getElementById('add-teacher-error').textContent = err.message === 'Email already registered' ? t('errorEmailTaken') : t('errorGeneric');
         document.getElementById('add-teacher-error').hidden = false;
