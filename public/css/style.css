@@ -156,7 +156,7 @@ h1, h2 {
   max-width: 1100px;
   margin: 0 auto;
 }
-.book-card { width: 200px; flex-shrink: 0; }
+.book-card { width: 130px; flex-shrink: 0; }
 
 .book-card {
   position: relative;

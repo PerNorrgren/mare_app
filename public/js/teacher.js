@@ -103,7 +103,6 @@
     document.getElementById('public-view').hidden = true;
     const hub = document.getElementById('hub-view');
     hub.hidden = false;
-    document.body.classList.remove('auth-atmosphere');
 
     document.getElementById('hub-welcome').textContent =
       window.MareI18n.t('teacherWelcome', { name: user.name || '' });

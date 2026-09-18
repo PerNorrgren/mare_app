@@ -69,21 +69,6 @@
       card.addEventListener('click', () => openBook(book));
       grid.appendChild(card);
     }
-
-    // "More stories coming soon" — a locked slot so the shelf reads as
-    // ongoing rather than finished, matching "more to come" from the brief.
-    const locked = document.createElement('div');
-    locked.className = 'book-card locked';
-    const lockedCover = document.createElement('div');
-    lockedCover.className = 'book-cover';
-    lockedCover.textContent = '✨';
-    lockedCover.style.fontSize = '1.8rem';
-    locked.appendChild(lockedCover);
-    const lockedLabel = document.createElement('div');
-    lockedLabel.className = 'book-ribbon';
-    lockedLabel.textContent = window.MareI18n.t('moreStoriesSoon');
-    locked.appendChild(lockedLabel);
-    grid.appendChild(locked);
   }
 
   async function openBook(book) {

@@ -779,6 +779,16 @@ body.auth-atmosphere .brand { color: var(--gold); }
 .auth-atmosphere #public-view .benefit-card h3 { color: var(--gold); }
 .auth-atmosphere #public-view .benefit-card p { color: rgba(243,236,217,0.75); }
 
+/* Signed-in teacher hub used to switch to a plain body.day background
+   on sign-in (auth-atmosphere removed via JS) — .resource-card and
+   .whats-new-item are already opaque white cards so they read fine
+   either way, but .hub-section h2/.hub-empty sit directly on the page
+   background with no card behind them, so once the dark forest
+   backdrop is kept consistent with every other page in the app, they
+   need the same gold/parchment treatment as the section headers above. */
+.auth-atmosphere .hub-section h2 { color: var(--gold); }
+.auth-atmosphere .hub-empty { color: rgba(243,236,217,0.75); }
+
 .teacher-signup-note {
   text-align: center;
   font-size: 0.85rem;

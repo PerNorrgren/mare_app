@@ -2,6 +2,8 @@
   "brand": "Mare",
   "parentsTeachers": "Ouders & leraren",
   "parentNavLabel": "Ouder",
+  "navHomeLabel": "Home",
+  "navTeacherLabel": "Leraar",
   "heroTitle": "Mare's Verhalenhoek",
   "heroSub": "Kies een verhaal. Het bos luistert.",
   "moreStoriesSoon": "Binnenkort meer verhalen",
