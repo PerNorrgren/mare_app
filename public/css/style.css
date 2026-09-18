@@ -44,9 +44,11 @@ h1, h2 {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 20px clamp(20px, 5vw, 56px) 0;
+  padding: 16px clamp(20px, 5vw, 56px);
   position: relative;
   z-index: 2;
+  background: var(--cloud);
+  box-shadow: 0 2px 12px rgba(22,48,92,0.10);
 }
 /* Same root cause as .admin-shell/.ac-shell in day.css: .bg-slideshow-wrap
    (z-index:0) and .bg-veil (z-index:1) are unconditional and positioned
@@ -254,6 +256,7 @@ h1, h2 {
 .extra-talk { background: #3A2A4A; color: var(--parchment); border: 1px solid rgba(234,192,102,0.25); }
 .extra-club { background: var(--moon); color: var(--parchment); }
 .extra-shop { background: #1A2E23; color: var(--parchment); border: 1px solid rgba(234,192,102,0.25); }
+.extra-teacher { background: var(--gold-soft); color: var(--night-deep); }
 .extra-icon { display: flex; flex-shrink: 0; color: var(--gold); }
 .extra-label { font-weight: 700; font-size: 1rem; display: block; }
 .extra-sub { font-weight: 500; font-size: 0.78rem; opacity: 0.85; display: block; }

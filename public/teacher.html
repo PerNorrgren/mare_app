@@ -64,25 +64,24 @@
 
   <!-- ── Logged-in hub — shown once a teacher session is confirmed ── -->
   <section id="hub-view" hidden>
-    <div class="hero">
-      <h1 id="hub-welcome" data-i18n="teacherWelcome">Welcome back</h1>
-      <p class="hero-sub" data-i18n="teacherHubSub">Everything for your classroom, in one place.</p>
-    </div>
+    <div class="hub-panel">
+      <p class="hub-panel-welcome" id="hub-welcome" data-i18n="teacherWelcome">Welcome back</p>
 
-    <div class="hub-section" id="whats-new-section" hidden>
-      <h2 data-i18n="teacherWhatsNewTitle">What's new</h2>
-      <div class="whats-new-list" id="whats-new-list"></div>
-    </div>
-
-    <div class="hub-section">
-      <h2 data-i18n="teacherResourcesTitle">Documents & tools</h2>
-      <div class="resource-grid" id="resource-grid">
-        <p class="hub-empty" id="resource-empty" data-i18n="teacherResourcesEmpty" hidden>Nothing here yet — check back soon.</p>
+      <div class="hub-section" id="whats-new-section" hidden>
+        <h2 data-i18n="teacherWhatsNewTitle">What's new</h2>
+        <div class="whats-new-list" id="whats-new-list"></div>
       </div>
-    </div>
 
-    <div class="teacher-cta-row">
-      <button type="button" class="btn-ghost" id="sign-out-btn" data-i18n="teacherSignOut">Sign out</button>
+      <div class="hub-section">
+        <h2 data-i18n="teacherResourcesTitle">Documents & tools</h2>
+        <div class="resource-grid" id="resource-grid">
+          <p class="hub-empty" id="resource-empty" data-i18n="teacherResourcesEmpty" hidden>Nothing here yet — check back soon.</p>
+        </div>
+      </div>
+
+      <div class="teacher-cta-row">
+        <button type="button" class="btn-ghost" id="sign-out-btn" data-i18n="teacherSignOut">Sign out</button>
+      </div>
     </div>
   </section>
 

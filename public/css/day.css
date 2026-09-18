@@ -137,6 +137,23 @@ body.auth-atmosphere .brand { color: var(--gold); }
 .auth-atmosphere .lang-btn.active { background: var(--gold); color: var(--night); }
 .auth-atmosphere .lang-btn:not(.active):hover { background: rgba(243,236,217,0.08); }
 
+/* The topbar itself always has a solid light background now (see
+   .topbar in style.css), regardless of auth-atmosphere — so its own
+   brand/buttons/lang-switch must stay navy-on-light even on pages
+   where .auth-atmosphere is active for everything else (the CTA
+   buttons and lang-switch elsewhere on those same pages, e.g. the
+   "Sign in" button sitting directly on the dark forest backdrop, still
+   need the gold/parchment rules above). Same selector weight as those
+   rules (two classes), so this needs the extra .topbar to win the tie
+   rather than relying on source order. */
+.auth-atmosphere .topbar .brand { color: var(--navy); }
+.auth-atmosphere .topbar .btn-ghost { color: var(--navy); border-color: rgba(22,48,92,0.3); }
+.auth-atmosphere .topbar .btn-ghost:hover { background: rgba(22,48,92,0.06); border-color: var(--navy); }
+.auth-atmosphere .topbar .lang-switch { border-color: rgba(22,48,92,0.3); }
+.auth-atmosphere .topbar .lang-btn { color: var(--navy); }
+.auth-atmosphere .topbar .lang-btn.active { background: var(--navy); color: var(--cloud); }
+.auth-atmosphere .topbar .lang-btn:not(.active):hover { background: rgba(22,48,92,0.06); }
+
 .auth-atmosphere .auth-card {
   background: rgba(11,23,18,0.55);
   backdrop-filter: blur(14px);
@@ -788,6 +805,33 @@ body.auth-atmosphere .brand { color: var(--gold); }
    need the same gold/parchment treatment as the section headers above. */
 .auth-atmosphere .hub-section h2 { color: var(--gold); }
 .auth-atmosphere .hub-empty { color: rgba(243,236,217,0.75); }
+
+/* Teacher hub content sits inside one central semi-transparent panel on
+   the forest backdrop — same frosted-glass language as .benefit-card
+   above, just as a single wrapping panel rather than a grid of small
+   cards, per Per's redesign request (same look as the home/library
+   pages, not a separate plain dashboard style). */
+.hub-panel {
+  max-width: 720px;
+  margin: 32px auto 48px;
+  padding: clamp(24px, 5vw, 40px);
+  background: rgba(11,23,18,0.55);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(243,236,217,0.15);
+  border-radius: 22px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+}
+.hub-panel-welcome {
+  font-family: 'Fraunces', serif;
+  font-weight: 600;
+  font-size: 1.25rem;
+  color: var(--gold);
+  margin: 0 0 20px;
+  text-shadow: 0 0 24px rgba(234,192,102,0.35);
+}
+.hub-panel .hub-section:last-of-type { margin-bottom: 0; }
+.hub-panel .teacher-cta-row { margin-top: 24px; }
 
 .teacher-signup-note {
   text-align: center;
