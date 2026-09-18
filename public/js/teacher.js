@@ -120,13 +120,18 @@
       await renderResources([]);
     }
 
-    document.getElementById('sign-out-btn').addEventListener('click', async () => {
+    // Sign out lives in the topbar menu now, not duplicated inside the
+    // page content — same place Log in/Register/Home already are.
+    const signOutBtn = document.getElementById('topbar-signout-btn');
+    signOutBtn.hidden = false;
+    signOutBtn.addEventListener('click', async () => {
       await fetch('/api/logout', { method: 'POST' });
       window.location.href = '/teacher.html';
     });
   }
 
   function showPublic() {
+    document.getElementById('topbar-signout-btn').hidden = true;
     document.getElementById('hub-view').hidden = true;
     document.getElementById('public-view').hidden = false;
     document.body.classList.add('auth-atmosphere');

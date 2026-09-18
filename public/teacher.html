@@ -29,10 +29,11 @@
     </div>
     <a href="/" class="btn-ghost" data-i18n="navHomeLabel">Home</a>
     <a href="/library.html" class="btn-ghost" data-i18n="backToStories">Back to stories</a>
+    <button type="button" class="btn-ghost" id="topbar-signout-btn" data-i18n="teacherSignOut" hidden>Sign out</button>
   </nav>
 </header>
 
-<main>
+<main class="teacher-main">
 
   <!-- ── Public view — shown to anyone not signed in as a teacher ── -->
   <section id="public-view" hidden>
@@ -77,10 +78,6 @@
         <div class="resource-grid" id="resource-grid">
           <p class="hub-empty" id="resource-empty" data-i18n="teacherResourcesEmpty" hidden>Nothing here yet — check back soon.</p>
         </div>
-      </div>
-
-      <div class="teacher-cta-row">
-        <button type="button" class="btn-ghost" id="sign-out-btn" data-i18n="teacherSignOut">Sign out</button>
       </div>
     </div>
   </section>

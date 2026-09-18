@@ -851,6 +851,15 @@ body.auth-atmosphere .brand { color: var(--gold); }
    without further changes — only the background itself needed to
    become the same photo/veil treatment as the rest of the app. */
 .library-main { position: relative; z-index: 2; }
+/* Same fix, teacher.html — this one was simply missed originally: every
+   other atmosphere page's main wrapper got this treatment, but
+   teacher.html's <main> never had a class at all to hang it on, so its
+   content (including .hub-panel) painted without its own stacking
+   context — the panel's translucent background still rendered, but
+   with nothing but the unpositioned page underneath to blur/tint
+   rather than the actual forest image, so it read as flat opaque gray
+   instead of forest-tinted glass. */
+.teacher-main { position: relative; z-index: 2; }
 
 /* ── Merchandise storefront (merchandise.html) ── */
 .shop-main { max-width: 1000px; margin: 0 auto; padding: 8px clamp(20px, 5vw, 56px) 40px; position: relative; z-index: 2; }

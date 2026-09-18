@@ -123,11 +123,36 @@
     }
   }
 
+  async function checkSession() {
+    try {
+      const res = await fetch('/api/me');
+      if (!res.ok) return null;
+      const data = await res.json();
+      return data.user;
+    } catch {
+      return null;
+    }
+  }
+
+  async function applySessionState() {
+    const user = await checkSession();
+    if (!user) return; // Log in/Register stay as-is, Sign out stays hidden
+    document.getElementById('login-link').hidden = true;
+    document.getElementById('register-link').hidden = true;
+    const signOutBtn = document.getElementById('topbar-signout-btn');
+    signOutBtn.hidden = false;
+    signOutBtn.addEventListener('click', async () => {
+      await fetch('/api/logout', { method: 'POST' });
+      window.location.href = '/';
+    });
+  }
+
   async function init() {
     await window.MareI18n.ready;
     setupLangSwitch();
     setupTalkDemoModal();
     await loadShowcase();
+    await applySessionState();
   }
 
   init();
