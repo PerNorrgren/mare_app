@@ -890,6 +890,9 @@ function deleteAddress(id) {
 function getTeacherByEmail(email) {
   return get(`SELECT * FROM teachers WHERE email = ?`, [email.toLowerCase().trim()]);
 }
+function getTeacherById(id) {
+  return get(`SELECT * FROM teachers WHERE id = ?`, [id]);
+}
 function createTeacher({ email, passwordHash, name, school }) {
   const id = uuid();
   run(`INSERT INTO teachers (id, email, password_hash, name, school) VALUES (?,?,?,?,?)`,
@@ -1763,7 +1766,7 @@ module.exports = {
   getChildrenByParent, createChild, getChild, setChildAgeBand, updateChild, deleteChild,
   canParentAccessChild, isPrimaryParentOfChild, getCarersForChild, addCarerToChild, removeCarerFromChild,
   getAddressesForOwner, getAddress, createAddress, updateAddress, deleteAddress,
-  getTeacherByEmail, createTeacher, updateTeacherPasswordHash,
+  getTeacherByEmail, getTeacherById, createTeacher, updateTeacherPasswordHash,
   getAdminByEmail, createAdmin, updateAdminPasswordHash, getAllStaff,
   getAllParentsDirectory, getAllTeachersDirectory, setParentStatus, setTeacherStatus,
   createPasswordResetToken, getValidPasswordResetToken, markPasswordResetTokenUsed,

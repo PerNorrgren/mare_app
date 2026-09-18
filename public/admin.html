@@ -82,6 +82,7 @@
       <button type="button" class="admin-tab" data-tab="showcase" data-i18n="adminTabShowcase">Showcase Page</button>
       <button type="button" class="admin-tab" data-tab="clubmare" data-i18n="adminTabClubMare">Club Mare</button>
       <button type="button" class="admin-tab" data-tab="directory" data-i18n="adminTabDirectory">Parents &amp; Teachers</button>
+      <button type="button" class="admin-tab admin-only-tab" data-tab="emaillog" hidden data-i18n="adminTabEmailLog">Email Log</button>
       <button type="button" class="admin-tab admin-only-tab" data-tab="staff" hidden data-i18n="adminTabStaff">Staff Accounts</button>
     </div>
 
@@ -699,6 +700,15 @@
         <p class="form-error" id="bulk-import-error" hidden></p>
         <div id="bulk-import-result"></div>
         <button type="button" class="btn-primary" id="bulk-import-btn" data-i18n="adminBulkImportSubmit">Import</button>
+      </div>
+    </div>
+
+    <!-- Email log (admin only) -->
+    <div class="admin-panel" id="panel-emaillog">
+      <div class="admin-card">
+        <h2 data-i18n="adminEmailLogTitle">Email delivery log</h2>
+        <p class="admin-card-sub" data-i18n="adminEmailLogDesc">The last 100 emails the app tried to send, with status and any error — use this to check whether a specific email actually went out.</p>
+        <div id="email-log-table"><p class="admin-empty-note" data-i18n="adminLoading">Loading…</p></div>
       </div>
     </div>
 

@@ -1733,6 +1733,18 @@ app.post('/api/admin/teachers', auth.requireAuthApi(['admin', 'support']), async
   res.json({ ok: true, id: teacherId });
 });
 
+// Resend the "set your password" email for a teacher who never got it,
+// or whose link expired — same token pattern as creation, just a new
+// token each time (old ones can't be reused after a resend anyway).
+app.post('/api/admin/teachers/:id/resend-invite', auth.requireAuthApi(['admin', 'support']), (req, res) => {
+  const teacher = db.getTeacherById(req.params.id);
+  if (!teacher) return res.status(404).json({ error: 'Teacher not found' });
+  const token = db.createPasswordResetToken('teacher', teacher.id);
+  const resetUrl = `${process.env.APP_URL || 'https://mareapp-production.up.railway.app'}/reset-password.html?token=${token}&role=teacher`;
+  email.sendPasswordResetEmail(teacher.email, teacher.name, resetUrl).catch(e => console.error('teacher resend email failed:', e.message));
+  res.json({ ok: true });
+});
+
 // ─────────────────────────────────────────────────────────────────────
 // ADMIN REPORTING — overview counts for the dashboard, and the email
 // delivery log for troubleshooting "did that email actually send".

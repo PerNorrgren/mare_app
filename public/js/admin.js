@@ -162,6 +162,7 @@
     loadClubMarePosts();
     loadClubMareStats();
     if (isAdmin) loadStaff();
+    if (isAdmin) loadEmailLog();
   }
 
   function setupTabs() {
@@ -649,12 +650,80 @@
         }
       });
       actionTd.appendChild(btn);
+      if (kind === 'teachers') {
+        const resendBtn = document.createElement('button');
+        resendBtn.type = 'button';
+        resendBtn.className = 'btn-ghost btn-small';
+        resendBtn.style.marginLeft = '6px';
+        resendBtn.textContent = t('adminResendInvite');
+        resendBtn.addEventListener('click', async () => {
+          resendBtn.disabled = true;
+          const original = resendBtn.textContent;
+          try {
+            await api(`/api/admin/teachers/${row.id}/resend-invite`, { method: 'POST' });
+            resendBtn.textContent = t('adminResendInviteSent');
+            setTimeout(() => { resendBtn.textContent = original; resendBtn.disabled = false; }, 3000);
+          } catch {
+            resendBtn.textContent = original;
+            resendBtn.disabled = false;
+          }
+        });
+        actionTd.appendChild(resendBtn);
+      }
       tr.appendChild(actionTd);
       tbody.appendChild(tr);
     });
     table.appendChild(tbody);
     container.innerHTML = '';
     container.appendChild(table);
+  }
+
+  // ── Email log (admin only) ──
+  async function loadEmailLog() {
+    const container = document.getElementById('email-log-table');
+    try {
+      const data = await api('/api/admin/email-log');
+      const rows = data.log || [];
+      if (!rows.length) {
+        container.innerHTML = `<p class="admin-empty-note">${escapeHtml(t('adminNoneYet'))}</p>`;
+        return;
+      }
+      const KIND_LABEL_KEY = {
+        welcome_parent: 'emailKindWelcomeParent',
+        welcome_teacher: 'emailKindWelcomeTeacher',
+        password_reset: 'emailKindPasswordReset',
+        broadcast: 'emailKindBroadcast',
+        other: 'emailKindOther',
+      };
+      const table = document.createElement('table');
+      table.className = 'admin-table';
+      table.innerHTML = `<thead><tr>
+        <th>${escapeHtml(t('adminEmailLogTo'))}</th>
+        <th>${escapeHtml(t('adminEmailLogSubject'))}</th>
+        <th>${escapeHtml(t('adminEmailLogKind'))}</th>
+        <th>${escapeHtml(t('adminFieldStatus'))}</th>
+        <th>${escapeHtml(t('adminJoined'))}</th>
+      </tr></thead>`;
+      const tbody = document.createElement('tbody');
+      rows.forEach(row => {
+        const tr = document.createElement('tr');
+        const statusClass = row.status === 'sent' ? 'sent' : row.status === 'failed' ? 'failed' : 'sending';
+        const statusLabel = t(row.status === 'sent' ? 'adminEmailStatusSent' : row.status === 'failed' ? 'adminEmailStatusFailed' : 'adminEmailStatusPending');
+        tr.innerHTML = `
+          <td>${escapeHtml(row.to_email)}</td>
+          <td>${escapeHtml(row.subject)}</td>
+          <td>${escapeHtml(t(KIND_LABEL_KEY[row.kind] || 'emailKindOther'))}</td>
+          <td><span class="bc-status ${statusClass}" title="${escapeHtml(row.error || '')}">${escapeHtml(statusLabel)}</span></td>
+          <td>${escapeHtml(row.created_at)}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+      table.appendChild(tbody);
+      container.innerHTML = '';
+      container.appendChild(table);
+    } catch {
+      container.innerHTML = `<p class="admin-empty-note">${escapeHtml(t('adminCouldNotLoadEmailLog'))}</p>`;
+    }
   }
 
   function labelFor(col) {
