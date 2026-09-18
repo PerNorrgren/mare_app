@@ -28,6 +28,7 @@
 
   const SERVER_ERROR_MAP = {
     'This reset link is invalid or has expired': 'resetPasswordInvalid',
+    'This reset link has expired — a new one is on its way to your email': 'resetPasswordExpiredResent',
     'Password must be at least 8 characters': 'errorPasswordTooShort',
     'Missing fields': 'errorMissingFields',
   };

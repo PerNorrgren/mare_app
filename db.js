@@ -907,6 +907,9 @@ function updateTeacherPasswordHash(teacherId, passwordHash) {
 function getAdminByEmail(email) {
   return get(`SELECT * FROM admins WHERE email = ?`, [email.toLowerCase().trim()]);
 }
+function getAdminById(id) {
+  return get(`SELECT * FROM admins WHERE id = ?`, [id]);
+}
 function createAdmin({ email, passwordHash, name, role }) {
   const id = uuid();
   run(`INSERT INTO admins (id, email, password_hash, name, role) VALUES (?,?,?,?,?)`,
@@ -1560,6 +1563,28 @@ function getValidPasswordResetToken(token) {
     [token]
   );
 }
+// Deliberately ignores expiry/used_at — this is ONLY for deciding who
+// to auto-resend a fresh link to when someone clicks a dead one. Never
+// used to authenticate anything (that's getValidPasswordResetToken's
+// job); a token found here but not there tells us "this WAS a real
+// request, just too old/already used now" rather than "this is
+// garbage" — that distinction is what keeps auto-resend from becoming
+// an abuse vector (see the comment where this is called).
+function getPasswordResetTokenAnyState(token) {
+  return get(`SELECT * FROM password_reset_tokens WHERE token = ?`, [token]);
+}
+// Has a fresh (unused, unexpired) token already been issued for this
+// account very recently? Used to stop auto-resend from firing on every
+// single submit attempt if someone sits on a dead link and keeps
+// clicking "Set new password" — one auto-resend per short window,
+// not one per click.
+function hasRecentPasswordResetToken(role, userId, withinMinutes) {
+  const row = get(
+    `SELECT id FROM password_reset_tokens WHERE role = ? AND user_id = ? AND created_at > datetime('now', ?)`,
+    [role, userId, `-${withinMinutes} minutes`]
+  );
+  return !!row;
+}
 function markPasswordResetTokenUsed(token) {
   run(`UPDATE password_reset_tokens SET used_at = datetime('now') WHERE token = ?`, [token]);
 }
@@ -1775,9 +1800,10 @@ module.exports = {
   canParentAccessChild, isPrimaryParentOfChild, getCarersForChild, addCarerToChild, removeCarerFromChild,
   getAddressesForOwner, getAddress, createAddress, updateAddress, deleteAddress,
   getTeacherByEmail, getTeacherById, createTeacher, updateTeacherPasswordHash,
-  getAdminByEmail, createAdmin, updateAdminPasswordHash, getAllStaff,
+  getAdminByEmail, getAdminById, createAdmin, updateAdminPasswordHash, getAllStaff,
   getAllParentsDirectory, getAllTeachersDirectory, setParentStatus, setTeacherStatus,
-  createPasswordResetToken, getValidPasswordResetToken, markPasswordResetTokenUsed,
+  createPasswordResetToken, getValidPasswordResetToken, getPasswordResetTokenAnyState,
+  hasRecentPasswordResetToken, markPasswordResetTokenUsed,
   getRecentEmailLog, getEmailStats, clearEmailLog, getAdminOverviewStats,
   getActiveTeacherResources, getAllTeacherResources,
   createTeacherResource, updateTeacherResource, deleteTeacherResource,

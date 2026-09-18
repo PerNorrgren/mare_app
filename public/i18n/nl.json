@@ -334,6 +334,7 @@
   "resetPasswordSubmit": "Nieuw wachtwoord instellen",
   "resetPasswordSuccess": "Je wachtwoord is gewijzigd. Je kunt nu inloggen.",
   "resetPasswordInvalid": "Deze resetlink is ongeldig of verlopen. Vraag een nieuwe aan via de inlogpagina.",
+  "resetPasswordExpiredResent": "Die link was verlopen, dus we hebben je een nieuwe gestuurd — check je e-mail.",
   "fieldNewPassword": "Nieuw wachtwoord",
   "errorAccountSuspended": "Dit account is geschorst. Neem contact op met support voor hulp.",
   "adminOverviewStatsTitle": "In één oogopslag",

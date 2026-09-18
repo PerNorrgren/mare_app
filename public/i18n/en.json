@@ -334,6 +334,7 @@
   "resetPasswordSubmit": "Set new password",
   "resetPasswordSuccess": "Your password has been changed. You can sign in now.",
   "resetPasswordInvalid": "This reset link is invalid or has expired. Request a new one from the sign-in page.",
+  "resetPasswordExpiredResent": "That link had expired, so we've sent you a fresh one — check your email.",
   "fieldNewPassword": "New password",
   "errorAccountSuspended": "This account has been suspended. Contact support for help.",
   "adminOverviewStatsTitle": "At a glance",

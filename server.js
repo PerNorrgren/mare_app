@@ -186,13 +186,45 @@ app.post('/api/auth/forgot-password', async (req, res) => {
   res.json({ ok: true });
 });
 
+function getAccountByRoleAndUserId(role, userId) {
+  if (role === 'teacher') return db.getTeacherById(userId);
+  if (role === 'admin') return db.getAdminById(userId);
+  return db.getParentById(userId);
+}
+
 app.post('/api/auth/reset-password', async (req, res) => {
   const { token, password } = req.body || {};
   if (!token || !password) return res.status(400).json({ error: 'Missing fields' });
   if (password.length < 8) return res.status(400).json({ error: 'Password must be at least 8 characters' });
 
   const record = db.getValidPasswordResetToken(token);
-  if (!record) return res.status(400).json({ error: 'This reset link is invalid or has expired' });
+  if (!record) {
+    // Dead link (expired or already used) rather than a genuinely
+    // invalid one — self-serve auto-resend instead of just telling
+    // them to go find the sign-in page and start over. Only fires for
+    // a token that really was issued (getPasswordResetTokenAnyState
+    // finds it even past expiry/used_at) — a token that doesn't exist
+    // in the table at all (garbage, tampered, copy-paste error) still
+    // gets the plain "invalid" response with no email sent, since we
+    // have no legitimate account to resend to and firing one anyway
+    // would be an open resend-spam vector for anyone pasting random
+    // strings into the URL.
+    const deadRecord = db.getPasswordResetTokenAnyState(token);
+    if (deadRecord) {
+      const account = getAccountByRoleAndUserId(deadRecord.role, deadRecord.user_id);
+      // One auto-resend per short window, not one per submit click —
+      // someone sitting on a dead link and repeatedly hitting "Set new
+      // password" shouldn't trigger a fresh email every single time.
+      if (account && !db.hasRecentPasswordResetToken(deadRecord.role, deadRecord.user_id, 2)) {
+        const newToken = db.createPasswordResetToken(deadRecord.role, deadRecord.user_id);
+        const resetUrl = `${process.env.APP_URL || 'https://mareapp-production.up.railway.app'}/reset-password.html?token=${newToken}&role=${deadRecord.role}`;
+        email.sendPasswordResetEmail(account.email, account.name, resetUrl)
+          .catch(e => console.error('auto-resend password reset email failed:', e.message));
+      }
+      return res.status(400).json({ error: 'This reset link has expired — a new one is on its way to your email' });
+    }
+    return res.status(400).json({ error: 'This reset link is invalid or has expired' });
+  }
 
   const hash = await auth.hashPassword(password);
   if (record.role === 'teacher') db.updateTeacherPasswordHash(record.user_id, hash);
