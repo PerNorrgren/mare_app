@@ -78,6 +78,7 @@
   "adminEmailLogTo": "Aan",
   "adminEmailLogSubject": "Onderwerp",
   "adminEmailLogKind": "Type",
+  "adminEmailLogError": "Foutmelding",
   "adminEmailStatusSent": "Verzonden",
   "adminEmailStatusFailed": "Mislukt",
   "adminEmailStatusPending": "In behandeling",

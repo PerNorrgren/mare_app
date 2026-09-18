@@ -710,6 +710,7 @@
         <th>${escapeHtml(t('adminEmailLogSubject'))}</th>
         <th>${escapeHtml(t('adminEmailLogKind'))}</th>
         <th>${escapeHtml(t('adminFieldStatus'))}</th>
+        <th>${escapeHtml(t('adminEmailLogError'))}</th>
         <th>${escapeHtml(t('adminJoined'))}</th>
       </tr></thead>`;
       const tbody = document.createElement('tbody');
@@ -721,7 +722,8 @@
           <td>${escapeHtml(row.to_email)}</td>
           <td>${escapeHtml(row.subject)}</td>
           <td>${escapeHtml(t(KIND_LABEL_KEY[row.kind] || 'emailKindOther'))}</td>
-          <td><span class="bc-status ${statusClass}" title="${escapeHtml(row.error || '')}">${escapeHtml(statusLabel)}</span></td>
+          <td><span class="bc-status ${statusClass}">${escapeHtml(statusLabel)}</span></td>
+          <td style="max-width:260px;font-size:0.82rem;color:#A33B3B;">${escapeHtml(row.error || '')}</td>
           <td>${escapeHtml(row.created_at)}</td>
         `;
         tbody.appendChild(tr);

@@ -78,6 +78,7 @@
   "adminEmailLogTo": "To",
   "adminEmailLogSubject": "Subject",
   "adminEmailLogKind": "Type",
+  "adminEmailLogError": "Error",
   "adminEmailStatusSent": "Sent",
   "adminEmailStatusFailed": "Failed",
   "adminEmailStatusPending": "Pending",
