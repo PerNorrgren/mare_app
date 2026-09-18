@@ -1569,6 +1569,14 @@ function markPasswordResetTokenUsed(token) {
 function getRecentEmailLog(limit) {
   return all(`SELECT id, kind, to_email, subject, status, error, created_at FROM email_log ORDER BY created_at DESC LIMIT ?`, [limit || 50]);
 }
+// Wipes the whole table. Deliberately not soft-deleted or exportable
+// first — this is a troubleshooting scratch log, not a record anything
+// else depends on: broadcasts snapshot their own sent/failed counts at
+// send time rather than live-querying this table (see the schema
+// comment above), so clearing it can't corrupt broadcast history.
+function clearEmailLog() {
+  run(`DELETE FROM email_log`);
+}
 function getEmailStats() {
   const rows = all(`SELECT status, COUNT(*) as count FROM email_log GROUP BY status`);
   const stats = { sent: 0, failed: 0, pending: 0 };
@@ -1770,7 +1778,7 @@ module.exports = {
   getAdminByEmail, createAdmin, updateAdminPasswordHash, getAllStaff,
   getAllParentsDirectory, getAllTeachersDirectory, setParentStatus, setTeacherStatus,
   createPasswordResetToken, getValidPasswordResetToken, markPasswordResetTokenUsed,
-  getRecentEmailLog, getEmailStats, getAdminOverviewStats,
+  getRecentEmailLog, getEmailStats, clearEmailLog, getAdminOverviewStats,
   getActiveTeacherResources, getAllTeacherResources,
   createTeacherResource, updateTeacherResource, deleteTeacherResource,
   getActiveAppPages, getAllAppPages, createAppPage, updateAppPage, deleteAppPage,

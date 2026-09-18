@@ -1760,6 +1760,14 @@ app.get('/api/admin/email-log', auth.requireAuthApi(['admin']), (req, res) => {
   res.json({ log: db.getRecentEmailLog(100) });
 });
 
+// Wipes the whole log — a troubleshooting scratch pad, not a record
+// anything else reads from (see the comment on db.clearEmailLog).
+// Admin-only, same as viewing it.
+app.delete('/api/admin/email-log', auth.requireAuthApi(['admin']), (req, res) => {
+  db.clearEmailLog();
+  res.json({ ok: true });
+});
+
 // ─────────────────────────────────────────────────────────────────────
 // TEACHER RESOURCES — documents/tools/links shown in the teacher hub.
 // Admin/support manage them here; teachers read them via the public

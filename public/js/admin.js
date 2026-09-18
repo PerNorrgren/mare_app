@@ -163,6 +163,7 @@
     loadClubMareStats();
     if (isAdmin) loadStaff();
     if (isAdmin) loadEmailLog();
+    if (isAdmin) setupClearEmailLog();
   }
 
   function setupTabs() {
@@ -734,6 +735,23 @@
     } catch {
       container.innerHTML = `<p class="admin-empty-note">${escapeHtml(t('adminCouldNotLoadEmailLog'))}</p>`;
     }
+  }
+
+  function setupClearEmailLog() {
+    const btn = document.getElementById('clear-email-log-btn');
+    if (!btn) return;
+    btn.addEventListener('click', async () => {
+      if (!window.confirm(t('adminClearEmailLogConfirm'))) return;
+      btn.disabled = true;
+      try {
+        await api('/api/admin/email-log', { method: 'DELETE' });
+        loadEmailLog();
+      } catch {
+        alert(t('errorGeneric'));
+      } finally {
+        btn.disabled = false;
+      }
+    });
   }
 
   function labelFor(col) {

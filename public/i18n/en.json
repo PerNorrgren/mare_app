@@ -79,6 +79,8 @@
   "adminEmailLogSubject": "Subject",
   "adminEmailLogKind": "Type",
   "adminEmailLogError": "Error",
+  "adminClearEmailLog": "Clear log",
+  "adminClearEmailLogConfirm": "Clear the entire email log? This can't be undone — it only removes this troubleshooting record, not any actual emails already sent.",
   "adminEmailStatusSent": "Sent",
   "adminEmailStatusFailed": "Failed",
   "adminEmailStatusPending": "Pending",

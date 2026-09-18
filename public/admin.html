@@ -706,8 +706,13 @@
     <!-- Email log (admin only) -->
     <div class="admin-panel" id="panel-emaillog">
       <div class="admin-card">
-        <h2 data-i18n="adminEmailLogTitle">Email delivery log</h2>
-        <p class="admin-card-sub" data-i18n="adminEmailLogDesc">The last 100 emails the app tried to send, with status and any error — use this to check whether a specific email actually went out.</p>
+        <div class="admin-card-header-row">
+          <div>
+            <h2 data-i18n="adminEmailLogTitle">Email delivery log</h2>
+            <p class="admin-card-sub" data-i18n="adminEmailLogDesc">The last 100 emails the app tried to send, with status and any error — use this to check whether a specific email actually went out.</p>
+          </div>
+          <button type="button" class="btn-ghost btn-small" id="clear-email-log-btn" data-i18n="adminClearEmailLog">Clear log</button>
+        </div>
         <div id="email-log-table"><p class="admin-empty-note" data-i18n="adminLoading">Loading…</p></div>
       </div>
     </div>

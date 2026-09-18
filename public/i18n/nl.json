@@ -79,6 +79,8 @@
   "adminEmailLogSubject": "Onderwerp",
   "adminEmailLogKind": "Type",
   "adminEmailLogError": "Foutmelding",
+  "adminClearEmailLog": "Logboek wissen",
+  "adminClearEmailLogConfirm": "Het hele e-maillogboek wissen? Dit kan niet ongedaan worden gemaakt — het verwijdert alleen dit controle-overzicht, niet de daadwerkelijk verzonden e-mails.",
   "adminEmailStatusSent": "Verzonden",
   "adminEmailStatusFailed": "Mislukt",
   "adminEmailStatusPending": "In behandeling",
