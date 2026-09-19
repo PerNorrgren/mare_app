@@ -315,6 +315,8 @@
   "acErrorGeneric": "Er ging iets mis — probeer het opnieuw.",
   "talkBack": "Terug",
   "talkWhoIsTalking": "Wie praat er vandaag met Mare?",
+  "talkChooseAgeBand": "Voor welke leeftijdsgroep is dit gesprek?",
+  "talkAgeBandLabel": "Leeftijd {band}",
   "talkNoChildren": "Nog geen kinderen op dit account.",
   "talkAddChildLink": "Voeg er een toe in Mijn Account",
   "talkLeave": "Verlaten",

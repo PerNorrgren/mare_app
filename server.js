@@ -626,10 +626,11 @@ function requireOwnedChild(req, res) {
 // as with every other child-scoped resource in this file. In practice
 // only one parent is ever holding the device during a live session, but
 // the permission boundary should match the child-access model, not the
-// literal originator.
+// literal originator. Teacher (no-child, age-band) sessions are scoped
+// to that teacher alone — see db.canAccessTalkSession.
 function requireSessionChildAccess(req, res, sessionId) {
   const dbRow = db.getTalkSession(sessionId);
-  if (!dbRow || !db.canParentAccessChild(req.user.id, dbRow.child_id)) {
+  if (!dbRow || !db.canAccessTalkSession(req.user, dbRow)) {
     res.status(404).json({ error: 'Session not found' });
     return null;
   }
@@ -654,10 +655,28 @@ function getPrimaryBookText(locale) {
   }
 }
 
-app.post('/api/talk/session', auth.requireAuthApi(['parent']), (req, res) => {
+const VALID_TEACHER_AGE_BANDS = ['6-8', '9-11', '12-15'];
+
+app.post('/api/talk/session', auth.requireAuthApi(['parent', 'teacher']), (req, res) => {
+  const locale = resolveLocale(req);
+
+  if (req.user.role === 'teacher') {
+    const ageBand = req.body?.ageBand;
+    if (!VALID_TEACHER_AGE_BANDS.includes(ageBand)) {
+      return res.status(400).json({ error: 'A valid age band is required' });
+    }
+    const sessionId = db.createTalkSession(null, req.user.id, locale, { role: 'teacher', ageBand });
+    const systemPrompt = prompts.buildMareSystemPrompt({
+      ageBand,
+      locale,
+      bookText: getPrimaryBookText(locale),
+    });
+    talkSessions.set(sessionId, { history: [], systemPrompt, dbRow: db.getTalkSession(sessionId) });
+    return res.json({ ok: true, sessionId, locale });
+  }
+
   const child = requireOwnedChild(req, res);
   if (!child) return;
-  const locale = resolveLocale(req);
   const sessionId = db.createTalkSession(child.id, req.user.id, locale);
   const systemPrompt = prompts.buildMareSystemPrompt({
     ageBand: child.age_band,
@@ -669,7 +688,7 @@ app.post('/api/talk/session', auth.requireAuthApi(['parent']), (req, res) => {
   res.json({ ok: true, sessionId, locale });
 });
 
-app.post('/api/talk/chat', auth.requireAuthApi(['parent']), async (req, res) => {
+app.post('/api/talk/chat', auth.requireAuthApi(['parent', 'teacher']), async (req, res) => {
   try {
     const { sessionId, message } = req.body || {};
     if (!sessionId || !message) return res.status(400).json({ error: 'sessionId and message required' });
@@ -684,11 +703,11 @@ app.post('/api/talk/chat', auth.requireAuthApi(['parent']), async (req, res) => 
       // Server restarted mid-session, or this is somehow the first turn
       // without a prior /api/talk/session call reaching memory — rebuild
       // the system prompt fresh from the DB row rather than failing.
-      const child = db.getChild(dbRow.child_id);
+      const child = dbRow.user_role === 'teacher' ? null : db.getChild(dbRow.child_id);
       session = {
         history: [],
         systemPrompt: prompts.buildMareSystemPrompt({
-          ageBand: child?.age_band,
+          ageBand: dbRow.user_role === 'teacher' ? dbRow.age_band : child?.age_band,
           locale: dbRow.locale,
           childName: child?.name,
           bookText: getPrimaryBookText(dbRow.locale),
@@ -722,7 +741,7 @@ app.post('/api/talk/chat', auth.requireAuthApi(['parent']), async (req, res) => 
   }
 });
 
-app.post('/api/talk/session/:id/end', auth.requireAuthApi(['parent']), (req, res) => {
+app.post('/api/talk/session/:id/end', auth.requireAuthApi(['parent', 'teacher']), (req, res) => {
   const dbRow = requireSessionChildAccess(req, res, req.params.id);
   if (!dbRow) return;
   db.endTalkSession(req.params.id);
@@ -735,7 +754,7 @@ app.post('/api/talk/session/:id/end', auth.requireAuthApi(['parent']), (req, res
 // /api/talk/chat because it isn't a reply to anything; it's an opener,
 // pushed to history as an assistant turn so the conversation continues
 // naturally from there.
-app.post('/api/talk/session/:id/opening', auth.requireAuthApi(['parent']), async (req, res) => {
+app.post('/api/talk/session/:id/opening', auth.requireAuthApi(['parent', 'teacher']), async (req, res) => {
   try {
     const dbRow = requireSessionChildAccess(req, res, req.params.id);
     if (!dbRow) return;
@@ -1969,7 +1988,7 @@ server.on('upgrade', (req, socket, head) => {
 
   const cookies = parseCookies(req.headers.cookie);
   const payload = auth.verifyToken(cookies[auth.COOKIE_NAME]);
-  if (!payload || payload.role !== 'parent') {
+  if (!payload || (payload.role !== 'parent' && payload.role !== 'teacher')) {
     socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
     socket.destroy();
     return;
@@ -1977,7 +1996,7 @@ server.on('upgrade', (req, socket, head) => {
 
   const sessionId = searchParams.get('session');
   const talkSession = sessionId ? db.getTalkSession(sessionId) : null;
-  if (!talkSession || !db.canParentAccessChild(payload.id, talkSession.child_id) || talkSession.ended_at) {
+  if (!talkSession || !db.canAccessTalkSession(payload, talkSession) || talkSession.ended_at) {
     socket.write('HTTP/1.1 403 Forbidden\r\n\r\n');
     socket.destroy();
     return;

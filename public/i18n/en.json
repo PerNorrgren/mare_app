@@ -315,6 +315,8 @@
   "acErrorGeneric": "Something went wrong — please try again.",
   "talkBack": "Back",
   "talkWhoIsTalking": "Who's talking to Mare today?",
+  "talkChooseAgeBand": "Which age group is this conversation for?",
+  "talkAgeBandLabel": "Ages {band}",
   "talkNoChildren": "No children on this account yet.",
   "talkAddChildLink": "Add one in My Account",
   "talkLeave": "Leave",

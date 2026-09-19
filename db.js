@@ -633,6 +633,17 @@ async function getDb() {
   try { db.run(`ALTER TABLE books ADD COLUMN group_slug TEXT NOT NULL DEFAULT ''`); } catch {}
   try { db.run(`ALTER TABLE parents ADD COLUMN preferred_locale TEXT NOT NULL DEFAULT 'en'`); } catch {}
   try { db.run(`ALTER TABLE teachers ADD COLUMN preferred_locale TEXT NOT NULL DEFAULT 'en'`); } catch {}
+  // Talk to Mare for teachers — no specific child involved, so the
+  // session is keyed by a chosen age band instead. child_id stays
+  // NOT NULL (empty string '' is used as the "no child" sentinel
+  // rather than loosening that constraint, since SQLite can't easily
+  // drop a NOT NULL after the fact) — every existing falsy check on
+  // child_id already treats '' the same as null. parent_id is reused
+  // to hold the teacher's own id for these sessions (documented at
+  // createTalkSession/canAccessTalkSession); user_role distinguishes
+  // which interpretation applies to a given row.
+  try { db.run(`ALTER TABLE talk_sessions ADD COLUMN user_role TEXT NOT NULL DEFAULT 'parent'`); } catch {}
+  try { db.run(`ALTER TABLE talk_sessions ADD COLUMN age_band TEXT`); } catch {}
   // Backfill: any book row from before group_slug existed (or with the
   // column's own default '') gets its own slug as its group — correct
   // for the original single-locale 'mare' row, and harmless for anything
@@ -1441,14 +1452,33 @@ function deleteAppPage(id) {
 
 // ── Talk to Mare — session metadata only (no transcript persistence,
 // see the schema comment above for why). ──
-function createTalkSession(childId, parentId, locale) {
+// ownerId is the parent's id for a normal child-scoped session, or the
+// teacher's own id when opts.role === 'teacher' (no child involved —
+// see the schema comment on talk_sessions for why parent_id/child_id
+// are reused rather than adding dedicated columns).
+function createTalkSession(childId, ownerId, locale, opts = {}) {
   const id = uuid();
-  run(`INSERT INTO talk_sessions (id, child_id, parent_id, locale) VALUES (?,?,?,?)`,
-    [id, childId, parentId, locale || 'en']);
+  const role = (opts && opts.role) || 'parent';
+  const ageBand = (opts && opts.ageBand) || null;
+  run(`INSERT INTO talk_sessions (id, child_id, parent_id, locale, user_role, age_band) VALUES (?,?,?,?,?,?)`,
+    [id, childId || '', ownerId, locale || 'en', role, ageBand]);
   return id;
 }
 function getTalkSession(id) {
   return get(`SELECT * FROM talk_sessions WHERE id = ?`, [id]);
+}
+// Parent sessions: existing canParentAccessChild rules (owner or any
+// carer on that child). Teacher sessions: no child to check against —
+// just the teacher's own id, matching who parent_id was set to at
+// creation. A teacher can only ever access their own Talk sessions,
+// same restriction shape as a parent's, just without the carer-sharing
+// case (a teacher session was never shareable to begin with).
+function canAccessTalkSession(user, dbRow) {
+  if (!dbRow) return false;
+  if (dbRow.user_role === 'teacher') {
+    return user.role === 'teacher' && dbRow.parent_id === user.id;
+  }
+  return canParentAccessChild(user.id, dbRow.child_id);
 }
 function touchTalkSession(id) {
   run(`UPDATE talk_sessions SET last_activity_at = datetime('now'), turn_count = turn_count + 1 WHERE id = ?`, [id]);
@@ -1808,7 +1838,7 @@ module.exports = {
   getActiveTeacherResources, getAllTeacherResources,
   createTeacherResource, updateTeacherResource, deleteTeacherResource,
   getActiveAppPages, getAllAppPages, createAppPage, updateAppPage, deleteAppPage,
-  createTalkSession, getTalkSession, touchTalkSession, endTalkSession,
+  createTalkSession, getTalkSession, canAccessTalkSession, touchTalkSession, endTalkSession,
   getActiveSocialLinks, getAllSocialLinks, createSocialLink, updateSocialLink, deleteSocialLink,
   createMarketingPost, getMarketingHistory, deleteMarketingPost,
   getActiveBooks, getActiveBooksForLocale, getAllBooks, getBook, getBookBySlug, createBook, updateBook,

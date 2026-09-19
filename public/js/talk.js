@@ -25,7 +25,7 @@
 
   const els = {};
   function cacheEls() {
-    ['picker-view', 'child-grid', 'no-children-msg',
+    ['picker-view', 'picker-title', 'child-grid', 'age-band-grid', 'no-children-msg',
      'talk-view', 'talk-child-name', 'leave-btn', 'captions-btn',
      'orb-btn', 'state-label', 'captions-bar', 'caption-line',
      'leave-confirm', 'leave-cancel-btn', 'leave-confirm-btn',
@@ -99,8 +99,38 @@
       name.className = 'talk-child-name';
       name.textContent = c.name;
       card.appendChild(name);
-      card.addEventListener('click', () => beginConversation(c));
+      card.addEventListener('click', () => beginConversation({ mode: 'child', child: c }));
       els['child-grid'].appendChild(card);
+    });
+  }
+
+  // ── Age-band picker — teacher sessions, no specific child involved.
+  // Same card markup/classes as the child picker (.talk-child-grid/
+  // -card/-avatar/-name) so it looks identical, just with an age-range
+  // label instead of a child's initial+name. ──
+  const AGE_BAND_OPTIONS = [
+    { value: '6-8', icon: '🌱' },
+    { value: '9-11', icon: '🌿' },
+    { value: '12-15', icon: '🌳' },
+  ];
+  function loadAgeBandPicker() {
+    els['age-band-grid'].hidden = false;
+    els['age-band-grid'].innerHTML = '';
+    AGE_BAND_OPTIONS.forEach(band => {
+      const card = document.createElement('button');
+      card.type = 'button';
+      card.className = 'talk-child-card';
+      const avatar = document.createElement('span');
+      avatar.className = 'talk-child-avatar';
+      avatar.style.background = AVATAR_COLORS[AGE_BAND_OPTIONS.indexOf(band) % AVATAR_COLORS.length];
+      avatar.textContent = band.icon;
+      card.appendChild(avatar);
+      const label = document.createElement('span');
+      label.className = 'talk-child-name';
+      label.textContent = window.MareI18n.t('talkAgeBandLabel', { band: band.value.replace('-', '–') });
+      card.appendChild(label);
+      card.addEventListener('click', () => beginConversation({ mode: 'teacher', ageBand: band.value }));
+      els['age-band-grid'].appendChild(card);
     });
   }
 
@@ -199,19 +229,32 @@
     }
   }
 
-  async function beginConversation(child) {
-    selectedChild = child;
+  async function beginConversation(opts) {
+    const isTeacher = opts.mode === 'teacher';
+    const child = isTeacher ? null : opts.child;
+    if (!isTeacher) selectedChild = child;
+
     // Lets the site-wide Mare Helper widget (if opened while this Talk
     // to Mare conversation is active) use the same age-appropriate
-    // register, rather than defaulting to the adult/app-helper voice.
-    window.MareHelperContext = { isChild: true, ageBand: child.age_band, childName: child.name };
+    // register, rather than defaulting to the adult/app-helper voice —
+    // the register is child-appropriate either way, since this is still
+    // a conversation in Mare's child-facing voice regardless of who's
+    // holding the device.
+    window.MareHelperContext = {
+      isChild: true,
+      ageBand: isTeacher ? opts.ageBand : child.age_band,
+      childName: isTeacher ? null : child.name,
+    };
     els['picker-view'].hidden = true;
     els['talk-view'].hidden = false;
-    els['talk-child-name'].textContent = child.name;
+    els['talk-child-name'].textContent = isTeacher
+      ? window.MareI18n.t('talkAgeBandLabel', { band: opts.ageBand.replace('-', '–') })
+      : child.name;
     setOrbState('disabled');
 
     try {
-      const data = await api('/api/talk/session', { method: 'POST', body: JSON.stringify({ childId: child.id }) });
+      const body = isTeacher ? { ageBand: opts.ageBand } : { childId: child.id };
+      const data = await api('/api/talk/session', { method: 'POST', body: JSON.stringify(body) });
       sessionId = data.sessionId;
       locale = data.locale;
       const openData = await api(`/api/talk/session/${sessionId}/opening`, { method: 'POST' });
@@ -245,7 +288,7 @@
   async function endConversationAndLeave() {
     stopListening();
     if (sessionId) await api(`/api/talk/session/${sessionId}/end`, { method: 'POST' }).catch(() => {});
-    window.location.href = '/';
+    window.location.href = '/library.html';
   }
   function setupLeave() {
     els['leave-btn'].addEventListener('click', () => { els['leave-confirm'].hidden = false; });
@@ -271,16 +314,20 @@
       window.location.href = '/login.html';
       return;
     }
-    if (currentUser.role !== 'parent') {
-      // Signed in, just the wrong role (e.g. a teacher account) — sending
-      // them to login.html is a dead end, since login.html's own
-      // already-signed-in check would just bounce a teacher session
-      // straight to teacher.html with no explanation. Home is the
-      // sensible landing spot instead.
+    if (currentUser.role === 'teacher') {
+      els['picker-title'].removeAttribute('data-i18n');
+      els['picker-title'].textContent = window.MareI18n.t('talkChooseAgeBand');
+      loadAgeBandPicker();
+    } else if (currentUser.role === 'parent') {
+      await loadChildren();
+    } else {
+      // Any other signed-in role (admin/support) has no meaningful
+      // Talk experience — Home is the sensible landing spot, same
+      // reasoning as the teacher case used to be before teachers got
+      // their own age-band picker.
       window.location.href = '/library.html';
       return;
     }
-    await loadChildren();
     els['talk-loading'].hidden = true;
   }
   init();
