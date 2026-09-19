@@ -267,8 +267,17 @@
     setupLeave();
 
     currentUser = await checkSession();
-    if (!currentUser || currentUser.role !== 'parent') {
+    if (!currentUser) {
       window.location.href = '/login.html';
+      return;
+    }
+    if (currentUser.role !== 'parent') {
+      // Signed in, just the wrong role (e.g. a teacher account) — sending
+      // them to login.html is a dead end, since login.html's own
+      // already-signed-in check would just bounce a teacher session
+      // straight to teacher.html with no explanation. Home is the
+      // sensible landing spot instead.
+      window.location.href = '/library.html';
       return;
     }
     await loadChildren();
