@@ -33,7 +33,7 @@
   </nav>
 </header>
 
-<main class="teacher-main">
+<main class="library-main">
 
   <!-- ── Public view — shown to anyone not signed in as a teacher ── -->
   <section id="public-view" hidden>
@@ -65,19 +65,17 @@
 
   <!-- ── Logged-in hub — shown once a teacher session is confirmed ── -->
   <section id="hub-view" hidden>
-    <div class="hub-panel">
-      <p class="hub-panel-welcome" id="hub-welcome" data-i18n="teacherWelcome">Welcome back</p>
+    <p class="hub-welcome" id="hub-welcome" data-i18n="teacherWelcome">Welcome back</p>
 
-      <div class="hub-section" id="whats-new-section" hidden>
-        <h2 data-i18n="teacherWhatsNewTitle">What's new</h2>
-        <div class="whats-new-list" id="whats-new-list"></div>
-      </div>
+    <div class="hub-section" id="whats-new-section" hidden>
+      <h2 data-i18n="teacherWhatsNewTitle">What's new</h2>
+      <div class="whats-new-list" id="whats-new-list"></div>
+    </div>
 
-      <div class="hub-section">
-        <h2 data-i18n="teacherResourcesTitle">Documents & tools</h2>
-        <div class="resource-grid" id="resource-grid">
-          <p class="hub-empty" id="resource-empty" data-i18n="teacherResourcesEmpty" hidden>Nothing here yet — check back soon.</p>
-        </div>
+    <div class="hub-section">
+      <h2 data-i18n="teacherResourcesTitle">Documents & tools</h2>
+      <div class="resource-grid" id="resource-grid">
+        <p class="hub-empty" id="resource-empty" data-i18n="teacherResourcesEmpty" hidden>Nothing here yet — check back soon.</p>
       </div>
     </div>
   </section>

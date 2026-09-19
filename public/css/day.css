@@ -796,42 +796,32 @@ body.auth-atmosphere .brand { color: var(--gold); }
 .auth-atmosphere #public-view .benefit-card h3 { color: var(--gold); }
 .auth-atmosphere #public-view .benefit-card p { color: rgba(243,236,217,0.75); }
 
-/* Signed-in teacher hub used to switch to a plain body.day background
-   on sign-in (auth-atmosphere removed via JS) — .resource-card and
-   .whats-new-item are already opaque white cards so they read fine
-   either way, but .hub-section h2/.hub-empty sit directly on the page
-   background with no card behind them, so once the dark forest
-   backdrop is kept consistent with every other page in the app, they
-   need the same gold/parchment treatment as the section headers above. */
+/* Signed-in teacher hub — content sits directly on the shared forest
+   backdrop, same as every section on library.html/index.html, no
+   wrapping panel. (Per's call: after repeated attempts to make a
+   central frosted-glass panel render reliably here kept failing for
+   reasons never fully pinned down, the simplest fix is to stop trying
+   to be different from the page that's already proven to work, and
+   just reuse its exact pattern — <main class="library-main"> in
+   teacher.html now, matching library.html's own <main> class
+   verbatim.) .resource-card and .whats-new-item are already opaque
+   white cards so they read fine regardless of backdrop; .hub-section
+   h2/.hub-empty/.hub-welcome sit directly on the page background with
+   nothing behind them, so they get the same gold/parchment treatment
+   as every other heading/subtext on the dark backdrop elsewhere in
+   this file (.hero h1/.hero-sub, .benefit-card h3/p, etc). */
 .auth-atmosphere .hub-section h2 { color: var(--gold); }
 .auth-atmosphere .hub-empty { color: rgba(243,236,217,0.75); }
-
-/* Teacher hub content sits inside one central semi-transparent panel on
-   the forest backdrop — same frosted-glass language as .benefit-card
-   above, just as a single wrapping panel rather than a grid of small
-   cards, per Per's redesign request (same look as the home/library
-   pages, not a separate plain dashboard style). */
-.hub-panel {
-  max-width: 720px;
-  margin: 32px auto 48px;
-  padding: clamp(24px, 5vw, 40px);
-  background: rgba(11,23,18,0.55);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-  border: 1px solid rgba(243,236,217,0.15);
-  border-radius: 22px;
-  box-shadow: 0 20px 60px rgba(0,0,0,0.4);
-}
-.hub-panel-welcome {
+.hub-welcome {
   font-family: 'Fraunces', serif;
   font-weight: 600;
-  font-size: 1.25rem;
+  font-size: 1.4rem;
   color: var(--gold);
-  margin: 0 0 20px;
+  text-align: center;
   text-shadow: 0 0 24px rgba(234,192,102,0.35);
+  margin: 0 0 8px;
+  padding: clamp(24px, 6vw, 40px) 20px 0;
 }
-.hub-panel .hub-section:last-of-type { margin-bottom: 0; }
-.hub-panel .teacher-cta-row { margin-top: 24px; }
 
 .teacher-signup-note {
   text-align: center;
@@ -851,16 +841,6 @@ body.auth-atmosphere .brand { color: var(--gold); }
    without further changes — only the background itself needed to
    become the same photo/veil treatment as the rest of the app. */
 .library-main { position: relative; z-index: 2; }
-/* Same fix, teacher.html — this one was simply missed originally: every
-   other atmosphere page's main wrapper got this treatment, but
-   teacher.html's <main> never had a class at all to hang it on, so its
-   content (including .hub-panel) painted without its own stacking
-   context — the panel's translucent background still rendered, but
-   with nothing but the unpositioned page underneath to blur/tint
-   rather than the actual forest image, so it read as flat opaque gray
-   instead of forest-tinted glass. */
-.teacher-main { position: relative; z-index: 2; }
-
 /* ── Merchandise storefront (merchandise.html) ── */
 .shop-main { max-width: 1000px; margin: 0 auto; padding: 8px clamp(20px, 5vw, 56px) 40px; position: relative; z-index: 2; }
 
