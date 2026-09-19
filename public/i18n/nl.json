@@ -316,6 +316,7 @@
   "talkBack": "Terug",
   "talkWhoIsTalking": "Wie praat er vandaag met Mare?",
   "talkChooseAgeBand": "Voor welke leeftijdsgroep is dit gesprek?",
+  "talkVoiceUnavailable": "Mare's stem is nu niet beschikbaar — je kunt haar antwoord hierboven lezen.",
   "talkAgeBandLabel": "Leeftijd {band}",
   "talkNoChildren": "Nog geen kinderen op dit account.",
   "talkAddChildLink": "Voeg er een toe in Mijn Account",

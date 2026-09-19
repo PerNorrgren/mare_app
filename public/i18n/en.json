@@ -316,6 +316,7 @@
   "talkBack": "Back",
   "talkWhoIsTalking": "Who's talking to Mare today?",
   "talkChooseAgeBand": "Which age group is this conversation for?",
+  "talkVoiceUnavailable": "Mare's voice isn't available right now — you can still read her reply above.",
   "talkAgeBandLabel": "Ages {band}",
   "talkNoChildren": "No children on this account yet.",
   "talkAddChildLink": "Add one in My Account",

@@ -218,14 +218,29 @@
     showCaption(text);
     try {
       const res = await fetch('/api/speak', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text }) });
-      if (!res.ok) { setOrbState('idle'); return; }
+      if (!res.ok) {
+        // Voice not configured (or ElevenLabs itself failing) used to
+        // fail completely silently here — no audio, no visible error,
+        // and the caption line only shows if the user had already
+        // toggled captions on, so this looked exactly like "the button
+        // doesn't do anything". Degrade gracefully instead: force the
+        // reply visible as a caption regardless of that toggle, and
+        // surface a real error in state-label so a config gap is
+        // obviously a config gap, not a mystery.
+        els['captions-bar'].hidden = false;
+        setOrbState('idle');
+        els['state-label'].textContent = window.MareI18n.t('talkVoiceUnavailable');
+        return;
+      }
       const blob = await res.blob();
       const audio = new Audio(URL.createObjectURL(blob));
       audio.addEventListener('ended', () => setOrbState('idle'));
       audio.addEventListener('error', () => setOrbState('idle'));
       await audio.play();
     } catch {
+      els['captions-bar'].hidden = false;
       setOrbState('idle');
+      els['state-label'].textContent = window.MareI18n.t('talkVoiceUnavailable');
     }
   }
 
