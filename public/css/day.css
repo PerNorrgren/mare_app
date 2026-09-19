@@ -812,6 +812,30 @@ body.auth-atmosphere .brand { color: var(--gold); }
    this file (.hero h1/.hero-sub, .benefit-card h3/p, etc). */
 .auth-atmosphere .hub-section h2 { color: var(--gold); }
 .auth-atmosphere .hub-empty { color: rgba(243,236,217,0.75); }
+/* Self-contained backdrop for teacher.html specifically, scoped to its
+   own unique section ids (#public-view/#hub-view — neither exists on
+   library.html) rather than the shared .library-main class, so this
+   can't touch library.html at all. Not relying on the shared
+   .bg-slideshow-wrap/.bg-veil fixed layers, which — despite matching
+   CSS, identical <main class="library-main">, identical script order,
+   and a confirmed-loaded image — still weren't painting on this route
+   for a reason never pinned down after extensive live DevTools
+   inspection. The earlier attempt at this same self-contained-
+   background idea looked like it failed too, but that test was
+   confounded by .hub-panel's backdrop-filter: blur sitting on top of
+   it — blur can render as a flat grey fallback in some browsers
+   regardless of what's actually behind it, so it was never a clean
+   test. With the glass-panel wrapper gone entirely now, this page
+   paints its own backdrop directly with no dependency on anything
+   else succeeding. */
+#public-view, #hub-view {
+  min-height: calc(100vh - 140px);
+  background:
+    linear-gradient(180deg, rgba(11,23,18,0.55) 0%, rgba(11,23,18,0.8) 100%),
+    url('/images/mare-front-cover.jpg') center / cover no-repeat,
+    var(--night-deep);
+}
+
 .hub-welcome {
   font-family: 'Fraunces', serif;
   font-weight: 600;
