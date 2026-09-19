@@ -34,7 +34,23 @@ const email = require('./email');
 const app = express();
 app.use(express.json({ limit: '10mb' }));
 app.use(cookieParser());
-app.use(express.static('public'));
+// No explicit Cache-Control here previously meant browsers were free to
+// apply their own heuristic caching (commonly ~10% of a file's age
+// since Last-Modified) for CSS/JS/HTML — so a deployed fix could sit
+// invisible in someone's browser for a while even on a normal reload,
+// with no request ever reaching the server to reveal anything changed.
+// 'no-cache' doesn't disable caching — it just forces a revalidation
+// (a cheap 304 via the ETag express.static already sends, if unchanged)
+// on every load, so a genuine change is never more than one request
+// away from showing up. Images/audio are unaffected — those change
+// rarely and benefit from real caching, so no override there.
+app.use(express.static('public', {
+  setHeaders: (res, filePath) => {
+    if (/\.(css|js|html)$/.test(filePath)) {
+      res.setHeader('Cache-Control', 'no-cache');
+    }
+  },
+}));
 
 const PORT = process.env.PORT || 3000;
 const ELEVENLABS_API_KEY = process.env.ELEVENLABS_API_KEY;
