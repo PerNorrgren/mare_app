@@ -32,6 +32,14 @@ body.talk-body { margin: 0; background: var(--night-deep); overflow: hidden; fon
   background: radial-gradient(ellipse at top, #1c3128 0%, var(--night-deep) 70%);
   padding: 0 24px;
 }
+/* Same [hidden]-specificity tie documented elsewhere in this app
+   (.auth-main, .btn-primary) — display:flex above and the browser's
+   own [hidden]{display:none} are both specificity (0,0,1,0), and
+   author styles win that tie regardless of source order, so setting
+   .hidden = true in JS had no visual effect at all here: the picker
+   just stayed on screen through the whole conversation underneath,
+   even though talk-view was genuinely showing behind it. */
+.talk-picker[hidden] { display: none; }
 .talk-picker-topbar { display: flex; align-items: center; justify-content: space-between; padding: 16px 0; }
 .talk-icon-btn {
   background: rgba(243,236,217,0.08); border: 1px solid rgba(243,236,217,0.2); color: var(--parchment);
