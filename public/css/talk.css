@@ -66,20 +66,26 @@ body.talk-body { margin: 0; background: var(--night-deep); overflow: hidden; fon
 .talk-backdrop {
   position: absolute; inset: 0;
   background-image: url('/images/mare-front-cover.jpg');
-  background-size: cover; background-position: center;
-  filter: blur(6px) brightness(0.4) saturate(1.1);
-  transform: scale(1.1); /* hides blurred edge fringing */
+  background-size: cover; background-position: center 30%;
+  /* Mare herself stands in this image — she used to be blurred/darkened
+     to near-invisibility (blur(6px) brightness(0.4)) so the scene read
+     as generic forest texture rather than her actual presence. Lighter
+     touch now so she's genuinely visible standing behind the orb
+     ("the orb is her voice"), while staying soft enough that she
+     doesn't compete with the orb or captions in front of her. */
+  filter: blur(1.5px) brightness(0.58) saturate(1.05);
+  transform: scale(1.04);
 }
 .talk-vignette {
   position: absolute; inset: 0;
-  background: radial-gradient(ellipse at center, rgba(11,23,18,0.1) 0%, rgba(11,23,18,0.75) 100%);
+  background: radial-gradient(ellipse at center, rgba(11,23,18,0.15) 0%, rgba(11,23,18,0.55) 65%, rgba(11,23,18,0.85) 100%);
 }
 
 .talk-topbar {
   position: relative; z-index: 3; display: flex; align-items: center; justify-content: space-between;
   padding: 14px 16px;
 }
-.talk-child-name { color: var(--parchment); font-weight: 700; font-size: 0.9rem; opacity: 0.85; }
+.talk-child-name { color: var(--parchment); font-weight: 700; font-size: 0.9rem; opacity: 0.85; text-shadow: 0 2px 8px rgba(0,0,0,0.5); }
 
 .talk-stage {
   position: relative; z-index: 2; height: calc(var(--vh-px) - 140px);
