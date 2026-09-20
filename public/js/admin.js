@@ -144,10 +144,12 @@
     setupAddTeacherForm();
     setupClubMarePostModal();
     setupProductModal();
+    setupNotifyEmail();
     loadOverview();
     loadResources();
     loadPages();
     loadDirectory();
+    loadNotifyEmail();
     loadSocialLinks();
     loadMarketingHistory();
     loadBroadcasts();
@@ -179,7 +181,7 @@
         // rather than making the admin manually reload the page to see
         // their own action reflected.
         if (target === 'emaillog' && currentUser && currentUser.role === 'admin') loadEmailLog();
-        if (target === 'directory') loadDirectory();
+        if (target === 'directory') { loadDirectory(); loadNotifyEmail(); }
       });
     });
   }
@@ -605,6 +607,36 @@
     } catch {
       container.innerHTML = `<p class="admin-empty-note">${escapeHtml(t('adminCouldNotLoadHistory'))}</p>`;
     }
+  }
+
+  // ── Notify email — where teacher signup requests and in-app
+  // questions get sent (app_config.contact_email, see server.js). ──
+  async function loadNotifyEmail() {
+    try {
+      const data = await api('/api/admin/settings');
+      document.getElementById('notify-email').value = data.notifyEmail || '';
+    } catch {
+      // Non-critical — the field just stays blank if this fails, no
+      // need for a dedicated error state on a single input.
+    }
+  }
+  function setupNotifyEmail() {
+    document.getElementById('notify-email-save-btn').addEventListener('click', async () => {
+      const errorEl = document.getElementById('notify-email-error');
+      const successEl = document.getElementById('notify-email-success');
+      errorEl.hidden = true;
+      successEl.hidden = true;
+      const notifyEmail = document.getElementById('notify-email').value.trim();
+      try {
+        await api('/api/admin/settings', { method: 'PUT', body: JSON.stringify({ notifyEmail }) });
+        successEl.textContent = t('adminSaved');
+        successEl.hidden = false;
+        setTimeout(() => { successEl.hidden = true; }, 3000);
+      } catch (err) {
+        errorEl.textContent = err.message || t('errorGeneric');
+        errorEl.hidden = false;
+      }
+    });
   }
 
   // ── Directory ──

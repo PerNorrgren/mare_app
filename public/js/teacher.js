@@ -128,6 +128,79 @@
       await fetch('/api/logout', { method: 'POST' });
       window.location.href = '/teacher.html';
     });
+
+    setupAskQuestion();
+  }
+
+  // ── Ask a question — pre-filled from the teacher's own profile
+  // (fetched fresh each open, not cached, in case it changed), free-text
+  // question, sent to whatever address admin has configured as the
+  // notify address. ──
+  function setupAskQuestion() {
+    const modal = document.getElementById('ask-question-modal');
+    const openBtn = document.getElementById('ask-question-btn');
+    const closeBtn = document.getElementById('aq-close-btn');
+    const sendBtn = document.getElementById('aq-send-btn');
+    const messageField = document.getElementById('aq-message');
+    const errorEl = document.getElementById('aq-error');
+    const successEl = document.getElementById('aq-success');
+
+    function resetModal() {
+      errorEl.hidden = true;
+      successEl.hidden = true;
+      messageField.value = '';
+      messageField.hidden = false;
+      sendBtn.hidden = false;
+    }
+
+    openBtn.addEventListener('click', async () => {
+      resetModal();
+      modal.hidden = false;
+      try {
+        const res = await fetch('/api/teacher/profile');
+        const data = await res.json();
+        document.getElementById('aq-name').value = data.name || '';
+        document.getElementById('aq-email').value = data.email || '';
+        document.getElementById('aq-school').value = data.school || '';
+      } catch {
+        // Profile fetch failing shouldn't block asking a question —
+        // the fields just stay blank; the server still knows who's
+        // actually signed in from the session either way.
+      }
+    });
+    closeBtn.addEventListener('click', () => { modal.hidden = true; });
+
+    sendBtn.addEventListener('click', async () => {
+      errorEl.hidden = true;
+      const message = messageField.value.trim();
+      if (!message) {
+        errorEl.textContent = window.MareI18n.t('teacherAskQuestionEmpty');
+        errorEl.hidden = false;
+        return;
+      }
+      sendBtn.disabled = true;
+      try {
+        const res = await fetch('/api/teacher/ask-question', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          errorEl.textContent = data.error || window.MareI18n.t('errorGeneric');
+          errorEl.hidden = false;
+          return;
+        }
+        successEl.hidden = false;
+        messageField.hidden = true;
+        sendBtn.hidden = true;
+      } catch {
+        errorEl.textContent = window.MareI18n.t('errorGeneric');
+        errorEl.hidden = false;
+      } finally {
+        sendBtn.disabled = false;
+      }
+    });
   }
 
   function showPublic() {

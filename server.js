@@ -134,12 +134,15 @@ app.post('/api/parent/login', async (req, res) => {
   res.json({ ok: true });
 });
 
-// Public self-serve teacher signup is disabled — teacher accounts are
-// now created via Admin only (the single-account form or bulk import
-// in the Parents & Teachers tab), per Per's explicit request that
-// account creation move off the public site. Route kept rather than
-// deleted so the reason is documented in one place and restoring it is
-// a one-line change if that decision ever changes.
+// Direct self-serve teacher signup (creating an account immediately)
+// is still disabled — teacher accounts are created via Admin only,
+// per Per's original request that account creation stay under admin
+// control. What changed: /api/teacher/signup-request (below) now lets
+// a prospective teacher submit their own details, which notifies the
+// admin-configured address rather than requiring word-of-mouth — a
+// request queue, not a bypass of the access boundary this route
+// documents. Route kept (not deleted) for the same reason as before:
+// the decision and its rationale live in one place.
 app.post('/api/teacher/signup', async (req, res) => {
   res.status(403).json({ error: 'Teacher accounts are created by an administrator. Contact your school to get set up.' });
 });
@@ -1809,6 +1812,67 @@ app.post('/api/admin/teachers/:id/resend-invite', auth.requireAuthApi(['admin', 
   const token = db.createPasswordResetToken('teacher', teacher.id);
   const resetUrl = `${process.env.APP_URL || 'https://mareapp-production.up.railway.app'}/reset-password.html?token=${token}&role=teacher`;
   email.sendPasswordResetEmail(teacher.email, teacher.name, resetUrl).catch(e => console.error('teacher resend email failed:', e.message));
+  res.json({ ok: true });
+});
+
+// ── Admin-configured notify address — where teacher signup requests
+// and in-app questions (below) get sent. Reuses app_config's existing
+// contact_email column rather than a new settings table for one field. ──
+app.get('/api/admin/settings', auth.requireAuthApi(['admin', 'support']), (req, res) => {
+  const config = db.getAppConfig();
+  res.json({ notifyEmail: (config && config.contact_email) || '' });
+});
+app.put('/api/admin/settings', auth.requireAuthApi(['admin', 'support']), (req, res) => {
+  const { notifyEmail } = req.body || {};
+  if (notifyEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(notifyEmail)) {
+    return res.status(400).json({ error: 'That doesn\'t look like a valid email address' });
+  }
+  db.setNotifyEmail(notifyEmail || null);
+  res.json({ ok: true });
+});
+
+// ── Teacher self-serve signup request — public, no auth. Creates a
+// REQUEST only, not an account (see db.createTeacherSignupRequest's
+// comment on why); notifies the admin-configured address so a human
+// still reviews before any real access is granted. ──
+app.post('/api/teacher/signup-request', async (req, res) => {
+  const { firstName, lastName, email: rawEmail, school } = req.body || {};
+  if (!firstName || !lastName || !rawEmail) return res.status(400).json({ error: 'Missing fields' });
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(rawEmail)) return res.status(400).json({ error: 'That doesn\'t look like a valid email address' });
+  db.createTeacherSignupRequest({ firstName, lastName, email: rawEmail, school });
+  const config = db.getAppConfig();
+  if (config && config.contact_email) {
+    email.sendTeacherSignupRequestNotification(config.contact_email, { firstName, lastName, email: rawEmail, school })
+      .catch(e => console.error('teacher signup request notification failed:', e.message));
+  }
+  res.json({ ok: true });
+});
+
+// Own profile — just enough to pre-fill the "Ask a question" modal
+// (name/email are already in the session token, but school isn't, and
+// bloating the JWT for one field isn't worth forcing every existing
+// teacher session to re-login).
+app.get('/api/teacher/profile', auth.requireAuthApi(['teacher']), (req, res) => {
+  const teacher = db.getTeacherById(req.user.id);
+  if (!teacher) return res.status(404).json({ error: 'Teacher not found' });
+  res.json({ name: teacher.name, email: teacher.email, school: teacher.school || '' });
+});
+
+// ── Ask a question — signed-in teacher only. Identity (name/email/
+// school) is pulled from the teacher's own DB row server-side, never
+// trusted from the request body, so the notification email always
+// reflects who's actually signed in rather than whatever a client
+// happened to send. ──
+app.post('/api/teacher/ask-question', auth.requireAuthApi(['teacher']), (req, res) => {
+  const { message } = req.body || {};
+  if (!message || !message.trim()) return res.status(400).json({ error: 'A question is required' });
+  const teacher = db.getTeacherById(req.user.id);
+  if (!teacher) return res.status(404).json({ error: 'Teacher not found' });
+  const config = db.getAppConfig();
+  if (!config || !config.contact_email) return res.status(503).json({ error: 'Not configured yet — ask your admin to set a notify email' });
+  email.sendTeacherQuestionNotification(config.contact_email, {
+    name: teacher.name, email: teacher.email, school: teacher.school, message: message.trim(),
+  }).catch(e => console.error('teacher question notification failed:', e.message));
   res.json({ ok: true });
 });
 

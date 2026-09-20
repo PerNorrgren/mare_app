@@ -664,8 +664,21 @@
         <div id="parents-table"><p class="admin-empty-note" data-i18n="adminLoading">Loading…</p></div>
       </div>
       <div class="admin-card">
+        <h2 data-i18n="adminNotifyEmailTitle">Notifications</h2>
+        <p class="admin-card-sub" data-i18n="adminNotifyEmailDesc">Where teacher signup requests and in-app questions get sent.</p>
+        <div class="admin-form-row" style="align-items:flex-end;">
+          <div class="field" style="flex:1;margin-bottom:0;">
+            <label for="notify-email" data-i18n="adminNotifyEmailLabel">Notify email</label>
+            <input type="email" id="notify-email">
+          </div>
+          <button type="button" class="btn-primary" id="notify-email-save-btn" data-i18n="adminSaveChanges">Save</button>
+        </div>
+        <p class="form-error" id="notify-email-error" hidden></p>
+        <p class="form-success" id="notify-email-success" hidden></p>
+      </div>
+      <div class="admin-card">
         <h2 data-i18n="adminDirectoryTeachersTitle">Teachers</h2>
-        <p class="admin-card-sub" data-i18n="adminAddTeacherDesc">Teacher accounts are created here — there's no public self-signup. New teachers get a "set your password" email.</p>
+        <p class="admin-card-sub" data-i18n="adminAddTeacherDesc">Add a teacher directly here, or wait for a signup request to land in the notify inbox above and add them once you've reviewed it. New teachers get a "set your password" email either way.</p>
         <form id="add-teacher-form" class="admin-form-row" style="align-items:flex-end;">
           <div class="field" style="flex:1;margin-bottom:0;">
             <label for="at-name" data-i18n="fieldName">Name</label>

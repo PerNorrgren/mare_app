@@ -232,6 +232,21 @@ body.auth-atmosphere .brand { color: var(--gold); }
   transition: border-color 0.15s ease;
 }
 .field input:focus { border-color: var(--gold); }
+.field textarea {
+  width: 100%;
+  font-family: 'Quicksand', sans-serif;
+  font-size: 0.95rem;
+  padding: 11px 14px;
+  border-radius: 10px;
+  border: 1.5px solid rgba(22,48,92,0.2);
+  background: var(--cloud);
+  color: var(--navy);
+  outline: none;
+  resize: vertical;
+  transition: border-color 0.15s ease;
+}
+.field textarea:focus { border-color: var(--gold); }
+.field input:disabled { background: rgba(22,48,92,0.05); color: var(--navy-soft); }
 
 .form-error {
   color: #A33B3B;

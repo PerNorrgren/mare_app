@@ -53,7 +53,7 @@
     </form>
 
     <p class="auth-links"><a href="#" id="forgot-link" data-i18n="forgotPasswordLink">Forgot your password?</a></p>
-    <p class="teacher-signup-note" data-i18n="teacherSignupNote">New to Mare? Ask your school to arrange access.</p>
+    <p class="teacher-signup-note"><a href="#" id="register-link" data-i18n="teacherRegisterLink">New to Mare? Request access</a></p>
 
     <form id="forgot-form" novalidate hidden>
       <p class="auth-sub" data-i18n="forgotPasswordSub">Enter your email and we'll send you a link to reset your password.</p>
@@ -65,6 +65,30 @@
       <p class="form-success" id="forgot-success" hidden data-i18n="forgotPasswordSent">If that email has an account, a reset link is on its way.</p>
       <button type="submit" class="btn-primary btn-full" id="forgot-submit-btn" data-i18n="forgotPasswordSubmit">Send reset link</button>
       <p class="auth-links"><a href="#" id="back-to-login-link" data-i18n="backToLoginLink">Back to sign in</a></p>
+    </form>
+
+    <form id="register-form" novalidate hidden>
+      <p class="auth-sub" data-i18n="teacherRegisterSub">Tell us a bit about you — we'll be in touch to set up your account.</p>
+      <div class="field">
+        <label for="r-first-name" data-i18n="fieldFirstName">First name</label>
+        <input type="text" id="r-first-name" name="firstName" autocomplete="given-name" required>
+      </div>
+      <div class="field">
+        <label for="r-last-name" data-i18n="fieldLastName">Surname</label>
+        <input type="text" id="r-last-name" name="lastName" autocomplete="family-name" required>
+      </div>
+      <div class="field">
+        <label for="r-email" data-i18n="fieldEmail">Email</label>
+        <input type="email" id="r-email" name="email" autocomplete="email" required>
+      </div>
+      <div class="field">
+        <label for="r-school" data-i18n="fieldSchool">School (optional)</label>
+        <input type="text" id="r-school" name="school" autocomplete="organization">
+      </div>
+      <p class="form-error" id="register-error" hidden></p>
+      <p class="form-success" id="register-success" hidden data-i18n="teacherRegisterSent">Thanks — we'll be in touch soon to set up your account.</p>
+      <button type="submit" class="btn-primary btn-full" id="register-submit-btn" data-i18n="teacherRegisterSubmit">Request access</button>
+      <p class="auth-links"><a href="#" id="back-to-login-from-register-link" data-i18n="backToLoginLink">Back to sign in</a></p>
     </form>
 
   </div>

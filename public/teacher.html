@@ -64,7 +64,7 @@
     <div class="teacher-cta-row">
       <a href="/teacher-login.html" class="btn-primary" data-i18n="teacherCtaSignIn">Sign in</a>
     </div>
-    <p class="teacher-signup-note" data-i18n="teacherSignupNote">New to Mare? Ask your school administrator to set up your account.</p>
+    <p class="teacher-signup-note" data-i18n="teacherSignupNoteSelfServe">New to Mare? Sign in and choose "Request access" to get started.</p>
   </section>
 
   <!-- ── Logged-in hub — shown once a teacher session is confirmed ── -->
@@ -82,9 +82,45 @@
         <p class="hub-empty" id="resource-empty" data-i18n="teacherResourcesEmpty" hidden>Nothing here yet — check back soon.</p>
       </div>
     </div>
+
+    <div class="teacher-cta-row">
+      <button type="button" class="btn-ghost" id="ask-question-btn" data-i18n="teacherAskQuestion">Ask a question about the app</button>
+    </div>
   </section>
 
 </main>
+
+<!-- Ask a question modal — pre-filled with the signed-in teacher's own
+     name/email/school (read-only, from their account, not re-typed),
+     just a free-text question to add. -->
+<div class="admin-modal-backdrop" id="ask-question-modal" hidden>
+  <div class="admin-modal-card">
+    <h2 data-i18n="teacherAskQuestionTitle">Ask a question</h2>
+    <p class="auth-sub" data-i18n="teacherAskQuestionSub">We'll get back to you at the email below.</p>
+    <div class="field">
+      <label data-i18n="fieldName">Name</label>
+      <input type="text" id="aq-name" disabled>
+    </div>
+    <div class="field">
+      <label data-i18n="fieldEmail">Email</label>
+      <input type="text" id="aq-email" disabled>
+    </div>
+    <div class="field">
+      <label data-i18n="fieldSchool">School (optional)</label>
+      <input type="text" id="aq-school" disabled>
+    </div>
+    <div class="field">
+      <label for="aq-message" data-i18n="teacherAskQuestionLabel">Your question</label>
+      <textarea id="aq-message" rows="4" required></textarea>
+    </div>
+    <p class="form-error" id="aq-error" hidden></p>
+    <p class="form-success" id="aq-success" hidden data-i18n="teacherAskQuestionSent">Thanks — your question is on its way.</p>
+    <div class="admin-modal-btns">
+      <button type="button" class="btn-ghost" id="aq-close-btn" data-i18n="adminClose">Close</button>
+      <button type="button" class="btn-primary" id="aq-send-btn" data-i18n="teacherAskQuestionSend">Send</button>
+    </div>
+  </div>
+</div>
 
 <div class="social-footer" id="social-footer" hidden></div>
 

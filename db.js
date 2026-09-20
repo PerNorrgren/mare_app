@@ -129,6 +129,17 @@ async function getDb() {
     created_at TEXT DEFAULT (datetime('now'))
   )`);
 
+  // ── Teacher signup requests — see createTeacherSignupRequest's own
+  // comment for why this is a request queue, not an accounts table. ──
+  db.run(`CREATE TABLE IF NOT EXISTS teacher_signup_requests (
+    id TEXT PRIMARY KEY,
+    first_name TEXT NOT NULL,
+    last_name TEXT NOT NULL,
+    email TEXT NOT NULL,
+    school TEXT,
+    created_at TEXT DEFAULT (datetime('now'))
+  )`);
+
   // ── Admin — Per's own login, plus 'support' as a second staff role on
   // the same table (same login flow, same accounts list) rather than a
   // separate table — support is admin-lite (content + helping parents/
@@ -1619,6 +1630,33 @@ function markPasswordResetTokenUsed(token) {
   run(`UPDATE password_reset_tokens SET used_at = datetime('now') WHERE token = ?`, [token]);
 }
 
+// ── App config — single row, brand identity + admin contact email.
+// contact_email doubles as the "notify" address for teacher signup
+// requests and in-app questions (below) — same column, no new table
+// needed for what's really one small setting. ──
+function getAppConfig() {
+  return get(`SELECT * FROM app_config WHERE id = 'default'`);
+}
+function setNotifyEmail(email) {
+  run(`UPDATE app_config SET contact_email = ? WHERE id = 'default'`, [email || null]);
+}
+
+// ── Teacher signup requests — a prospective teacher's own submission
+// from the self-serve form on teacher-login.html. This is a REQUEST,
+// not an account: admin still creates the real teacher login by hand
+// (via the existing Add Teacher form, using these same details) after
+// reviewing — deliberately keeping the "no public self-signup" access
+// boundary this app already has, just replacing "ask your admin" with
+// an actual form instead of leaving it to word of mouth. ──
+function createTeacherSignupRequest({ firstName, lastName, email, school }) {
+  const id = uuid();
+  run(
+    `INSERT INTO teacher_signup_requests (id, first_name, last_name, email, school) VALUES (?,?,?,?,?)`,
+    [id, firstName, lastName, email.toLowerCase().trim(), school || null]
+  );
+  return id;
+}
+
 // ── Email log — for the admin Overview report and per-account "did this
 // email actually go out" troubleshooting. ──
 function getRecentEmailLog(limit) {
@@ -1830,6 +1868,7 @@ module.exports = {
   canParentAccessChild, isPrimaryParentOfChild, getCarersForChild, addCarerToChild, removeCarerFromChild,
   getAddressesForOwner, getAddress, createAddress, updateAddress, deleteAddress,
   getTeacherByEmail, getTeacherById, createTeacher, updateTeacherPasswordHash,
+  createTeacherSignupRequest, getAppConfig, setNotifyEmail,
   getAdminByEmail, getAdminById, createAdmin, updateAdminPasswordHash, getAllStaff,
   getAllParentsDirectory, getAllTeachersDirectory, setParentStatus, setTeacherStatus,
   createPasswordResetToken, getValidPasswordResetToken, getPasswordResetTokenAnyState,

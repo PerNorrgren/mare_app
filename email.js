@@ -133,10 +133,52 @@ function sendBroadcastEmail(to, subject, bodyHtml, userId) {
   return sendEmail(to, subject, bodyHtml, { kind: 'broadcast', userId });
 }
 
+// Only used for the two admin-notification templates below — the
+// existing welcome/reset templates interpolate a signed-up user's own
+// name, already known and stored; these two carry free-typed input
+// from a not-yet-verified requester (signup form) or a free-text
+// question box, so it gets escaped before landing in an HTML email.
+function escapeHtml(str) {
+  return String(str == null ? '' : str)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+// ── Admin notifications — teacher signup requests and in-app questions,
+// both sent to app_config.contact_email (the admin-configured "Notify"
+// address, see db.getAppConfig/setNotifyEmail). No wrapHtml() template
+// here — these are internal notices to the admin, not a message to the
+// teacher, so the brand header/signature would be out of place. ──
+function sendTeacherSignupRequestNotification(to, { firstName, lastName, email, school }) {
+  const fn = escapeHtml(firstName), ln = escapeHtml(lastName), em = escapeHtml(email), sc = escapeHtml(school);
+  const html = `<div style="font-family:'Quicksand',Arial,sans-serif;max-width:480px;margin:0 auto;padding:24px;color:#16305C;">
+    <h2 style="font-family:Georgia,serif;font-size:1.2rem;margin:0 0 16px;">New teacher signup request</h2>
+    <p><strong>Name:</strong> ${fn} ${ln}<br>
+       <strong>Email:</strong> ${em}<br>
+       <strong>School:</strong> ${sc || '(not given)'}</p>
+    <p style="font-size:0.85rem;color:#4A5C82;">Create their account from Admin → Parents & Teachers if approved.</p>
+  </div>`;
+  return sendEmail(to, `Teacher signup request — ${firstName} ${lastName}`, html, { kind: 'teacher_signup_request' });
+}
+
+function sendTeacherQuestionNotification(to, { name, email, school, message }) {
+  const nm = escapeHtml(name), em = escapeHtml(email), sc = escapeHtml(school), msg = escapeHtml(message);
+  const html = `<div style="font-family:'Quicksand',Arial,sans-serif;max-width:480px;margin:0 auto;padding:24px;color:#16305C;">
+    <h2 style="font-family:Georgia,serif;font-size:1.2rem;margin:0 0 16px;">Question from a teacher</h2>
+    <p><strong>Name:</strong> ${nm}<br>
+       <strong>Email:</strong> ${em}<br>
+       <strong>School:</strong> ${sc || '(not given)'}</p>
+    <p style="white-space:pre-wrap;border-left:3px solid #EAC066;padding-left:12px;">${msg}</p>
+  </div>`;
+  return sendEmail(to, `Question from ${name}`, html, { kind: 'teacher_question' });
+}
+
 module.exports = {
   sendEmail,
   sendWelcomeParentEmail,
   sendWelcomeTeacherEmail,
   sendPasswordResetEmail,
   sendBroadcastEmail,
+  sendTeacherSignupRequestNotification,
+  sendTeacherQuestionNotification,
 };

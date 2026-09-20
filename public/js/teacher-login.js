@@ -67,6 +67,7 @@
   // ── Forgot password ──
   function showForgotForm() {
     document.getElementById('auth-form').hidden = true;
+    document.getElementById('register-form').hidden = true;
     document.getElementById('forgot-form').hidden = false;
     document.getElementById('forgot-success').hidden = true;
     document.getElementById('auth-heading').textContent = window.MareI18n.t('forgotPasswordHeading');
@@ -74,9 +75,18 @@
   }
   function showLoginForm() {
     document.getElementById('forgot-form').hidden = true;
+    document.getElementById('register-form').hidden = true;
     document.getElementById('auth-form').hidden = false;
     document.getElementById('auth-sub').hidden = false;
     document.getElementById('auth-heading').textContent = window.MareI18n.t('authHeadingLogin');
+  }
+  function showRegisterForm() {
+    document.getElementById('auth-form').hidden = true;
+    document.getElementById('forgot-form').hidden = true;
+    document.getElementById('register-form').hidden = false;
+    document.getElementById('register-success').hidden = true;
+    document.getElementById('auth-heading').textContent = window.MareI18n.t('teacherRegisterHeading');
+    document.getElementById('auth-sub').hidden = true;
   }
   function setupForgotPassword() {
     document.getElementById('forgot-link').addEventListener('click', (e) => {
@@ -111,10 +121,60 @@
     });
   }
 
+  // ── Self-serve signup request — creates a request, not an account;
+  // admin still reviews and creates the real login by hand (see the
+  // server-side comment on db.createTeacherSignupRequest). ──
+  const REGISTER_ERROR_MAP = {
+    'Missing fields': 'errorMissingFields',
+    "That doesn't look like a valid email address": 'errorInvalidEmail',
+  };
+  function setupRegister() {
+    document.getElementById('register-link').addEventListener('click', (e) => {
+      e.preventDefault();
+      showRegisterForm();
+    });
+    document.getElementById('back-to-login-from-register-link').addEventListener('click', (e) => {
+      e.preventDefault();
+      showLoginForm();
+    });
+    document.getElementById('register-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      document.getElementById('register-error').hidden = true;
+      const firstName = document.getElementById('r-first-name').value.trim();
+      const lastName = document.getElementById('r-last-name').value.trim();
+      const email = document.getElementById('r-email').value.trim();
+      const school = document.getElementById('r-school').value.trim();
+      const btn = document.getElementById('register-submit-btn');
+      btn.disabled = true;
+      try {
+        const res = await fetch('/api/teacher/signup-request', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ firstName, lastName, email, school }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          document.getElementById('register-error').textContent = window.MareI18n.t(REGISTER_ERROR_MAP[data.error] || 'errorGeneric');
+          document.getElementById('register-error').hidden = false;
+          btn.disabled = false;
+          return;
+        }
+        document.getElementById('register-success').hidden = false;
+        document.getElementById('register-form').querySelectorAll('.field').forEach(f => { f.hidden = true; });
+        btn.hidden = true;
+      } catch {
+        document.getElementById('register-error').textContent = window.MareI18n.t('errorGeneric');
+        document.getElementById('register-error').hidden = false;
+        btn.disabled = false;
+      }
+    });
+  }
+
   async function init() {
     await window.MareI18n.ready;
     setupLangSwitch();
     setupForgotPassword();
+    setupRegister();
     document.getElementById('auth-form').addEventListener('submit', handleSubmit);
 
     // Already signed in as a teacher? Straight to the hub. Signed in as a
