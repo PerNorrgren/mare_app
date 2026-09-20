@@ -348,9 +348,28 @@
     });
   }
 
+  async function checkTopbarSession() {
+    let user = null;
+    try {
+      const res = await fetch('/api/me');
+      if (res.ok) { const data = await res.json(); user = data.user; }
+    } catch { /* treat as signed out */ }
+    if (user) {
+      document.getElementById('login-link').hidden = true;
+      document.getElementById('register-link').hidden = true;
+      const signOutBtn = document.getElementById('topbar-signout-btn');
+      signOutBtn.hidden = false;
+      signOutBtn.addEventListener('click', async () => {
+        await fetch('/api/logout', { method: 'POST' });
+        window.location.href = '/merchandise.html';
+      });
+    }
+  }
+
   async function init() {
     await window.MareI18n.ready;
     setupLangSwitch();
+    checkTopbarSession();
     loadCart();
     updateCartCount();
     setupMediaTabs();

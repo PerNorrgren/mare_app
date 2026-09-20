@@ -177,6 +177,11 @@
     setupRegister();
     document.getElementById('auth-form').addEventListener('submit', handleSubmit);
 
+    // Deep link support — /teacher-login.html?mode=register preselects
+    // the request-access form, same pattern as login.html?mode=signup.
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('mode') === 'register') showRegisterForm();
+
     // Already signed in as a teacher? Straight to the hub. Signed in as a
     // parent on this device? Send them to the parent side rather than
     // showing a teacher form they can't use.

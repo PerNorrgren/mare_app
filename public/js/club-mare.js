@@ -68,6 +68,17 @@
       if (res.ok) { const data = await res.json(); user = data.user; }
     } catch { /* treat as signed out */ }
 
+    if (user) {
+      document.getElementById('login-link').hidden = true;
+      document.getElementById('register-link').hidden = true;
+      const signOutBtn = document.getElementById('topbar-signout-btn');
+      signOutBtn.hidden = false;
+      signOutBtn.addEventListener('click', async () => {
+        await fetch('/api/logout', { method: 'POST' });
+        window.location.href = '/club-mare.html';
+      });
+    }
+
     if (!user || user.role !== 'parent') {
       showView('cm-signed-out-view');
       return;

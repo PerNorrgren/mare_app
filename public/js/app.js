@@ -158,10 +158,19 @@
 
     const user = await checkSession();
     if (user) {
+      document.getElementById('login-link').hidden = true;
+      document.getElementById('register-link').hidden = true;
       const link = document.getElementById('account-link');
+      link.hidden = false;
       link.href = user.role === 'teacher' ? '/teacher.html' : '/account.html';
       link.removeAttribute('data-i18n');
       link.textContent = user.name ? window.MareI18n.t('hiName', { name: user.name }) : 'Account';
+      const signOutBtn = document.getElementById('topbar-signout-btn');
+      signOutBtn.hidden = false;
+      signOutBtn.addEventListener('click', async () => {
+        await fetch('/api/logout', { method: 'POST' });
+        window.location.href = '/library.html';
+      });
     }
   }
 

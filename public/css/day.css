@@ -132,6 +132,43 @@ body.day .lang-btn:not(.active):hover { background: rgba(22,48,92,0.06); }
 body.auth-atmosphere .brand { color: var(--gold); }
 .auth-atmosphere .btn-ghost { color: var(--parchment); border-color: rgba(243,236,217,0.3); }
 .auth-atmosphere .btn-ghost:hover { background: rgba(243,236,217,0.08); border-color: var(--gold); }
+/* The rule above LOSES to body.day .btn-ghost (further up this file)
+   on every page, not just admin — body.day .btn-ghost has higher CSS
+   specificity (an element selector plus two classes beats two classes
+   alone), and that's true regardless of source order. It's correct
+   for admin.html/admin-content.html (auth-atmosphere sits on the same
+   body tag there too, but their actual dashboard content is covered
+   by an opaque wrapper, not the visible forest backdrop — those pages
+   genuinely need navy-on-light). It was WRONG everywhere else: any
+   .btn-ghost sitting directly on the visible dark backdrop (outside
+   .topbar, which already has its own working override below) rendered
+   as near-invisible navy-on-dark — found via a live screenshot of the
+   'Ask a question' button on the teacher hub, then confirmed as a
+   systemic issue affecting every page in this list, not just that one
+   button. Can't fix this by weakening body.day .btn-ghost itself
+   (that's the exact mechanism admin.html correctly relies on) — has to
+   be scoped to the specific wrapper classes that actually sit on
+   visible dark backdrop, with enough added specificity (three classes,
+   or an id, beats element+two-classes) to win regardless of source
+   order. */
+.auth-atmosphere .library-main .btn-ghost,
+.auth-atmosphere .showcase-main .btn-ghost,
+.auth-atmosphere .auth-main .btn-ghost,
+.auth-atmosphere .shop-main .btn-ghost,
+.auth-atmosphere #public-view .btn-ghost,
+.auth-atmosphere #hub-view .btn-ghost {
+  color: var(--parchment);
+  border-color: rgba(243,236,217,0.3);
+}
+.auth-atmosphere .library-main .btn-ghost:hover,
+.auth-atmosphere .showcase-main .btn-ghost:hover,
+.auth-atmosphere .auth-main .btn-ghost:hover,
+.auth-atmosphere .shop-main .btn-ghost:hover,
+.auth-atmosphere #public-view .btn-ghost:hover,
+.auth-atmosphere #hub-view .btn-ghost:hover {
+  background: rgba(243,236,217,0.08);
+  border-color: var(--gold);
+}
 .auth-atmosphere .lang-switch { border-color: rgba(243,236,217,0.3); }
 .auth-atmosphere .lang-btn { color: var(--parchment); }
 .auth-atmosphere .lang-btn.active { background: var(--gold); color: var(--night); }

@@ -122,6 +122,8 @@
 
     // Sign out lives in the topbar menu now, not duplicated inside the
     // page content — same place Log in/Register/Home already are.
+    document.getElementById('login-link').hidden = true;
+    document.getElementById('register-link').hidden = true;
     const signOutBtn = document.getElementById('topbar-signout-btn');
     signOutBtn.hidden = false;
     signOutBtn.addEventListener('click', async () => {
@@ -204,6 +206,8 @@
   }
 
   function showPublic() {
+    document.getElementById('login-link').hidden = false;
+    document.getElementById('register-link').hidden = false;
     document.getElementById('topbar-signout-btn').hidden = true;
     document.getElementById('hub-view').hidden = true;
     document.getElementById('public-view').hidden = false;
