@@ -741,6 +741,40 @@ body.auth-atmosphere .brand { color: var(--gold); }
 
 .showcase-browse { margin-top: 8px; }
 
+/* A warm, intimate panel distinct from the white .benefit-card grid —
+   deliberately not another card in the grid, since the point here is
+   belonging/founder-closeness, not another feature. Frosted-glass
+   treatment sits directly on the dark backdrop (same rgba+blur
+   language used elsewhere for content on the atmosphere), gold border
+   for a bit of warmth rather than the cooler parchment-bordered cards
+   elsewhere. */
+.belonging-band {
+  max-width: 640px;
+  margin: 32px auto 8px;
+  padding: 28px clamp(20px, 5vw, 36px);
+  text-align: center;
+  background: rgba(11,23,18,0.55);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(234,192,102,0.3);
+  border-radius: 20px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.35);
+}
+.belonging-band h2 {
+  font-family: 'Fraunces', serif;
+  font-weight: 600;
+  font-size: 1.3rem;
+  color: var(--gold);
+  margin: 0 0 10px;
+  text-shadow: 0 0 24px rgba(234,192,102,0.35);
+}
+.belonging-band p {
+  margin: 0;
+  font-size: 0.95rem;
+  line-height: 1.6;
+  color: rgba(243,236,217,0.85);
+}
+
 /* Talk-demo modal — dark/frosted, distinct from .admin-modal-card's
    light dashboard styling, since this sits on the public atmosphere
    page rather than inside the admin dashboard. */

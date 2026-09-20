@@ -105,7 +105,7 @@
     if (!showcaseData) return;
     const locale = window.MareI18n.locale;
     const welcome = (locale === 'nl' && showcaseData.welcomeMessageNl) ? showcaseData.welcomeMessageNl : showcaseData.welcomeMessageEn;
-    document.getElementById('showcase-welcome').textContent = welcome || window.MareI18n.t('heroSub');
+    document.getElementById('showcase-welcome').textContent = welcome || window.MareI18n.t('showcaseHeroSub');
     renderTiles();
     renderVideo();
   }
@@ -119,7 +119,7 @@
       // The page still works without this — hero title and the "browse
       // all stories" link don't depend on it, so a failed fetch here
       // shouldn't leave the visitor with a broken page, just a plainer one.
-      document.getElementById('showcase-welcome').textContent = window.MareI18n.t('heroSub');
+      document.getElementById('showcase-welcome').textContent = window.MareI18n.t('showcaseHeroSub');
     }
   }
 
