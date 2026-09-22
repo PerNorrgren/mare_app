@@ -13,6 +13,12 @@
   let selectedChild = null;
   let sessionId = null;
   let locale = 'en';
+  // Set only when /api/talk/session actually returns one (anonymous
+  // sessions only — see server.js). null means "not limited", not
+  // "not yet known" — beginConversation always sets this before the
+  // orb becomes usable.
+  let previewMessageLimit = null;
+  let messageCount = 0;
 
   let audioCtx = null;
   let micStream = null;
@@ -29,6 +35,7 @@
      'talk-view', 'talk-child-name', 'leave-btn', 'captions-btn',
      'orb-btn', 'state-label', 'captions-bar', 'caption-line',
      'leave-confirm', 'leave-cancel-btn', 'leave-confirm-btn',
+     'talk-preview-gate', 'talk-preview-gate-back-btn',
      'talk-loading',
     ].forEach(id => { els[id] = document.getElementById(id); });
   }
@@ -129,7 +136,7 @@
       label.className = 'talk-child-name';
       label.textContent = window.MareI18n.t('talkAgeBandLabel', { band: band.value.replace('-', '–') });
       card.appendChild(label);
-      card.addEventListener('click', () => beginConversation({ mode: 'teacher', ageBand: band.value }));
+      card.addEventListener('click', () => beginConversation({ mode: 'ageBand', ageBand: band.value }));
       els['age-band-grid'].appendChild(card);
     });
   }
@@ -203,14 +210,30 @@
   }
 
   async function handleFinalTranscript(text) {
+    // Checked client-side first (the nice UX — no round-trip needed to
+    // know we're done), with the server's own 403 as a backstop below
+    // in case messageCount ever drifts (e.g. two tabs on the same
+    // session) — same dual-layer shape as the reader's scene gate.
+    if (previewMessageLimit != null && messageCount >= previewMessageLimit) {
+      showPreviewGate();
+      return;
+    }
     showCaption(text);
     setOrbState('thinking');
     try {
       const data = await api('/api/talk/chat', { method: 'POST', body: JSON.stringify({ sessionId, message: text }) });
+      messageCount++;
       await speak(data.reply);
-    } catch {
+    } catch (err) {
+      if (err.message === 'Preview limit reached') { showPreviewGate(); return; }
       setOrbState('idle');
     }
+  }
+
+  function showPreviewGate() {
+    stopListening();
+    setOrbState('idle');
+    els['talk-preview-gate'].hidden = false;
   }
 
   async function speak(text) {
@@ -245,9 +268,9 @@
   }
 
   async function beginConversation(opts) {
-    const isTeacher = opts.mode === 'teacher';
-    const child = isTeacher ? null : opts.child;
-    if (!isTeacher) selectedChild = child;
+    const isAgeBandMode = opts.mode === 'ageBand';
+    const child = isAgeBandMode ? null : opts.child;
+    if (!isAgeBandMode) selectedChild = child;
 
     // Lets the site-wide Mare Helper widget (if opened while this Talk
     // to Mare conversation is active) use the same age-appropriate
@@ -257,21 +280,23 @@
     // holding the device.
     window.MareHelperContext = {
       isChild: true,
-      ageBand: isTeacher ? opts.ageBand : child.age_band,
-      childName: isTeacher ? null : child.name,
+      ageBand: isAgeBandMode ? opts.ageBand : child.age_band,
+      childName: isAgeBandMode ? null : child.name,
     };
     els['picker-view'].hidden = true;
     els['talk-view'].hidden = false;
-    els['talk-child-name'].textContent = isTeacher
+    els['talk-child-name'].textContent = isAgeBandMode
       ? window.MareI18n.t('talkAgeBandLabel', { band: opts.ageBand.replace('-', '–') })
       : child.name;
     setOrbState('disabled');
 
     try {
-      const body = isTeacher ? { ageBand: opts.ageBand } : { childId: child.id };
+      const body = isAgeBandMode ? { ageBand: opts.ageBand } : { childId: child.id };
       const data = await api('/api/talk/session', { method: 'POST', body: JSON.stringify(body) });
       sessionId = data.sessionId;
       locale = data.locale;
+      previewMessageLimit = data.previewMessageLimit ?? null;
+      messageCount = 0;
       const openData = await api(`/api/talk/session/${sessionId}/opening`, { method: 'POST' });
       await speak(openData.reply);
     } catch (err) {
@@ -323,13 +348,16 @@
     setupOrb();
     setupCaptions();
     setupLeave();
+    els['talk-preview-gate-back-btn'].addEventListener('click', () => { window.location.href = '/library.html'; });
 
     currentUser = await checkSession();
-    if (!currentUser) {
-      window.location.href = '/login.html';
-      return;
-    }
-    if (currentUser.role === 'teacher') {
+    if (!currentUser || currentUser.role === 'teacher') {
+      // No account, or a teacher account — neither has a specific child
+      // to pick, so both get the same age-band picker. Anonymous is the
+      // new case here — see server.js's /api/talk/session for how a
+      // session with no owner at all gets created, and
+      // handleFinalTranscript below for the message-count gate that
+      // applies to it specifically.
       els['picker-title'].removeAttribute('data-i18n');
       els['picker-title'].textContent = window.MareI18n.t('talkChooseAgeBand');
       loadAgeBandPicker();

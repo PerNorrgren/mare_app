@@ -662,6 +662,13 @@ async function getDb() {
   // in which case getPreviewSceneLimit falls back to
   // DEFAULT_PREVIEW_SCENE_LIMIT.
   try { db.run(`ALTER TABLE app_config ADD COLUMN preview_scene_limit INTEGER`); } catch {}
+  try { db.run(`ALTER TABLE app_config ADD COLUMN club_mare_preview_limit INTEGER`); } catch {}
+  try { db.run(`ALTER TABLE app_config ADD COLUMN talk_preview_message_limit INTEGER`); } catch {}
+  // Counts actual user turns only (not the free opening line — see the
+  // comment on incrementTalkSessionMessageCount's call site) — compared
+  // against getTalkPreviewMessageLimit() for user_role='anonymous'
+  // sessions only; parent/teacher sessions never check this at all.
+  try { db.run(`ALTER TABLE talk_sessions ADD COLUMN message_count INTEGER NOT NULL DEFAULT 0`); } catch {}
   // Backfill: any book row from before group_slug existed (or with the
   // column's own default '') gets its own slug as its group — correct
   // for the original single-locale 'mare' row, and harmless for anything
@@ -1479,7 +1486,7 @@ function createTalkSession(childId, ownerId, locale, opts = {}) {
   const role = (opts && opts.role) || 'parent';
   const ageBand = (opts && opts.ageBand) || null;
   run(`INSERT INTO talk_sessions (id, child_id, parent_id, locale, user_role, age_band) VALUES (?,?,?,?,?,?)`,
-    [id, childId || '', ownerId, locale || 'en', role, ageBand]);
+    [id, childId || '', ownerId || '', locale || 'en', role, ageBand]);
   return id;
 }
 function getTalkSession(id) {
@@ -1491,8 +1498,17 @@ function getTalkSession(id) {
 // creation. A teacher can only ever access their own Talk sessions,
 // same restriction shape as a parent's, just without the carer-sharing
 // case (a teacher session was never shareable to begin with).
+// Anonymous sessions: no real identity exists to check against at
+// all — the session id itself (an unguessable uuid, never exposed
+// except to the browser that created it) is the only credential there
+// ever was, matching what "anonymous" actually means here. Low-stakes
+// by design (no PII, ephemeral, message-limited) — this isn't a
+// security compromise, it's the correct model for a feature with no
+// account behind it.
 function canAccessTalkSession(user, dbRow) {
   if (!dbRow) return false;
+  if (dbRow.user_role === 'anonymous') return true;
+  if (!user) return false;
   if (dbRow.user_role === 'teacher') {
     return user.role === 'teacher' && dbRow.parent_id === user.id;
   }
@@ -1660,6 +1676,33 @@ function getPreviewSceneLimit() {
 }
 function setPreviewSceneLimit(value) {
   run(`UPDATE app_config SET preview_scene_limit = ? WHERE id = 'default'`, [value]);
+}
+// Same no-login-tier idea, two more places: how many free-tier Club
+// Mare posts an anonymous visitor can see, and how many chat turns
+// an anonymous Talk to Mare session gets before the gate. Talk to
+// Mare's limit matters more than the other two for a reason beyond
+// UX — each turn is a real Anthropic + ElevenLabs API call, so this
+// is real cost-abuse protection, not just a content tease.
+const DEFAULT_CLUB_MARE_PREVIEW_LIMIT = 1;
+const DEFAULT_TALK_PREVIEW_MESSAGE_LIMIT = 3;
+function getClubMarePreviewLimit() {
+  const config = getAppConfig();
+  const v = config && config.club_mare_preview_limit;
+  return (v === null || v === undefined) ? DEFAULT_CLUB_MARE_PREVIEW_LIMIT : v;
+}
+function setClubMarePreviewLimit(value) {
+  run(`UPDATE app_config SET club_mare_preview_limit = ? WHERE id = 'default'`, [value]);
+}
+function getTalkPreviewMessageLimit() {
+  const config = getAppConfig();
+  const v = config && config.talk_preview_message_limit;
+  return (v === null || v === undefined) ? DEFAULT_TALK_PREVIEW_MESSAGE_LIMIT : v;
+}
+function setTalkPreviewMessageLimit(value) {
+  run(`UPDATE app_config SET talk_preview_message_limit = ? WHERE id = 'default'`, [value]);
+}
+function incrementTalkSessionMessageCount(sessionId) {
+  run(`UPDATE talk_sessions SET message_count = message_count + 1 WHERE id = ?`, [sessionId]);
 }
 // A scene's position within its book, flattened across chapters in
 // reading order — 0-indexed, matching the client reader's own
@@ -1916,6 +1959,8 @@ module.exports = {
   getTeacherByEmail, getTeacherById, createTeacher, updateTeacherPasswordHash,
   createTeacherSignupRequest, getAppConfig, setNotifyEmail,
   getPreviewSceneLimit, setPreviewSceneLimit, getScenePosition,
+  getClubMarePreviewLimit, setClubMarePreviewLimit,
+  getTalkPreviewMessageLimit, setTalkPreviewMessageLimit, incrementTalkSessionMessageCount,
   getAdminByEmail, getAdminById, createAdmin, updateAdminPasswordHash, getAllStaff,
   getAllParentsDirectory, getAllTeachersDirectory, setParentStatus, setTeacherStatus,
   createPasswordResetToken, getValidPasswordResetToken, getPasswordResetTokenAnyState,

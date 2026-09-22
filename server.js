@@ -687,27 +687,39 @@ function getPrimaryBookText(locale) {
 
 const VALID_TEACHER_AGE_BANDS = ['6-8', '9-11', '12-15'];
 
-app.post('/api/talk/session', auth.requireAuthApi(['parent', 'teacher']), (req, res) => {
+app.post('/api/talk/session', (req, res) => {
   const locale = resolveLocale(req);
+  const user = getOptionalUser(req);
+  req.user = user;
 
-  if (req.user.role === 'teacher') {
+  // No account, or a teacher account — neither has a specific child to
+  // pick, so both go through the same age-band flow. Anonymous sessions
+  // are the one genuinely new case: no owner id at all (createTalkSession
+  // treats a falsy ownerId the same '' sentinel it already uses for
+  // "no child" — see its own comment).
+  if (!user || user.role === 'teacher') {
     const ageBand = req.body?.ageBand;
     if (!VALID_TEACHER_AGE_BANDS.includes(ageBand)) {
       return res.status(400).json({ error: 'A valid age band is required' });
     }
-    const sessionId = db.createTalkSession(null, req.user.id, locale, { role: 'teacher', ageBand });
+    const role = user ? 'teacher' : 'anonymous';
+    const sessionId = db.createTalkSession(null, user ? user.id : null, locale, { role, ageBand });
     const systemPrompt = prompts.buildMareSystemPrompt({
       ageBand,
       locale,
       bookText: getPrimaryBookText(locale),
     });
     talkSessions.set(sessionId, { history: [], systemPrompt, dbRow: db.getTalkSession(sessionId) });
-    return res.json({ ok: true, sessionId, locale });
+    // Only meaningful for the anonymous case (teacher sessions are
+    // never limited — see /api/talk/chat) but harmless to include
+    // either way; the client only ever checks it when it actually
+    // started an anonymous session.
+    return res.json({ ok: true, sessionId, locale, previewMessageLimit: role === 'anonymous' ? db.getTalkPreviewMessageLimit() : null });
   }
 
   const child = requireOwnedChild(req, res);
   if (!child) return;
-  const sessionId = db.createTalkSession(child.id, req.user.id, locale);
+  const sessionId = db.createTalkSession(child.id, user.id, locale);
   const systemPrompt = prompts.buildMareSystemPrompt({
     ageBand: child.age_band,
     locale,
@@ -718,14 +730,24 @@ app.post('/api/talk/session', auth.requireAuthApi(['parent', 'teacher']), (req, 
   res.json({ ok: true, sessionId, locale });
 });
 
-app.post('/api/talk/chat', auth.requireAuthApi(['parent', 'teacher']), async (req, res) => {
+app.post('/api/talk/chat', async (req, res) => {
   try {
     const { sessionId, message } = req.body || {};
     if (!sessionId || !message) return res.status(400).json({ error: 'sessionId and message required' });
 
+    req.user = getOptionalUser(req);
     const dbRow = requireSessionChildAccess(req, res, sessionId);
     if (!dbRow) return;
     if (dbRow.ended_at) return res.status(410).json({ error: 'Session has ended' });
+
+    // Real cost-abuse protection, not just a content tease — each turn
+    // is a genuine Anthropic + ElevenLabs call, checked BEFORE either
+    // one runs. Only anonymous sessions ever hit this; a signed-in
+    // parent or teacher session's message_count just climbs unused.
+    if (dbRow.user_role === 'anonymous' && dbRow.message_count >= db.getTalkPreviewMessageLimit()) {
+      return res.status(403).json({ error: 'Preview limit reached', previewLimitReached: true });
+    }
+
     if (!anthropic) return res.status(503).json({ error: 'Talk is not configured' });
 
     let session = talkSessions.get(sessionId);
@@ -733,11 +755,11 @@ app.post('/api/talk/chat', auth.requireAuthApi(['parent', 'teacher']), async (re
       // Server restarted mid-session, or this is somehow the first turn
       // without a prior /api/talk/session call reaching memory — rebuild
       // the system prompt fresh from the DB row rather than failing.
-      const child = dbRow.user_role === 'teacher' ? null : db.getChild(dbRow.child_id);
+      const child = dbRow.user_role === 'parent' ? db.getChild(dbRow.child_id) : null;
       session = {
         history: [],
         systemPrompt: prompts.buildMareSystemPrompt({
-          ageBand: dbRow.user_role === 'teacher' ? dbRow.age_band : child?.age_band,
+          ageBand: dbRow.user_role === 'parent' ? child?.age_band : dbRow.age_band,
           locale: dbRow.locale,
           childName: child?.name,
           bookText: getPrimaryBookText(dbRow.locale),
@@ -763,6 +785,7 @@ app.post('/api/talk/chat', auth.requireAuthApi(['parent', 'teacher']), async (re
 
     session.history.push({ role: 'assistant', content: replyText });
     db.touchTalkSession(sessionId);
+    if (dbRow.user_role === 'anonymous') db.incrementTalkSessionMessageCount(sessionId);
 
     res.json({ ok: true, reply: replyText });
   } catch (e) {
@@ -771,7 +794,8 @@ app.post('/api/talk/chat', auth.requireAuthApi(['parent', 'teacher']), async (re
   }
 });
 
-app.post('/api/talk/session/:id/end', auth.requireAuthApi(['parent', 'teacher']), (req, res) => {
+app.post('/api/talk/session/:id/end', (req, res) => {
+  req.user = getOptionalUser(req);
   const dbRow = requireSessionChildAccess(req, res, req.params.id);
   if (!dbRow) return;
   db.endTalkSession(req.params.id);
@@ -783,9 +807,12 @@ app.post('/api/talk/session/:id/end', auth.requireAuthApi(['parent', 'teacher'])
 // spoken yet — see prompts.js's MARE_OPENING_LINE. Separate from
 // /api/talk/chat because it isn't a reply to anything; it's an opener,
 // pushed to history as an assistant turn so the conversation continues
-// naturally from there.
-app.post('/api/talk/session/:id/opening', auth.requireAuthApi(['parent', 'teacher']), async (req, res) => {
+// naturally from there. Deliberately never counted against the preview
+// message limit — same reasoning as the reader always allowing scene 0,
+// a sample with literally nothing in it isn't a sample.
+app.post('/api/talk/session/:id/opening', async (req, res) => {
   try {
+    req.user = getOptionalUser(req);
     const dbRow = requireSessionChildAccess(req, res, req.params.id);
     if (!dbRow) return;
     if (!anthropic) return res.status(503).json({ error: 'Talk is not configured' });
@@ -1026,8 +1053,23 @@ app.get('/api/club-mare/membership', auth.requireAuthApi(['parent']), (req, res)
   res.json({ tier: membership ? membership.tier : 0 });
 });
 
-app.get('/api/club-mare/posts', auth.requireAuthApi(['parent']), (req, res) => {
-  const membership = db.getClubMareMembership(req.user.id);
+// Anonymous (or any non-parent) request gets a taste of the free
+// tier's posts, not the empty list this used to return outright — a
+// signed-in parent who hasn't joined yet already gets a clear "Join
+// Club Mare" prompt from cm-join-view on the client, so the preview
+// here is really only for genuinely no-login visitors.
+app.get('/api/club-mare/posts', (req, res) => {
+  const user = getOptionalUser(req);
+  if (!user || user.role !== 'parent') {
+    const limit = db.getClubMarePreviewLimit();
+    const freePosts = db.getClubMarePosts(1);
+    return res.json({
+      posts: freePosts.slice(0, limit),
+      previewLimited: freePosts.length > limit,
+      totalCount: freePosts.length,
+    });
+  }
+  const membership = db.getClubMareMembership(user.id);
   const tier = membership ? membership.tier : 0;
   res.json({ posts: tier > 0 ? db.getClubMarePosts(tier) : [] });
 });
@@ -1850,18 +1892,28 @@ app.get('/api/admin/settings', auth.requireAuthApi(['admin', 'support']), (req, 
   res.json({
     notifyEmail: (config && config.contact_email) || '',
     previewSceneLimit: db.getPreviewSceneLimit(),
+    clubMarePreviewLimit: db.getClubMarePreviewLimit(),
+    talkPreviewMessageLimit: db.getTalkPreviewMessageLimit(),
   });
 });
 app.put('/api/admin/settings', auth.requireAuthApi(['admin', 'support']), (req, res) => {
-  const { notifyEmail, previewSceneLimit } = req.body || {};
+  const { notifyEmail, previewSceneLimit, clubMarePreviewLimit, talkPreviewMessageLimit } = req.body || {};
   if (notifyEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(notifyEmail)) {
     return res.status(400).json({ error: 'That doesn\'t look like a valid email address' });
   }
-  if (previewSceneLimit !== undefined) {
-    const n = Number(previewSceneLimit);
-    if (!Number.isInteger(n) || n < 0) return res.status(400).json({ error: 'Preview scene limit must be a whole number, 0 or more' });
-    db.setPreviewSceneLimit(n);
-  }
+  const checkNonNegativeInt = (val, label) => {
+    if (val === undefined) return null;
+    const n = Number(val);
+    if (!Number.isInteger(n) || n < 0) return `${label} must be a whole number, 0 or more`;
+    return null;
+  };
+  const err = checkNonNegativeInt(previewSceneLimit, 'Preview scene limit')
+    || checkNonNegativeInt(clubMarePreviewLimit, 'Club Mare preview limit')
+    || checkNonNegativeInt(talkPreviewMessageLimit, 'Talk preview message limit');
+  if (err) return res.status(400).json({ error: err });
+  if (previewSceneLimit !== undefined) db.setPreviewSceneLimit(Number(previewSceneLimit));
+  if (clubMarePreviewLimit !== undefined) db.setClubMarePreviewLimit(Number(clubMarePreviewLimit));
+  if (talkPreviewMessageLimit !== undefined) db.setTalkPreviewMessageLimit(Number(talkPreviewMessageLimit));
   db.setNotifyEmail(notifyEmail || null);
   res.json({ ok: true });
 });
@@ -2087,11 +2139,9 @@ server.on('upgrade', (req, socket, head) => {
 
   const cookies = parseCookies(req.headers.cookie);
   const payload = auth.verifyToken(cookies[auth.COOKIE_NAME]);
-  if (!payload || (payload.role !== 'parent' && payload.role !== 'teacher')) {
-    socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
-    socket.destroy();
-    return;
-  }
+  // No early role check here anymore — payload may be null (anonymous)
+  // and that's fine now; canAccessTalkSession is what actually decides,
+  // same single chokepoint the REST endpoints above all use too.
 
   const sessionId = searchParams.get('session');
   const talkSession = sessionId ? db.getTalkSession(sessionId) : null;

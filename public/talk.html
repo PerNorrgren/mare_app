@@ -71,6 +71,20 @@
   </div>
 </div>
 
+<!-- Anonymous-visitor preview gate — same idea as the reader's, shown
+     once messageCount reaches previewMessageLimit; the server enforces
+     the same limit independently on /api/talk/chat. -->
+<div class="talk-modal-backdrop" id="talk-preview-gate" hidden>
+  <div class="talk-modal-card">
+    <p data-i18n="talkPreviewGateHeadline">That's the end of this preview chat with Mare.</p>
+    <p style="margin:-10px 0 18px;color:var(--navy-soft);font-weight:500;font-size:0.88rem;" data-i18n="talkPreviewGateBody">Register (it's free) to keep talking with Mare.</p>
+    <div class="talk-modal-actions">
+      <button type="button" class="btn-ghost" id="talk-preview-gate-back-btn" data-i18n="readerPreviewGateBack">Back to home</button>
+      <a href="/login.html?mode=signup" class="btn-primary" data-i18n="showcaseRegister">Register</a>
+    </div>
+  </div>
+</div>
+
 <div class="talk-loading" id="talk-loading">
   <div class="talk-loading-spinner"></div>
 </div>

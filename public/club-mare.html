@@ -41,11 +41,13 @@
     <p class="hero-sub" data-i18n="clubMareSub">New stories, just for members</p>
   </section>
 
-  <!-- Signed out -->
-  <section id="cm-signed-out-view" hidden>
-    <div class="showcase-tile" style="max-width:360px;margin:0 auto;cursor:default;">
-      <p style="color:var(--parchment);margin-bottom:14px;" data-i18n="clubMareSignInPrompt">Sign in as a parent to join Club Mare.</p>
-      <a href="/login.html" class="btn-primary btn-full" data-i18n="signIn">Sign in</a>
+  <!-- Signed out — now a real preview, not a dead end -->
+  <section id="cm-preview-view" hidden>
+    <div class="clubmare-posts" id="cm-preview-posts-list"></div>
+    <div class="showcase-tile" style="max-width:360px;margin:24px auto 0;cursor:default;text-align:center;">
+      <p style="color:var(--parchment);margin-bottom:14px;" data-i18n="clubMarePreviewPrompt">Register (it's free) to see every Club Mare story, not just this one.</p>
+      <a href="/login.html?mode=signup" class="btn-primary btn-full" data-i18n="showcaseRegister">Register</a>
+      <a href="/login.html" class="btn-ghost btn-full" style="margin-top:8px;" data-i18n="showcaseLogin">Log in</a>
     </div>
   </section>
 

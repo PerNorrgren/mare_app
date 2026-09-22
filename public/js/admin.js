@@ -616,6 +616,8 @@
       const data = await api('/api/admin/settings');
       document.getElementById('notify-email').value = data.notifyEmail || '';
       document.getElementById('preview-scene-limit').value = data.previewSceneLimit ?? '';
+      document.getElementById('club-mare-preview-limit').value = data.clubMarePreviewLimit ?? '';
+      document.getElementById('talk-preview-message-limit').value = data.talkPreviewMessageLimit ?? '';
     } catch {
       // Non-critical — the fields just stay blank if this fails, no
       // need for a dedicated error state on a couple of inputs.
@@ -628,11 +630,19 @@
       errorEl.hidden = true;
       successEl.hidden = true;
       const notifyEmail = document.getElementById('notify-email').value.trim();
-      const previewSceneLimit = document.getElementById('preview-scene-limit').value;
+      const numOrUndefined = (id) => {
+        const v = document.getElementById(id).value;
+        return v === '' ? undefined : Number(v);
+      };
       try {
         await api('/api/admin/settings', {
           method: 'PUT',
-          body: JSON.stringify({ notifyEmail, previewSceneLimit: previewSceneLimit === '' ? undefined : Number(previewSceneLimit) }),
+          body: JSON.stringify({
+            notifyEmail,
+            previewSceneLimit: numOrUndefined('preview-scene-limit'),
+            clubMarePreviewLimit: numOrUndefined('club-mare-preview-limit'),
+            talkPreviewMessageLimit: numOrUndefined('talk-preview-message-limit'),
+          }),
         });
         successEl.textContent = t('adminSaved');
         successEl.hidden = false;

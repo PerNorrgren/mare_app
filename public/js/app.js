@@ -87,15 +87,16 @@
     document.getElementById('login-prompt').hidden = true;
   });
 
-  document.getElementById('tile-talk').addEventListener('click', async () => {
-    const user = await checkSession();
-    if (!user) return showLoginPrompt();
+  document.getElementById('tile-talk').addEventListener('click', () => {
+    // talk.html now offers an anonymous age-band preview too (see
+    // talk.js), same reasoning as tile-club and openBook above.
     window.location.href = '/talk.html';
   });
 
-  document.getElementById('tile-club').addEventListener('click', async () => {
-    const user = await checkSession();
-    if (!user) return showLoginPrompt();
+  document.getElementById('tile-club').addEventListener('click', () => {
+    // club-mare.html itself now shows a real preview for anonymous
+    // visitors (see club-mare.js) rather than an empty page, so there's
+    // nothing left to gate here — same reasoning as openBook() above.
     window.location.href = '/club-mare.html';
   });
 

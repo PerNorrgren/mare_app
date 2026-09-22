@@ -11,8 +11,32 @@
   }
 
   function showView(id) {
-    ['cm-signed-out-view', 'cm-join-view', 'cm-member-view'].forEach(v => {
+    ['cm-preview-view', 'cm-join-view', 'cm-member-view'].forEach(v => {
       document.getElementById(v).hidden = (v !== id);
+    });
+  }
+
+  // Shared by both the member view and the anonymous preview — same
+  // post card markup either way, just a different target container and
+  // a different (or no) "you're a member" note around it.
+  function renderPosts(posts, listEl, emptyMessage) {
+    if (!posts.length) {
+      listEl.innerHTML = `<p class="admin-empty-note">${escapeHtml(emptyMessage)}</p>`;
+      return;
+    }
+    listEl.innerHTML = posts.map(post => `
+      <div class="showcase-tile" style="cursor:default; text-align:left; align-items:flex-start;">
+        ${post.image_key ? `<img class="clubmare-post-image" data-image-key="${escapeHtml(post.image_key)}" alt="" style="width:100%;border-radius:10px;margin-bottom:10px;">` : ''}
+        <div class="showcase-tile-label" style="font-size:1.05rem;">${escapeHtml(post.title)}</div>
+        ${post.body ? `<p style="color:rgba(243,236,217,0.8);font-size:0.88rem;margin-top:8px;">${escapeHtml(post.body)}</p>` : ''}
+      </div>
+    `).join('');
+    listEl.querySelectorAll('[data-image-key]').forEach(async (img) => {
+      try {
+        const r = await fetch(`/api/playback-url?key=${encodeURIComponent(img.getAttribute('data-image-key'))}`);
+        const d = await r.json();
+        if (d.url) img.src = d.url;
+      } catch { /* image just doesn't load — post text still shows */ }
     });
   }
 
@@ -26,25 +50,21 @@
     try {
       const res = await fetch('/api/club-mare/posts');
       const data = await res.json();
-      const posts = data.posts || [];
-      if (!posts.length) {
-        listEl.innerHTML = `<p class="admin-empty-note">${escapeHtml(t('clubMareNoPosts', 'Nothing here yet — check back soon.'))}</p>`;
-        return;
-      }
-      listEl.innerHTML = posts.map(post => `
-        <div class="showcase-tile" style="cursor:default; text-align:left; align-items:flex-start;">
-          ${post.image_key ? `<img class="clubmare-post-image" data-image-key="${escapeHtml(post.image_key)}" alt="" style="width:100%;border-radius:10px;margin-bottom:10px;">` : ''}
-          <div class="showcase-tile-label" style="font-size:1.05rem;">${escapeHtml(post.title)}</div>
-          ${post.body ? `<p style="color:rgba(243,236,217,0.8);font-size:0.88rem;margin-top:8px;">${escapeHtml(post.body)}</p>` : ''}
-        </div>
-      `).join('');
-      listEl.querySelectorAll('[data-image-key]').forEach(async (img) => {
-        try {
-          const r = await fetch(`/api/playback-url?key=${encodeURIComponent(img.getAttribute('data-image-key'))}`);
-          const d = await r.json();
-          if (d.url) img.src = d.url;
-        } catch { /* image just doesn't load — post text still shows */ }
-      });
+      renderPosts(data.posts || [], listEl, t('clubMareNoPosts', 'Nothing here yet — check back soon.'));
+    } catch {
+      listEl.innerHTML = `<p class="admin-empty-note">${escapeHtml(t('clubMareCouldNotLoad', "Couldn't load Club Mare posts right now."))}</p>`;
+    }
+  }
+
+  // Anonymous/not-a-member visitor — the same endpoint now returns a
+  // trimmed sample instead of an empty list (see server.js), so this
+  // is a plain fetch-and-render, no tier logic at all.
+  async function loadPreviewPosts() {
+    const listEl = document.getElementById('cm-preview-posts-list');
+    try {
+      const res = await fetch('/api/club-mare/posts');
+      const data = await res.json();
+      renderPosts(data.posts || [], listEl, t('clubMareNoPosts', 'Nothing here yet — check back soon.'));
     } catch {
       listEl.innerHTML = `<p class="admin-empty-note">${escapeHtml(t('clubMareCouldNotLoad', "Couldn't load Club Mare posts right now."))}</p>`;
     }
@@ -80,7 +100,8 @@
     }
 
     if (!user || user.role !== 'parent') {
-      showView('cm-signed-out-view');
+      showView('cm-preview-view');
+      loadPreviewPosts();
       return;
     }
 

@@ -664,16 +664,26 @@
         <div id="parents-table"><p class="admin-empty-note" data-i18n="adminLoading">Loading…</p></div>
       </div>
       <div class="admin-card">
-        <h2 data-i18n="adminNotifyEmailTitle">Notifications</h2>
-        <p class="admin-card-sub" data-i18n="adminNotifyEmailDesc">Where teacher signup requests and in-app questions get sent, and how much of the book a not-logged-in visitor can read before being asked to register.</p>
-        <div class="admin-form-row" style="align-items:flex-end;">
+        <h2 data-i18n="adminNotifyEmailTitle">Notifications &amp; previews</h2>
+        <p class="admin-card-sub" data-i18n="adminNotifyEmailDesc">Where teacher signup requests and in-app questions get sent, and how much a not-logged-in visitor can see or read or talk with Mare about before being asked to register.</p>
+        <div class="admin-form-row">
           <div class="field" style="flex:1;margin-bottom:0;">
             <label for="notify-email" data-i18n="adminNotifyEmailLabel">Notify email</label>
             <input type="email" id="notify-email">
           </div>
+        </div>
+        <div class="admin-form-row" style="align-items:flex-end;">
           <div class="field" style="max-width:160px;margin-bottom:0;">
-            <label for="preview-scene-limit" data-i18n="adminPreviewSceneLimitLabel">Free preview (scenes)</label>
+            <label for="preview-scene-limit" data-i18n="adminPreviewSceneLimitLabel">Book preview (scenes)</label>
             <input type="number" id="preview-scene-limit" min="0" step="1">
+          </div>
+          <div class="field" style="max-width:160px;margin-bottom:0;">
+            <label for="club-mare-preview-limit" data-i18n="adminClubMarePreviewLimitLabel">Club Mare preview (posts)</label>
+            <input type="number" id="club-mare-preview-limit" min="0" step="1">
+          </div>
+          <div class="field" style="max-width:160px;margin-bottom:0;">
+            <label for="talk-preview-message-limit" data-i18n="adminTalkPreviewLimitLabel">Talk to Mare preview (messages)</label>
+            <input type="number" id="talk-preview-message-limit" min="0" step="1">
           </div>
           <button type="button" class="btn-primary" id="notify-email-save-btn" data-i18n="adminSaveChanges">Save</button>
         </div>
