@@ -72,11 +72,10 @@
   }
 
   async function openBook(book) {
-    const user = await checkSession();
-    if (!user) return showLoginPrompt();
-    // Carry the current locale through to the reader explicitly — the
-    // reader will also have its own book/chapter/scene rows scoped to
-    // this exact locale-specific book id, so this isn't just cosmetic.
+    // Anonymous visitors can now open the book too — the reader itself
+    // gates how much they actually get to read (see reader.js's own
+    // preview-limit handling), rather than blocking the door entirely
+    // the way this used to.
     window.location.href = `/reader.html?book=${encodeURIComponent(book.slug)}&lang=${window.MareI18n.locale}`;
   }
 

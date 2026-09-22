@@ -655,6 +655,13 @@ async function getDb() {
   // which interpretation applies to a given row.
   try { db.run(`ALTER TABLE talk_sessions ADD COLUMN user_role TEXT NOT NULL DEFAULT 'parent'`); } catch {}
   try { db.run(`ALTER TABLE talk_sessions ADD COLUMN age_band TEXT`); } catch {}
+  // How many scenes (flattened across chapters, reading order) an
+  // anonymous/not-logged-in visitor can read before the interactive
+  // reader shows the "log in to keep reading" gate — see
+  // getPreviewSceneLimit/getScenePosition below. NULL until first set,
+  // in which case getPreviewSceneLimit falls back to
+  // DEFAULT_PREVIEW_SCENE_LIMIT.
+  try { db.run(`ALTER TABLE app_config ADD COLUMN preview_scene_limit INTEGER`); } catch {}
   // Backfill: any book row from before group_slug existed (or with the
   // column's own default '') gets its own slug as its group — correct
   // for the original single-locale 'mare' row, and harmless for anything
@@ -1640,6 +1647,45 @@ function getAppConfig() {
 function setNotifyEmail(email) {
   run(`UPDATE app_config SET contact_email = ? WHERE id = 'default'`, [email || null]);
 }
+// Free-preview scene limit for the no-login/anonymous tier — the ONE
+// gated tier in this app (any real account — parent, teacher, admin —
+// always gets full access; there's no paid-tier ladder here the way
+// per_bot has). Default of 2 lives here as a fallback for a brand-new
+// row rather than a magic number scattered at every call site.
+const DEFAULT_PREVIEW_SCENE_LIMIT = 2;
+function getPreviewSceneLimit() {
+  const config = getAppConfig();
+  const v = config && config.preview_scene_limit;
+  return (v === null || v === undefined) ? DEFAULT_PREVIEW_SCENE_LIMIT : v;
+}
+function setPreviewSceneLimit(value) {
+  run(`UPDATE app_config SET preview_scene_limit = ? WHERE id = 'default'`, [value]);
+}
+// A scene's position within its book, flattened across chapters in
+// reading order — 0-indexed, matching the client reader's own
+// flatScenes array exactly (both walk chapters then scenes in the same
+// sort_order), so the two never disagree about where "scene N" is.
+// Returns null for a scene that doesn't resolve to a real book (should
+// never happen in practice, but the preview check below treats null
+// as "let it through" rather than crash — an orphaned scene id isn't
+// this function's problem to solve).
+function getScenePosition(sceneId) {
+  const scene = getScene(sceneId);
+  if (!scene) return null;
+  const chapter = getChapter(scene.chapter_id);
+  if (!chapter) return null;
+  const chapters = getChaptersByBook(chapter.book_id);
+  let position = 0;
+  for (const ch of chapters) {
+    const scenes = getScenesByChapter(ch.id);
+    if (ch.id === chapter.id) {
+      const idx = scenes.findIndex(s => s.id === sceneId);
+      return { bookId: chapter.book_id, position: position + (idx === -1 ? 0 : idx) };
+    }
+    position += scenes.length;
+  }
+  return null;
+}
 
 // ── Teacher signup requests — a prospective teacher's own submission
 // from the self-serve form on teacher-login.html. This is a REQUEST,
@@ -1869,6 +1915,7 @@ module.exports = {
   getAddressesForOwner, getAddress, createAddress, updateAddress, deleteAddress,
   getTeacherByEmail, getTeacherById, createTeacher, updateTeacherPasswordHash,
   createTeacherSignupRequest, getAppConfig, setNotifyEmail,
+  getPreviewSceneLimit, setPreviewSceneLimit, getScenePosition,
   getAdminByEmail, getAdminById, createAdmin, updateAdminPasswordHash, getAllStaff,
   getAllParentsDirectory, getAllTeachersDirectory, setParentStatus, setTeacherStatus,
   createPasswordResetToken, getValidPasswordResetToken, getPasswordResetTokenAnyState,

@@ -87,6 +87,21 @@
     </div>
   </div>
 
+  <!-- Anonymous-reader preview gate — shown instead of navigating past
+       the configured free-scene limit; the server enforces the same
+       limit independently on /api/scenes/:id, this is just the nicer
+       UX (stop right at the boundary, no raw error). -->
+  <div class="reader-modal-backdrop" id="preview-gate" hidden>
+    <div class="reader-modal-card">
+      <p class="reader-modal-text" data-i18n="readerPreviewGateHeadline">You've reached the end of this preview.</p>
+      <p class="reader-modal-sub" data-i18n="readerPreviewGateBody">Register (it's free) to keep reading with your child.</p>
+      <div class="reader-modal-actions">
+        <button type="button" class="btn-ghost" id="preview-gate-back-btn" data-i18n="readerPreviewGateBack">Back to home</button>
+        <a href="/login.html?mode=signup" class="btn-primary" data-i18n="showcaseRegister">Register</a>
+      </div>
+    </div>
+  </div>
+
 </div>
 
 <div class="reader-loading" id="reader-loading">

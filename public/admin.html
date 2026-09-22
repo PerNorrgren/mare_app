@@ -665,11 +665,15 @@
       </div>
       <div class="admin-card">
         <h2 data-i18n="adminNotifyEmailTitle">Notifications</h2>
-        <p class="admin-card-sub" data-i18n="adminNotifyEmailDesc">Where teacher signup requests and in-app questions get sent.</p>
+        <p class="admin-card-sub" data-i18n="adminNotifyEmailDesc">Where teacher signup requests and in-app questions get sent, and how much of the book a not-logged-in visitor can read before being asked to register.</p>
         <div class="admin-form-row" style="align-items:flex-end;">
           <div class="field" style="flex:1;margin-bottom:0;">
             <label for="notify-email" data-i18n="adminNotifyEmailLabel">Notify email</label>
             <input type="email" id="notify-email">
+          </div>
+          <div class="field" style="max-width:160px;margin-bottom:0;">
+            <label for="preview-scene-limit" data-i18n="adminPreviewSceneLimitLabel">Free preview (scenes)</label>
+            <input type="number" id="preview-scene-limit" min="0" step="1">
           </div>
           <button type="button" class="btn-primary" id="notify-email-save-btn" data-i18n="adminSaveChanges">Save</button>
         </div>

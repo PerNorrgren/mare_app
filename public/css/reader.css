@@ -301,6 +301,12 @@ body.reader-body {
   font-weight: 600;
   font-size: 1.02rem;
 }
+.reader-modal-sub {
+  margin: -10px 0 18px;
+  color: var(--navy-soft);
+  font-weight: 500;
+  font-size: 0.88rem;
+}
 .reader-modal-actions {
   display: flex;
   gap: 10px;

@@ -23,6 +23,11 @@
   let flatScenes = [];      // [{ chapterId, chapterTitle, sceneId, scene }]
   let currentIndex = -1;
   let sceneDetail = null;   // { sentences, hotspots, audioCues } for the current scene
+  // Set from /api/books/:slug's own response — null means "no limit
+  // configured", not "not yet loaded" (loadBook always sets this before
+  // anything can call goToScene). Only matters at all when currentUser
+  // is null; a real account of any role always reads in full.
+  let previewSceneLimit = null;
 
   let narrationAudio = null;
   let musicAudio = null;
@@ -42,6 +47,7 @@
      'text-toggle-btn', 'music-toggle-btn', 'toc-panel', 'toc-close-btn', 'toc-list',
      'hotspot-modal', 'hotspot-modal-image', 'hotspot-modal-text', 'hotspot-modal-close',
      'resume-prompt', 'resume-restart-btn', 'resume-continue-btn',
+     'preview-gate', 'preview-gate-back-btn',
     ].forEach(id => { els[id] = document.getElementById(id); });
   }
 
@@ -82,6 +88,7 @@
     const res = await fetch(`/api/books/${encodeURIComponent(bookSlug)}`);
     if (!res.ok) { window.location.href = '/'; return; }
     bookData = await res.json();
+    previewSceneLimit = bookData.previewSceneLimit ?? null;
     els['reader-book-title'].textContent = bookData.book.title;
 
     flatScenes = [];
@@ -159,8 +166,23 @@
   }
 
   // ── Scene rendering ──
+  // Per's ask, mirroring per_bot's proven pattern: an anonymous
+  // (no-login) reader gets the first N scenes, then a gate instead of
+  // a redirect — checked BEFORE fetching/rendering, at the one choke
+  // point every navigation path (buttons, edge taps, swipe, TOC) all
+  // already funnel through, rather than duplicating the check at each
+  // entry point. The server enforces the same limit independently on
+  // /api/scenes/:id (see server.js) — this client check is the nice
+  // UX (stop right at the boundary, no raw error), not the real gate.
+  function showPreviewGate() {
+    els['preview-gate'].hidden = false;
+  }
   async function goToScene(index) {
     if (index < 0 || index >= flatScenes.length) return;
+    if (!currentUser && previewSceneLimit != null && index >= previewSceneLimit) {
+      showPreviewGate();
+      return;
+    }
     stopSceneAudio();
     currentIndex = index;
     const entry = flatScenes[index];
@@ -396,12 +418,12 @@
     if (!bookSlug) { window.location.href = '/'; return; }
 
     currentUser = await checkSession();
-    if (!currentUser) { window.location.href = '/login.html'; return; }
 
     await loadBook();
     if (!flatScenes.length) { window.location.href = '/'; return; }
 
     els['back-btn'].addEventListener('click', () => { window.location.href = '/'; });
+    els['preview-gate-back-btn'].addEventListener('click', () => { window.location.href = '/library.html'; });
     els['toc-btn'].addEventListener('click', openToc);
     els['toc-close-btn'].addEventListener('click', closeToc);
     els['prev-btn'].addEventListener('click', () => goToScene(currentIndex - 1));

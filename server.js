@@ -481,6 +481,17 @@ app.get('/api/splash', (req, res) => {
   });
 });
 
+// Optional session read — for routes that stay public either way, but
+// need to know WHETHER a real account is attached (any role always
+// gets full access; the only gated audience in this app is genuinely
+// anonymous). auth.verifyToken already returns null rather than
+// throwing on a missing/invalid/expired cookie, so this never needs
+// its own try/catch.
+function getOptionalUser(req) {
+  const token = req.cookies?.[auth.COOKIE_NAME];
+  return token ? auth.verifyToken(token) : null;
+}
+
 app.get('/api/books/:slug', (req, res) => {
   const book = db.getBookBySlug(req.params.slug);
   if (!book) return res.status(404).json({ error: 'Not found' });
@@ -488,11 +499,27 @@ app.get('/api/books/:slug', (req, res) => {
     ...ch,
     scenes: db.getScenesByChapter(ch.id),
   }));
-  res.json({ book, chapters });
+  // Always included, regardless of auth state — a signed-in reader
+  // just never hits the limit, so there's no need for two response
+  // shapes. Lets the client show/hide the gate without a second
+  // round-trip to ask "what's the limit" separately.
+  res.json({ book, chapters, previewSceneLimit: db.getPreviewSceneLimit() });
 });
 
 app.get('/api/scenes/:id', (req, res) => {
   const sceneId = req.params.id;
+  // The one gated tier in this app: no account at all. Any real
+  // session — parent, teacher, admin — always gets full content; this
+  // mirrors per_bot's server-enforced pattern (the client-side gate in
+  // reader.js is the nice UX, this is what actually stops someone
+  // requesting scene ids directly past what the UI shows them).
+  if (!getOptionalUser(req)) {
+    const pos = db.getScenePosition(sceneId);
+    const limit = db.getPreviewSceneLimit();
+    if (pos && pos.position >= limit) {
+      return res.status(403).json({ error: 'Preview limit reached', previewLimitReached: true });
+    }
+  }
   res.json({
     sentences: db.getNarrationSentences(sceneId),
     hotspots: db.getHotspotsByScene(sceneId),
@@ -1820,12 +1847,20 @@ app.post('/api/admin/teachers/:id/resend-invite', auth.requireAuthApi(['admin', 
 // contact_email column rather than a new settings table for one field. ──
 app.get('/api/admin/settings', auth.requireAuthApi(['admin', 'support']), (req, res) => {
   const config = db.getAppConfig();
-  res.json({ notifyEmail: (config && config.contact_email) || '' });
+  res.json({
+    notifyEmail: (config && config.contact_email) || '',
+    previewSceneLimit: db.getPreviewSceneLimit(),
+  });
 });
 app.put('/api/admin/settings', auth.requireAuthApi(['admin', 'support']), (req, res) => {
-  const { notifyEmail } = req.body || {};
+  const { notifyEmail, previewSceneLimit } = req.body || {};
   if (notifyEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(notifyEmail)) {
     return res.status(400).json({ error: 'That doesn\'t look like a valid email address' });
+  }
+  if (previewSceneLimit !== undefined) {
+    const n = Number(previewSceneLimit);
+    if (!Number.isInteger(n) || n < 0) return res.status(400).json({ error: 'Preview scene limit must be a whole number, 0 or more' });
+    db.setPreviewSceneLimit(n);
   }
   db.setNotifyEmail(notifyEmail || null);
   res.json({ ok: true });

@@ -144,12 +144,12 @@
     setupAddTeacherForm();
     setupClubMarePostModal();
     setupProductModal();
-    setupNotifyEmail();
+    setupAdminSettings();
     loadOverview();
     loadResources();
     loadPages();
     loadDirectory();
-    loadNotifyEmail();
+    loadAdminSettings();
     loadSocialLinks();
     loadMarketingHistory();
     loadBroadcasts();
@@ -181,7 +181,7 @@
         // rather than making the admin manually reload the page to see
         // their own action reflected.
         if (target === 'emaillog' && currentUser && currentUser.role === 'admin') loadEmailLog();
-        if (target === 'directory') { loadDirectory(); loadNotifyEmail(); }
+        if (target === 'directory') { loadDirectory(); loadAdminSettings(); }
       });
     });
   }
@@ -611,24 +611,29 @@
 
   // ── Notify email — where teacher signup requests and in-app
   // questions get sent (app_config.contact_email, see server.js). ──
-  async function loadNotifyEmail() {
+  async function loadAdminSettings() {
     try {
       const data = await api('/api/admin/settings');
       document.getElementById('notify-email').value = data.notifyEmail || '';
+      document.getElementById('preview-scene-limit').value = data.previewSceneLimit ?? '';
     } catch {
-      // Non-critical — the field just stays blank if this fails, no
-      // need for a dedicated error state on a single input.
+      // Non-critical — the fields just stay blank if this fails, no
+      // need for a dedicated error state on a couple of inputs.
     }
   }
-  function setupNotifyEmail() {
+  function setupAdminSettings() {
     document.getElementById('notify-email-save-btn').addEventListener('click', async () => {
       const errorEl = document.getElementById('notify-email-error');
       const successEl = document.getElementById('notify-email-success');
       errorEl.hidden = true;
       successEl.hidden = true;
       const notifyEmail = document.getElementById('notify-email').value.trim();
+      const previewSceneLimit = document.getElementById('preview-scene-limit').value;
       try {
-        await api('/api/admin/settings', { method: 'PUT', body: JSON.stringify({ notifyEmail }) });
+        await api('/api/admin/settings', {
+          method: 'PUT',
+          body: JSON.stringify({ notifyEmail, previewSceneLimit: previewSceneLimit === '' ? undefined : Number(previewSceneLimit) }),
+        });
         successEl.textContent = t('adminSaved');
         successEl.hidden = false;
         setTimeout(() => { successEl.hidden = true; }, 3000);
