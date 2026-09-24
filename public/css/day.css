@@ -1247,3 +1247,29 @@ html:has(#peek) { scroll-behavior: smooth; }
 }
 .shop-banner-success { border-color: rgba(234,192,102,0.7); color: #F3ECD9; }
 .shop-cart-postage { margin: 4px 0 0; color: #4A5A78; }
+
+/* ── Form fields inside white pop-ups on the dark-backdrop pages
+   (Mare App 4). '.auth-atmosphere .field label/input' makes fields
+   pale for the dark login cards, which also turned the shop cart's
+   'Discount code' and 'Deliver to' cream-on-white. Inside a white
+   modal card they go back to the normal navy-on-light style; the
+   cart's country list gets the same full-width styling as an input. */
+.auth-atmosphere .admin-modal-card .field label { color: var(--navy); }
+.auth-atmosphere .admin-modal-card .field input {
+  background: var(--cloud);
+  border-color: rgba(22,48,92,0.2);
+  color: var(--navy);
+}
+.auth-atmosphere .admin-modal-card .field input::placeholder { color: rgba(22,48,92,0.4); }
+.field select {
+  width: 100%;
+  font-family: 'Quicksand', sans-serif;
+  font-size: 0.95rem;
+  padding: 11px 14px;
+  border-radius: 10px;
+  border: 1.5px solid rgba(22,48,92,0.2);
+  background: var(--cloud);
+  color: var(--navy);
+  outline: none;
+}
+.field select:focus { border-color: var(--gold); }
