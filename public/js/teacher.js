@@ -96,7 +96,7 @@
 
     try {
       const [resRes, newsRes] = await Promise.all([
-        fetch('/api/teacher/resources'),
+        fetch(`/api/teacher/resources?lang=${window.MareI18n.locale === 'nl' ? 'nl' : 'en'}`),
         fetch('/api/whats-new'),
       ]);
       const resData = resRes.ok ? await resRes.json() : { resources: [] };

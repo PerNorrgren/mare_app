@@ -244,6 +244,18 @@
     categorySelect.addEventListener('change', syncResourceFields);
     syncResourceFields();
 
+    // Language: default to the language admin is being used in, and
+    // take a hint from the filename when a document is chosen
+    // (…_NL_…, Dutch, Leerkracht… -> Nederlands; …_ENG_…, English -> English).
+    const languageSelect = document.getElementById('r-language');
+    const defaultLanguage = () => { languageSelect.value = window.MareI18n.locale === 'nl' ? 'nl' : 'en'; };
+    defaultLanguage();
+    document.getElementById('r-file').addEventListener('change', (e) => {
+      const name = (e.target.files[0] && e.target.files[0].name) || '';
+      if (/(^|[^a-z])(nl|dutch|nederlands)([^a-z]|$)|leerkracht|gids/i.test(name)) languageSelect.value = 'nl';
+      else if (/(^|[^a-z])(en|eng|english)([^a-z]|$)|teacher|guide/i.test(name)) languageSelect.value = 'en';
+    });
+
     document.getElementById('resource-form').addEventListener('submit', async (e) => {
       e.preventDefault();
       clearError('resource-error');
@@ -253,6 +265,7 @@
         const title = document.getElementById('r-title').value.trim();
         const description = document.getElementById('r-description').value.trim();
         const category = categorySelect.value;
+        const language = languageSelect.value === 'nl' ? 'nl' : 'en';
         if (!title) throw new Error(t('adminErrorTitleRequired'));
 
         let fileKey = null, externalUrl = null;
@@ -267,12 +280,13 @@
 
         await api('/api/admin/teacher-resources', {
           method: 'POST',
-          body: JSON.stringify({ title, description, category, fileKey, externalUrl }),
+          body: JSON.stringify({ title, description, category, fileKey, externalUrl, language }),
         });
 
         document.getElementById('resource-form').reset();
         document.getElementById('r-upload-status').textContent = '';
         syncResourceFields(); // reset() puts Type back to Document
+        defaultLanguage();
         await loadResources();
       } catch (err) {
         showError('resource-error', err.message || t('adminErrorSaveResource'));
@@ -308,15 +322,26 @@
       container.innerHTML = '';
       const table = document.createElement('table');
       table.className = 'admin-table';
-      table.innerHTML = `<thead><tr><th>${t('adminFieldTitle')}</th><th>${t('adminFieldType')}</th><th>${t('adminActive')}</th><th></th></tr></thead>`;
+      table.innerHTML = `<thead><tr><th>${t('adminFieldTitle')}</th><th>${t('adminFieldType')}</th><th>${t('adminFieldLanguage')}</th><th>${t('adminActive')}</th><th></th></tr></thead>`;
       const tbody = document.createElement('tbody');
       resources.forEach(r => {
         const tr = document.createElement('tr');
         tr.innerHTML = `
           <td>${escapeHtml(r.title)}</td>
           <td>${escapeHtml(t(({ document: 'resourceCategoryDocument', tool: 'resourceCategoryTool', link: 'resourceCategoryLink' })[r.category] || 'resourceCategoryDocument'))}</td>
+          <td class="r-lang-cell"></td>
           <td>${r.active ? escapeHtml(t('adminYes')) : escapeHtml(t('adminNo'))}</td>
         `;
+        // Language can be changed in place (e.g. to label files that
+        // were uploaded before languages existed).
+        const langSelect = document.createElement('select');
+        langSelect.innerHTML = `<option value="en">EN</option><option value="nl">NL</option>`;
+        langSelect.value = r.language === 'nl' ? 'nl' : 'en';
+        langSelect.addEventListener('change', async () => {
+          await api(`/api/admin/teacher-resources/${r.id}`, { method: 'PATCH', body: JSON.stringify({ language: langSelect.value }) });
+          loadResources();
+        });
+        tr.querySelector('.r-lang-cell').appendChild(langSelect);
         const actionsTd = document.createElement('td');
         const actions = document.createElement('div');
         actions.className = 'admin-resource-actions';

@@ -190,6 +190,10 @@ function ensureSchema() {
     active INTEGER NOT NULL DEFAULT 1,
     created_at TEXT DEFAULT (datetime('now'))
   )`);
+  // Mare App 4 — which language a resource is in ('en' | 'nl'). The
+  // teacher page shows only the resources in the site's current
+  // language. Existing rows (the first English guide) default to 'en'.
+  try { db.run(`ALTER TABLE teacher_resources ADD COLUMN language TEXT NOT NULL DEFAULT 'en'`); } catch {}
 
   // ── App pages directory — admin's "Pages" tab. This app has no
   // page-routing framework to introspect (every page is a static file
@@ -1488,7 +1492,8 @@ function upsertReadingProgress(parentId, bookId, chapterId, sceneId) {
 }
 
 // ── Teacher resources ──
-function getActiveTeacherResources() {
+function getActiveTeacherResources(language) {
+  if (language) return all(`SELECT * FROM teacher_resources WHERE active = 1 AND language = ? ORDER BY sort_order, created_at`, [language]);
   return all(`SELECT * FROM teacher_resources WHERE active = 1 ORDER BY sort_order, created_at`);
 }
 function getTeacherResourceById(id) {
@@ -1497,16 +1502,16 @@ function getTeacherResourceById(id) {
 function getAllTeacherResources() {
   return all(`SELECT * FROM teacher_resources ORDER BY sort_order, created_at`);
 }
-function createTeacherResource({ title, description, category, fileKey, externalUrl, sortOrder }) {
+function createTeacherResource({ title, description, category, fileKey, externalUrl, sortOrder, language }) {
   const id = uuid();
-  run(`INSERT INTO teacher_resources (id, title, description, category, file_key, external_url, sort_order) VALUES (?,?,?,?,?,?,?)`,
-    [id, title, description || null, category || 'document', fileKey || null, externalUrl || null, sortOrder || 0]);
+  run(`INSERT INTO teacher_resources (id, title, description, category, file_key, external_url, sort_order, language) VALUES (?,?,?,?,?,?,?,?)`,
+    [id, title, description || null, category || 'document', fileKey || null, externalUrl || null, sortOrder || 0, language === 'nl' ? 'nl' : 'en']);
   return id;
 }
-function updateTeacherResource(id, { title, description, category, fileKey, externalUrl, sortOrder, active }) {
+function updateTeacherResource(id, { title, description, category, fileKey, externalUrl, sortOrder, active, language }) {
   const existing = get(`SELECT * FROM teacher_resources WHERE id = ?`, [id]);
   if (!existing) return false;
-  run(`UPDATE teacher_resources SET title=?, description=?, category=?, file_key=?, external_url=?, sort_order=?, active=? WHERE id=?`,
+  run(`UPDATE teacher_resources SET title=?, description=?, category=?, file_key=?, external_url=?, sort_order=?, active=?, language=? WHERE id=?`,
     [
       title ?? existing.title,
       description ?? existing.description,
@@ -1515,6 +1520,7 @@ function updateTeacherResource(id, { title, description, category, fileKey, exte
       externalUrl ?? existing.external_url,
       sortOrder ?? existing.sort_order,
       active === undefined ? existing.active : (active ? 1 : 0),
+      language === undefined ? existing.language : (language === 'nl' ? 'nl' : 'en'),
       id,
     ]);
   return true;

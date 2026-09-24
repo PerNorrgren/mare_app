@@ -2004,9 +2004,9 @@ app.get('/api/admin/teacher-resources', auth.requireAuthApi(['admin', 'support']
   res.json({ resources: db.getAllTeacherResources() });
 });
 app.post('/api/admin/teacher-resources', auth.requireAuthApi(['admin', 'support']), (req, res) => {
-  const { title, description, category, fileKey, externalUrl, sortOrder } = req.body || {};
+  const { title, description, category, fileKey, externalUrl, sortOrder, language } = req.body || {};
   if (!title) return res.status(400).json({ error: 'title required' });
-  const id = db.createTeacherResource({ title, description, category, fileKey, externalUrl, sortOrder });
+  const id = db.createTeacherResource({ title, description, category, fileKey, externalUrl, sortOrder, language });
   res.json({ ok: true, id });
 });
 app.patch('/api/admin/teacher-resources/:id', auth.requireAuthApi(['admin', 'support']), (req, res) => {
@@ -2048,7 +2048,9 @@ app.get('/api/teacher/resources/:id/open', async (req, res) => {
 });
 
 app.get('/api/teacher/resources', auth.requireAuthApi(['teacher']), (req, res) => {
-  res.json({ resources: db.getActiveTeacherResources() });
+  // Mare App 4 — only the resources in the page's language (?lang=en|nl).
+  const lang = req.query.lang === 'nl' ? 'nl' : 'en';
+  res.json({ resources: db.getActiveTeacherResources(lang) });
 });
 
 // ─────────────────────────────────────────────────────────────────────
