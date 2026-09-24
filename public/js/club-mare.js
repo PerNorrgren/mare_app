@@ -95,7 +95,7 @@
       signOutBtn.hidden = false;
       signOutBtn.addEventListener('click', async () => {
         await fetch('/api/logout', { method: 'POST' });
-        window.location.href = '/club-mare.html';
+        window.location.href = '/';
       });
     }
 

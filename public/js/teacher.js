@@ -128,7 +128,7 @@
     signOutBtn.hidden = false;
     signOutBtn.addEventListener('click', async () => {
       await fetch('/api/logout', { method: 'POST' });
-      window.location.href = '/teacher.html';
+      window.location.href = '/';
     });
 
     setupAskQuestion();

@@ -44,6 +44,14 @@ app.use(cookieParser());
 // on every load, so a genuine change is never more than one request
 // away from showing up. Images/audio are unaffected — those change
 // rarely and benefit from real caching, so no override there.
+// Mare App 4 — Story Corner now lives at '/', merged with the old
+// showcase page. The old address keeps working for bookmarks and any
+// links already sent out; the query string (e.g. ?lang=nl) is kept.
+app.get('/library.html', (req, res) => {
+  const q = req.originalUrl.indexOf('?');
+  res.redirect(301, '/' + (q >= 0 ? req.originalUrl.slice(q) : ''));
+});
+
 app.use(express.static('public', {
   setHeaders: (res, filePath) => {
     if (/\.(css|js|html)$/.test(filePath)) {

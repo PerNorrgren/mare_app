@@ -1082,3 +1082,22 @@ body.auth-atmosphere .brand { color: var(--gold); }
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
   gap: 18px;
 }
+
+/* ── One home page (Mare App 4) — index.html ──
+   The sales sections are plain .showcase-main wrappers, revealed by
+   home.js only for signed-out visitors. Explicit [hidden] rule so a
+   future display value on .home-sales can never override it (the
+   standing [hidden]-specificity watch item). */
+.home-sales[hidden] { display: none; }
+.home-sales { padding-bottom: 8px; }
+.home-try { text-align: center; margin: 12px auto 0; max-width: 640px; }
+.home-try h2 {
+  font-family: 'Fraunces', serif;
+  font-weight: 600;
+  font-size: clamp(1.4rem, 3.4vw, 1.9rem);
+  color: var(--gold);
+  margin: 0 0 8px;
+  text-shadow: 0 0 24px rgba(234,192,102,0.35);
+}
+.home-try p { margin: 0; color: rgba(243,236,217,0.8); font-weight: 600; }
+.home-join-btn { display: inline-block; margin-top: 18px; text-decoration: none; }

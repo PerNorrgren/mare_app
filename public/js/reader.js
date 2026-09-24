@@ -423,7 +423,7 @@
     if (!flatScenes.length) { window.location.href = '/'; return; }
 
     els['back-btn'].addEventListener('click', () => { window.location.href = '/'; });
-    els['preview-gate-back-btn'].addEventListener('click', () => { window.location.href = '/library.html'; });
+    els['preview-gate-back-btn'].addEventListener('click', () => { window.location.href = '/'; });
     els['toc-btn'].addEventListener('click', openToc);
     els['toc-close-btn'].addEventListener('click', closeToc);
     els['prev-btn'].addEventListener('click', () => goToScene(currentIndex - 1));

@@ -328,7 +328,7 @@
   async function endConversationAndLeave() {
     stopListening();
     if (sessionId) await api(`/api/talk/session/${sessionId}/end`, { method: 'POST' }).catch(() => {});
-    window.location.href = '/library.html';
+    window.location.href = '/';
   }
   function setupLeave() {
     els['leave-btn'].addEventListener('click', () => { els['leave-confirm'].hidden = false; });
@@ -348,7 +348,7 @@
     setupOrb();
     setupCaptions();
     setupLeave();
-    els['talk-preview-gate-back-btn'].addEventListener('click', () => { window.location.href = '/library.html'; });
+    els['talk-preview-gate-back-btn'].addEventListener('click', () => { window.location.href = '/'; });
 
     currentUser = await checkSession();
     if (!currentUser || currentUser.role === 'teacher') {
@@ -368,7 +368,7 @@
       // Talk experience — Home is the sensible landing spot, same
       // reasoning as the teacher case used to be before teachers got
       // their own age-band picker.
-      window.location.href = '/library.html';
+      window.location.href = '/';
       return;
     }
     els['talk-loading'].hidden = true;
