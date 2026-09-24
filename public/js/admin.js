@@ -144,6 +144,7 @@
     setupAddTeacherForm();
     setupClubMarePostModal();
     setupProductModal();
+    setupShipping();
     setupAdminSettings();
     loadOverview();
     loadResources();
@@ -156,6 +157,7 @@
     loadWhatsNew();
     loadOffers();
     loadProducts();
+    loadShipping();
     loadMarketingStats();
     loadShowcaseContent();
     loadShowcaseTiles();
@@ -1918,6 +1920,50 @@
     document.getElementById('pr-video-status').textContent = prUploadedVideoKey ? t('adminVideoAttached') : '';
     renderImageChips();
     document.getElementById('product-modal').hidden = false;
+  }
+
+  // ── Delivery & postage (Mare App 4) ──
+  const SHIPPING_COUNTRIES = ['GB', 'NL', 'BE', 'IE', 'DE', 'FR'];
+  async function loadShipping() {
+    const box = document.getElementById('shipping-list');
+    let options = [];
+    try { options = (await api('/api/admin/shipping')).options || []; } catch { /* show empty rows */ }
+    const lang = window.MareI18n.locale === 'nl' ? 'nl' : 'en';
+    const nameOf = (c) => { try { return new Intl.DisplayNames([lang], { type: 'region' }).of(c); } catch { return c; } };
+    box.innerHTML = SHIPPING_COUNTRIES.map(c => {
+      const o = options.find(x => x.country === c);
+      return `<div class="admin-form-row shipping-row" data-country="${c}" style="align-items:center;">
+        <label class="mkt-platform-check" style="min-width:200px;"><input type="checkbox" class="ship-on" ${o ? 'checked' : ''}> <span>${escapeHtml(nameOf(c))}</span></label>
+        <div class="field" style="max-width:160px;margin-bottom:0;"><input type="number" class="ship-postage" min="0" step="0.01" placeholder="3.95" value="${o ? (o.postageCents / 100).toFixed(2) : ''}"></div>
+      </div>`;
+    }).join('');
+  }
+  function setupShipping() {
+    document.getElementById('shipping-save-btn').addEventListener('click', async () => {
+      const errorEl = document.getElementById('shipping-error');
+      const okEl = document.getElementById('shipping-success');
+      errorEl.hidden = true; okEl.hidden = true;
+      const options = [];
+      for (const row of document.querySelectorAll('.shipping-row')) {
+        if (!row.querySelector('.ship-on').checked) continue;
+        const v = row.querySelector('.ship-postage').value;
+        if (v === '' || Number(v) < 0) {
+          errorEl.textContent = t('adminShippingNeedsPostage');
+          errorEl.hidden = false;
+          return;
+        }
+        options.push({ country: row.getAttribute('data-country'), postageCents: Math.round(Number(v) * 100) });
+      }
+      try {
+        await api('/api/admin/shipping', { method: 'PUT', body: JSON.stringify({ options }) });
+        okEl.textContent = t('adminSaved');
+        okEl.hidden = false;
+        setTimeout(() => { okEl.hidden = true; }, 3000);
+      } catch (err) {
+        errorEl.textContent = err.message || t('errorGeneric');
+        errorEl.hidden = false;
+      }
+    });
   }
 
   function setupProductModal() {

@@ -574,6 +574,17 @@ function ensureSchema() {
     created_at TEXT DEFAULT (datetime('now'))
   )`);
 
+  // Mare App 4 — guest checkout + posting the parcel: who ordered,
+  // where it goes, postage, and when the order email went out.
+  // parent_id is 'guest' for orders placed without an account.
+  try { db.run(`ALTER TABLE orders ADD COLUMN customer_name TEXT`); } catch {}
+  try { db.run(`ALTER TABLE orders ADD COLUMN customer_email TEXT`); } catch {}
+  try { db.run(`ALTER TABLE orders ADD COLUMN shipping_address TEXT`); } catch {}
+  try { db.run(`ALTER TABLE orders ADD COLUMN shipping_country TEXT`); } catch {}
+  try { db.run(`ALTER TABLE orders ADD COLUMN shipping_cents INTEGER NOT NULL DEFAULT 0`); } catch {}
+  try { db.run(`ALTER TABLE orders ADD COLUMN locale TEXT`); } catch {}
+  try { db.run(`ALTER TABLE orders ADD COLUMN notified_at TEXT`); } catch {}
+
   db.run(`CREATE TABLE IF NOT EXISTS order_items (
     id TEXT PRIMARY KEY,
     order_id TEXT NOT NULL,
@@ -699,6 +710,9 @@ function ensureSchema() {
   // Mare App 4 — how many pages of a teacher PDF a signed-out visitor
   // can preview (0 = no preview, straight to the teacher login).
   try { db.run(`ALTER TABLE app_config ADD COLUMN teacher_doc_preview_pages INTEGER`); } catch {}
+  // Mare App 4 — countries the shop posts to, and the postage for each:
+  // JSON array of { country: 'GB', postageCents: 395 }.
+  try { db.run(`ALTER TABLE app_config ADD COLUMN shipping_json TEXT`); } catch {}
   // Counts actual user turns only (not the free opening line — see the
   // comment on incrementTalkSessionMessageCount's call site) — compared
   // against getTalkPreviewMessageLimit() for user_role='anonymous'
@@ -1476,11 +1490,36 @@ function updateProduct(id, { name, description, priceCents, currency, imageKey, 
 function deleteProduct(id) {
   run(`DELETE FROM products WHERE id = ?`, [id]);
 }
-function createOrder(parentId, totalCents, currency) {
+function createOrder(parentId, totalCents, currency, extra = {}) {
   const id = uuid();
-  run(`INSERT INTO orders (id, parent_id, total_cents, currency) VALUES (?,?,?,?)`,
-    [id, parentId, totalCents, currency || 'gbp']);
+  run(`INSERT INTO orders (id, parent_id, total_cents, currency, shipping_country, shipping_cents, locale) VALUES (?,?,?,?,?,?,?)`,
+    [id, parentId || 'guest', totalCents, currency || 'gbp', extra.shippingCountry || null, extra.shippingCents || 0, extra.locale || null]);
   return id;
+}
+function getOrderBySession(stripeSessionId) {
+  return get(`SELECT * FROM orders WHERE stripe_checkout_session_id = ?`, [stripeSessionId]);
+}
+function getOrderItemsDetailed(orderId) {
+  return all(`SELECT oi.qty, oi.price_cents, oi.variant_json, p.name AS product_name
+              FROM order_items oi LEFT JOIN products p ON p.id = oi.product_id
+              WHERE oi.order_id = ?`, [orderId]);
+}
+function setOrderPaidDetails(orderId, { name, email, address }) {
+  run(`UPDATE orders SET status = 'paid', customer_name = ?, customer_email = ?, shipping_address = ? WHERE id = ?`,
+    [name || null, email || null, address || null, orderId]);
+}
+function markOrderNotified(orderId) {
+  run(`UPDATE orders SET notified_at = datetime('now') WHERE id = ?`, [orderId]);
+}
+function getShippingOptions() {
+  const config = getAppConfig();
+  try {
+    const list = config && config.shipping_json ? JSON.parse(config.shipping_json) : [];
+    return Array.isArray(list) ? list.filter(o => o && /^[A-Z]{2}$/.test(o.country) && Number.isInteger(o.postageCents) && o.postageCents >= 0) : [];
+  } catch { return []; }
+}
+function setShippingOptions(list) {
+  run(`UPDATE app_config SET shipping_json = ? WHERE id = 'default'`, [JSON.stringify(list || [])]);
 }
 function setOrderStripeSession(orderId, sessionId) {
   run(`UPDATE orders SET stripe_checkout_session_id = ? WHERE id = ?`, [sessionId, orderId]);
@@ -2078,6 +2117,8 @@ module.exports = {
   getClubMarePreviewLimit, setClubMarePreviewLimit,
   getTalkPreviewMessageLimit, setTalkPreviewMessageLimit, incrementTalkSessionMessageCount,
   getTeacherDocPreviewPages, setTeacherDocPreviewPages,
+  getOrderBySession, getOrderItemsDetailed, setOrderPaidDetails, markOrderNotified,
+  getShippingOptions, setShippingOptions,
   getAdminByEmail, getAdminById, createAdmin, updateAdminPasswordHash, getAllStaff,
   getAllParentsDirectory, getAllTeachersDirectory, setParentStatus, setTeacherStatus,
   createPasswordResetToken, getValidPasswordResetToken, getPasswordResetTokenAnyState,

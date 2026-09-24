@@ -33,7 +33,11 @@ const prompts = require('./prompts');
 const email = require('./email');
 
 const app = express();
-app.use(express.json({ limit: '10mb' }));
+// The Stripe webhook must receive the untouched raw body to verify
+// Stripe's signature; parsing it as JSON first (as this line used to,
+// for every route) made every webhook fail verification. (Mare App 4)
+const jsonParser = express.json({ limit: '10mb' });
+app.use((req, res, next) => (req.originalUrl === '/webhooks/stripe' ? next() : jsonParser(req, res, next)));
 app.use(cookieParser());
 // No explicit Cache-Control here previously meant browsers were free to
 // apply their own heuristic caching (commonly ~10% of a file's age
@@ -1133,11 +1137,51 @@ app.delete('/api/admin/club-mare/posts/:id', auth.requireAuthApi(['admin', 'supp
 
 app.get('/api/products', (req, res) => res.json({ products: db.getActiveProducts() }));
 
-app.post('/api/checkout', auth.requireAuthApi(['parent']), async (req, res) => {
+// Mare App 4 — the order flow Per set out: click the product, choose
+// how many, give name, email and address (no account needed), pay,
+// and the Mare email gets an order notification so the kit can be
+// posted. Signed-in parents are linked to their orders; everyone else
+// orders as a guest. Stripe's own checkout page collects the name,
+// email and delivery address, restricted to the country chosen in the
+// cart, and adds that country's postage from the admin setting.
+function appBaseUrl(req) {
+  if (process.env.APP_URL) return process.env.APP_URL.replace(/\/$/, '');
+  const proto = (req.headers['x-forwarded-proto'] || req.protocol || 'https').split(',')[0].trim();
+  return `${proto}://${req.get('host')}`;
+}
+
+app.get('/api/shop/shipping', (req, res) => {
+  res.json({ options: db.getShippingOptions() });
+});
+app.get('/api/admin/shipping', auth.requireAuthApi(['admin']), (req, res) => {
+  res.json({ options: db.getShippingOptions() });
+});
+app.put('/api/admin/shipping', auth.requireAuthApi(['admin']), (req, res) => {
+  const list = Array.isArray(req.body && req.body.options) ? req.body.options : null;
+  if (!list) return res.status(400).json({ error: 'options required' });
+  const clean = [];
+  for (const o of list) {
+    const country = String(o.country || '').toUpperCase();
+    const cents = Number(o.postageCents);
+    if (!/^[A-Z]{2}$/.test(country)) return res.status(400).json({ error: `Unknown country ${o.country}` });
+    if (!Number.isInteger(cents) || cents < 0) return res.status(400).json({ error: `Postage for ${country} must be 0 or more` });
+    if (!clean.some(c => c.country === country)) clean.push({ country, postageCents: cents });
+  }
+  db.setShippingOptions(clean);
+  res.json({ ok: true, options: clean });
+});
+
+app.post('/api/checkout', async (req, res) => {
   try {
     if (!stripe) return res.status(503).json({ error: 'Payments not configured' });
-    const { items, offerCode } = req.body || {}; // items: [{ productId, qty, variant }]
+    const payload = auth.verifyToken(req.cookies?.[auth.COOKIE_NAME]);
+    const parentId = payload && payload.role === 'parent' ? payload.id : null;
+    const { items, offerCode, shippingCountry } = req.body || {};
+    const locale = (req.body && req.body.locale) === 'nl' ? 'nl' : 'en';
     if (!Array.isArray(items) || !items.length) return res.status(400).json({ error: 'No items' });
+
+    const shipping = db.getShippingOptions().find(o => o.country === String(shippingCountry || '').toUpperCase());
+    if (!shipping) return res.status(400).json({ error: locale === 'nl' ? 'Kies een land om naar te bezorgen.' : 'Please choose a country to deliver to.' });
 
     // Resolve the offer code once, up front — same validity checks
     // whether one item or several, and validated here rather than
@@ -1183,25 +1227,39 @@ app.post('/api/checkout', auth.requireAuthApi(['parent']), async (req, res) => {
       return {
         price_data: {
           currency: product.currency,
-          product_data: { name: product.name },
+          product_data: { name: (locale === 'nl' && product.name_nl) ? product.name_nl : product.name },
           unit_amount: unitAmount,
         },
         quantity: qty,
       };
     });
 
-    const orderId = db.createOrder(req.user.id, totalCents, 'gbp');
+    const currency = lineInputs[0].product.currency || 'gbp';
+    const orderId = db.createOrder(parentId, totalCents + shipping.postageCents, currency,
+      { shippingCountry: shipping.country, shippingCents: shipping.postageCents, locale });
     items.forEach(item => {
       const product = db.getProduct(item.productId);
       db.addOrderItem(orderId, item.productId, item.variant, item.qty || 1, product.price_cents);
     });
 
+    const base = appBaseUrl(req);
     const session = await stripe.checkout.sessions.create({
       mode: 'payment',
-      payment_method_types: ['card'],
+      // No payment_method_types: Stripe offers whatever is switched on
+      // in the Stripe dashboard (card, Link, Apple/Google Pay, ...).
       line_items: lineItems,
-      success_url: `${process.env.APP_URL || ''}/merchandise.html?success=1`,
-      cancel_url: `${process.env.APP_URL || ''}/merchandise.html?cancelled=1`,
+      locale,
+      shipping_address_collection: { allowed_countries: [shipping.country] },
+      shipping_options: [{
+        shipping_rate_data: {
+          type: 'fixed_amount',
+          fixed_amount: { amount: shipping.postageCents, currency },
+          display_name: locale === 'nl' ? 'Verzending' : 'Postage',
+        },
+      }],
+      ...(payload && payload.email && parentId ? { customer_email: payload.email } : {}),
+      success_url: `${base}/merchandise.html?success=1&session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${base}/merchandise.html?cancelled=1`,
       metadata: { orderId, offerCode: offer ? offer.code : '' },
     });
     db.setOrderStripeSession(orderId, session.id);
@@ -1212,10 +1270,54 @@ app.post('/api/checkout', auth.requireAuthApi(['parent']), async (req, res) => {
   }
 });
 
-// Stripe webhook — marks the order paid. Needs raw body, mounted before
-// the express.json() middleware would normally consume it, so it's
-// registered with its own express.raw() here.
-app.post('/webhooks/stripe', express.raw({ type: 'application/json' }), (req, res) => {
+// Marks the order paid, stores who and where, and sends the order email
+// to the notify address - once. Called from the Stripe webhook AND when
+// the buyer lands back on the shop, so a missing or slow webhook can't
+// lose an order email; whichever arrives first does the work.
+async function finalizeCheckoutSession(session) {
+  if (!session || session.payment_status !== 'paid') return { paid: false };
+  const order = db.getOrderBySession(session.id);
+  if (!order) return { paid: true, order: null };
+  const cd = session.customer_details || {};
+  const sd = session.shipping_details || (session.collected_information && session.collected_information.shipping_details) || {};
+  const a = sd.address || cd.address || {};
+  const address = [sd.name || cd.name, a.line1, a.line2, [a.postal_code, a.city].filter(Boolean).join(' '), a.state, a.country]
+    .filter(Boolean).join('\n');
+  if (order.status !== 'paid') {
+    db.setOrderPaidDetails(order.id, { name: cd.name || sd.name, email: cd.email, address });
+  }
+  const fresh = db.getOrderBySession(session.id);
+  if (!fresh.notified_at) {
+    db.markOrderNotified(fresh.id); // claim it first, so two callers can't both send
+    const config = db.getAppConfig();
+    const to = config && config.contact_email;
+    if (to) {
+      email.sendOrderNotification(to, { order: fresh, items: db.getOrderItemsDetailed(fresh.id), currency: fresh.currency })
+        .catch(e => console.error('order notification failed:', e.message));
+    } else {
+      console.error('[shop] paid order', fresh.id, 'but no notify email is set in admin');
+    }
+  }
+  return { paid: true, order: fresh };
+}
+
+app.get('/api/checkout/confirm', async (req, res) => {
+  try {
+    if (!stripe) return res.status(503).json({ error: 'Payments not configured' });
+    const id = String(req.query.session_id || '');
+    if (!/^cs_[A-Za-z0-9_]+$/.test(id)) return res.status(400).json({ error: 'Invalid session' });
+    const session = await stripe.checkout.sessions.retrieve(id);
+    const result = await finalizeCheckoutSession(session);
+    res.json({ paid: result.paid });
+  } catch (e) {
+    console.error('checkout confirm failed:', e.message);
+    res.status(500).json({ error: 'Could not confirm the payment right now.' });
+  }
+});
+
+// Stripe webhook — needs the raw body, so it's registered with its own
+// express.raw() here.
+app.post('/webhooks/stripe', express.raw({ type: 'application/json' }), async (req, res) => {
   if (!stripe || !process.env.STRIPE_WEBHOOK_SECRET) return res.status(503).end();
   let event;
   try {
@@ -1223,8 +1325,9 @@ app.post('/webhooks/stripe', express.raw({ type: 'application/json' }), (req, re
   } catch (e) {
     return res.status(400).send(`Webhook signature verification failed: ${e.message}`);
   }
-  if (event.type === 'checkout.session.completed') {
-    db.markOrderPaid(event.data.object.id);
+  if (event.type === 'checkout.session.completed' || event.type === 'checkout.session.async_payment_succeeded') {
+    try { await finalizeCheckoutSession(event.data.object); }
+    catch (e) { console.error('webhook finalize failed:', e.message); }
   }
   res.json({ received: true });
 });

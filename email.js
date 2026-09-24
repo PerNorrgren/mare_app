@@ -173,7 +173,36 @@ function sendTeacherQuestionNotification(to, { name, email, school, message }) {
   return sendEmail(to, `Question from ${name}`, html, { kind: 'teacher_question' });
 }
 
+// Mare App 4 — new paid order, to the notify address (the Mare email),
+// with everything needed to post the parcel.
+function sendOrderNotification(to, { order, items, currency }) {
+  const money = (cents) => {
+    try { return new Intl.NumberFormat('en-GB', { style: 'currency', currency: (currency || 'gbp').toUpperCase() }).format(cents / 100); }
+    catch { return (cents / 100).toFixed(2); }
+  };
+  const rows = items.map(it => {
+    let variant = '';
+    try { const v = JSON.parse(it.variant_json || '{}'); variant = typeof v === 'string' ? v : Object.values(v || {}).join(', '); } catch {}
+    return `<tr><td style="padding:4px 12px 4px 0;">${it.qty} &times; ${escapeHtml(it.product_name || '(deleted product)')}${variant ? ` <span style="color:#6b7a99;">(${escapeHtml(variant)})</span>` : ''}</td><td style="padding:4px 0;text-align:right;">${money(it.price_cents * it.qty)}</td></tr>`;
+  }).join('');
+  const html = `<div style="font-family:'Quicksand',Arial,sans-serif;max-width:520px;margin:0 auto;padding:24px;color:#16305C;">
+    <h2 style="font-family:Georgia,serif;font-size:1.25rem;margin:0 0 16px;">New order — ready to post</h2>
+    <p style="margin:0 0 4px;"><strong>${escapeHtml(order.customer_name || '(no name)')}</strong></p>
+    <p style="margin:0 0 16px;"><a href="mailto:${escapeHtml(order.customer_email || '')}">${escapeHtml(order.customer_email || '(no email)')}</a></p>
+    <p style="margin:0 0 4px;"><strong>Send to:</strong></p>
+    <p style="white-space:pre-line;border-left:3px solid #EAC066;padding-left:12px;margin:0 0 16px;">${escapeHtml(order.shipping_address || '(no address)')}</p>
+    <table style="width:100%;border-collapse:collapse;font-size:0.95rem;">${rows}
+      <tr><td style="padding:4px 12px 4px 0;">Postage</td><td style="padding:4px 0;text-align:right;">${money(order.shipping_cents || 0)}</td></tr>
+      <tr><td style="padding:8px 12px 4px 0;border-top:1px solid #d9dfeb;"><strong>Total paid</strong></td><td style="padding:8px 0 4px;border-top:1px solid #d9dfeb;text-align:right;"><strong>${money(order.total_cents)}</strong></td></tr>
+    </table>
+    <p style="color:#6b7a99;font-size:0.82rem;margin-top:18px;">Order ${escapeHtml(order.id)} · ${order.parent_id === 'guest' ? 'guest checkout' : 'signed-in parent'} · paid via Stripe</p>
+  </div>`;
+  const count = items.reduce((n, it) => n + it.qty, 0);
+  return sendEmail(to, `New order: ${count} item${count === 1 ? '' : 's'} for ${order.customer_name || 'a customer'}`, html, { kind: 'order_notification' });
+}
+
 module.exports = {
+  sendOrderNotification,
   sendEmail,
   sendWelcomeParentEmail,
   sendWelcomeTeacherEmail,

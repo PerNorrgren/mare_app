@@ -42,6 +42,9 @@
     <p class="hero-sub" data-i18n="shopSub">Bring a little of the wood home.</p>
   </section>
 
+  <!-- After returning from Stripe (Mare App 4) -->
+  <div class="shop-banner" id="shop-banner" hidden></div>
+
   <section class="shop-grid" id="shop-grid" aria-label="Products">
     <p class="admin-empty-note" data-i18n="shopLoading">Loading…</p>
   </section>
@@ -96,7 +99,13 @@
       <label for="cart-offer-code" data-i18n="shopOfferCode">Discount code (optional)</label>
       <input type="text" id="cart-offer-code" placeholder="SUMMER20" style="text-transform:uppercase">
     </div>
+    <div class="field">
+      <label for="cart-country" data-i18n="shopDeliverTo">Deliver to</label>
+      <select id="cart-country"></select>
+    </div>
+    <p class="shop-cart-postage" id="cart-postage"></p>
     <p class="shop-cart-total" id="cart-total"></p>
+    <p class="admin-empty-note" data-i18n="shopCheckoutNote">Next you'll give your name, email and delivery address, and pay securely with Stripe. No account needed.</p>
     <p class="form-error" id="cart-error" hidden></p>
     <div class="admin-modal-btns">
       <button type="button" class="btn-ghost" id="cart-close-btn" data-i18n="adminClose">Close</button>

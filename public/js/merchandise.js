@@ -5,7 +5,11 @@
   const isNl = () => window.MareI18n && window.MareI18n.locale === 'nl';
   const pName = p => (isNl() && p.name_nl) ? p.name_nl : p.name;
   const pDesc = p => (isNl() && p.description_nl) ? p.description_nl : (p.description || '');
-  let cart = []; // { productId, name, priceCents, currency, qty, variant }
+  let cart = [];
+  let shippingOptions = []; // [{ country, postageCents }] from admin (Mare App 4)
+  const countryName = (code) => {
+    try { return new Intl.DisplayNames([isNl() ? 'nl' : 'en'], { type: 'region' }).of(code); } catch { return code; }
+  }; // { productId, name, priceCents, currency, qty, variant }
   let currentProduct = null;
   let currentFrameUrls = []; // resolved playback URLs for the open product's 360 frames
   let currentFrameIndex = 0;
@@ -272,10 +276,65 @@
         });
       });
     }
-    const totalCents = cart.reduce((sum, item) => sum + item.priceCents * item.qty, 0);
-    document.getElementById('cart-total').textContent = cart.length
-      ? t('shopCartTotal', 'Total: {amount}', { amount: formatPrice(totalCents, cart[0]?.currency || 'gbp') })
+    const itemsCents = cart.reduce((sum, item) => sum + item.priceCents * item.qty, 0);
+    const currency = cart[0]?.currency || 'gbp';
+    const sel = document.getElementById('cart-country');
+    const option = shippingOptions.find(o => o.country === sel.value);
+    const postageCents = option ? option.postageCents : 0;
+    document.getElementById('cart-postage').textContent = cart.length && option
+      ? t('shopPostage', 'Postage: {amount}', { amount: formatPrice(postageCents, currency) })
       : '';
+    document.getElementById('cart-total').textContent = cart.length
+      ? t('shopCartTotal', 'Total: {amount}', { amount: formatPrice(itemsCents + postageCents, currency) })
+      : '';
+  }
+
+  // Countries the shop posts to, with postage, as set in admin.
+  async function loadShipping() {
+    try {
+      const res = await fetch('/api/shop/shipping');
+      shippingOptions = res.ok ? ((await res.json()).options || []) : [];
+    } catch { shippingOptions = []; }
+    const sel = document.getElementById('cart-country');
+    sel.innerHTML = shippingOptions
+      .map(o => `<option value="${escapeHtml(o.country)}">${escapeHtml(countryName(o.country))}</option>`)
+      .join('');
+    // Sensible first choice: the Netherlands for Dutch visitors, the UK otherwise.
+    const preferred = isNl() ? 'NL' : 'GB';
+    if (shippingOptions.some(o => o.country === preferred)) sel.value = preferred;
+    sel.addEventListener('change', renderCart);
+  }
+
+  // Back from Stripe: confirm the payment (this also triggers the order
+  // email if Stripe's own notification hasn't yet), then say thank you.
+  async function handleCheckoutReturn() {
+    const params = new URLSearchParams(window.location.search);
+    const banner = document.getElementById('shop-banner');
+    if (params.get('cancelled') === '1') {
+      banner.textContent = t('shopCancelled', 'Checkout cancelled — your cart is still here.');
+      banner.hidden = false;
+      return;
+    }
+    if (params.get('success') !== '1') return;
+    let paid = false;
+    try {
+      const sid = params.get('session_id');
+      if (sid) {
+        const res = await fetch(`/api/checkout/confirm?session_id=${encodeURIComponent(sid)}`);
+        if (res.ok) paid = !!(await res.json()).paid;
+      }
+    } catch { /* show the processing message */ }
+    banner.textContent = paid
+      ? t('shopThankYou', 'Thank you for your order! We\'ve received it and will post your parcel soon.')
+      : t('shopProcessing', 'Thank you! Your payment is being processed — we\'ll post your parcel as soon as it\'s complete.');
+    banner.classList.add('shop-banner-success');
+    banner.hidden = false;
+    // The cart is cleared only now, after a completed checkout, so a
+    // cancelled payment leaves it intact.
+    cart = [];
+    saveCart();
+    updateCartCount();
+    history.replaceState(null, '', window.location.pathname);
   }
 
   function setupCart() {
@@ -292,20 +351,12 @@
       errorEl.hidden = true;
       if (!cart.length) { errorEl.textContent = t('shopCartEmpty', 'Your cart is empty.'); errorEl.hidden = false; return; }
 
-      // Checkout requires a signed-in parent — check session first
-      // rather than letting the request 401 and showing a raw error.
-      let sessionOk = false;
-      try {
-        const res = await fetch('/api/me');
-        if (res.ok) {
-          const data = await res.json();
-          sessionOk = data.user && data.user.role === 'parent';
-        }
-      } catch { /* treat as not signed in */ }
-
-      if (!sessionOk) {
-        document.getElementById('cart-modal').hidden = true;
-        document.getElementById('login-prompt').hidden = false;
+      // No account needed (Mare App 4) — Stripe collects name, email
+      // and address. A country with postage must be chosen first.
+      const shippingCountry = document.getElementById('cart-country').value;
+      if (!shippingCountry) {
+        errorEl.textContent = t('shopNoShipping', 'Delivery isn\'t set up yet — please check back soon.');
+        errorEl.hidden = false;
         return;
       }
 
@@ -319,16 +370,15 @@
           body: JSON.stringify({
             items: cart.map(item => ({ productId: item.productId, qty: item.qty, variant: item.variant })),
             offerCode: offerCode || undefined,
+            shippingCountry,
+            locale: isNl() ? 'nl' : 'en',
           }),
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || t('errorGeneric', 'Something went wrong.'));
-        // Cart is intentionally cleared before redirecting — the order
-        // was already created server-side at this point, so leaving
-        // stale items in the cart for a "successful" checkout would be
-        // wrong even though the person is about to leave the page.
-        cart = [];
-        saveCart();
+        // The cart is kept until Stripe sends the buyer back with a
+        // completed payment (handleCheckoutReturn), so cancelling
+        // doesn't lose it.
         window.location.href = data.url;
       } catch (err) {
         errorEl.textContent = err.message;
@@ -382,6 +432,8 @@
     setupProductDetailActions();
     setupCart();
     setupLoginPrompt();
+    await loadShipping();
+    await handleCheckoutReturn();
     await loadProducts();
   }
 

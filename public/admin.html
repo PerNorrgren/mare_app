@@ -430,6 +430,15 @@
       </div>
 
       <div class="admin-card">
+        <h2 data-i18n="adminShippingTitle">Delivery & postage</h2>
+        <p class="admin-card-sub" data-i18n="adminShippingDesc">Tick the countries you post to and set the postage for each, in the same currency as your products. Buyers choose their country in the cart; Stripe then asks for their name, email and address.</p>
+        <div id="shipping-list"></div>
+        <p class="form-error" id="shipping-error" hidden></p>
+        <p class="form-success" id="shipping-success" hidden></p>
+        <button type="button" class="btn-primary" id="shipping-save-btn" data-i18n="adminSaveChanges">Save</button>
+      </div>
+
+      <div class="admin-card">
         <h2 data-i18n="adminSocialLinksTitle">Social links</h2>
         <p class="admin-card-sub" data-i18n="adminSocialLinksDesc">Mare's own accounts — shown in the site footer.</p>
         <form id="social-link-form">
