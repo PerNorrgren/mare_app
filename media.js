@@ -19,7 +19,7 @@
 // This preserves the same Registered/Member/Client/Facilitator/Admin visibility
 // cascade that already governs which files appear in a person's Content tab.
 
-const { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand, HeadObjectCommand } = require('@aws-sdk/client-s3');
+const { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand, HeadObjectCommand, ListObjectsV2Command } = require('@aws-sdk/client-s3');
 const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
 
 const R2_ACCOUNT_ID  = process.env.R2_ACCOUNT_ID;
@@ -147,4 +147,23 @@ async function getPublicObject(key) {
   return result; // .Body is a readable stream; .ContentType is the stored MIME type
 }
 
-module.exports = { isConfigured, getUploadUrl, getPlaybackUrl, deleteObject, putObject, uploadPublicObject, getPublicObject, objectExists, R2_BUCKET };
+// Mare App 4 — for the daily database backups. Lists what is actually
+// stored under a prefix, so pruning works from R2's real contents rather
+// than assuming yesterday's run went to plan. Ported from per_bot.
+async function listObjects(prefix) {
+  if (!client) throw new Error('R2 is not configured.');
+  const out = [];
+  let token;
+  do {
+    const result = await client.send(new ListObjectsV2Command({ Bucket: R2_BUCKET, Prefix: prefix, ContinuationToken: token }));
+    (result.Contents || []).forEach(obj => out.push({
+      key: obj.Key,
+      sizeBytes: obj.Size,
+      modifiedAt: obj.LastModified ? obj.LastModified.toISOString() : null,
+    }));
+    token = result.IsTruncated ? result.NextContinuationToken : undefined;
+  } while (token);
+  return out;
+}
+
+module.exports = { isConfigured, getUploadUrl, getPlaybackUrl, deleteObject, putObject, uploadPublicObject, getPublicObject, listObjects, objectExists, R2_BUCKET };

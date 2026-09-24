@@ -13,14 +13,34 @@ const crypto = require('crypto');
 const DB_PATH = path.join(__dirname, 'db', 'mare.db');
 let db = null;
 
+// sql.js's WASM loader, initialised once and reused — getDb() at boot
+// and restoreFromBuffer() at restore time both need it.
+let sqlJsPromise = null;
+function loadSqlJs() {
+  if (!sqlJsPromise) sqlJsPromise = initSqlJs();
+  return sqlJsPromise;
+}
+
 async function getDb() {
   if (db) return db;
-  const SQL = await initSqlJs();
+  const SQL = await loadSqlJs();
   if (fs.existsSync(DB_PATH)) {
     db = new SQL.Database(fs.readFileSync(DB_PATH));
   } else {
     db = new SQL.Database();
   }
+  ensureSchema();
+  save();
+  return db;
+}
+
+// Every CREATE TABLE IF NOT EXISTS, ALTER-after-CREATE column and
+// idempotent seed, split out of getDb() (Mare App 4) so a restored
+// backup gets exactly the same schema upgrade the live file gets at
+// boot. Fully synchronous on purpose: restoreFromBuffer() swaps the new
+// database in and runs this in the same tick, so no request can ever
+// land on a half-upgraded or missing database.
+function ensureSchema() {
 
   // ── App configuration — single row, brand identity for this app ──
   db.run(`CREATE TABLE IF NOT EXISTS app_config (
@@ -689,14 +709,72 @@ async function getDb() {
        'Mare vindt een pad naar een bos waar de bomen elk woord onthouden dat ooit is gezegd.']);
   }
 
-  save();
-  return db;
 }
 
 function save() {
   if (!db) return;
   fs.mkdirSync(path.dirname(DB_PATH), { recursive: true });
   fs.writeFileSync(DB_PATH, Buffer.from(db.export()));
+}
+
+// ── Database backup and restore (Mare App 4, ported from per_bot) ──
+// The live database is the in-memory sql.js copy, written through to
+// DB_PATH on the Railway volume by save(). exportDbBytes() hands back
+// the same bytes save() writes, for the admin download and the daily
+// R2 backup.
+function exportDbBytes() {
+  if (!db) throw new Error('Database not initialised');
+  return Buffer.from(db.export());
+}
+
+// Replaces the live database with an uploaded backup. Checks, in order:
+// the file is SQLite at all; it is a Mare database (not, say, a Per App
+// backup picked up by mistake — both apps name their files the same
+// way); only then swaps it in. Whatever was live a moment before is
+// copied beside DB_PATH as mare.pre-restore-<timestamp>.db first, so a
+// wrong-file restore can still be undone by hand. The swap and the
+// schema upgrade happen in one synchronous step, and the old database
+// is only closed after the new one is fully in place.
+async function restoreFromBuffer(buffer) {
+  if (!buffer || buffer.length < 100 || buffer.toString('utf8', 0, 15) !== 'SQLite format 3') {
+    throw new Error('That file is not a valid database backup.');
+  }
+  const SQL = await loadSqlJs();
+  let fresh;
+  try {
+    fresh = new SQL.Database(buffer);
+  } catch {
+    throw new Error('That file could not be opened as a database.');
+  }
+  const hasTable = (name) => {
+    const r = fresh.exec(`SELECT name FROM sqlite_master WHERE type='table' AND name='${name}'`);
+    return r.length > 0 && r[0].values.length > 0;
+  };
+  if (!hasTable('parents') || !hasTable('books') || !hasTable('scenes')) {
+    fresh.close();
+    throw new Error('That file is not a Mare app database — nothing was changed.');
+  }
+
+  try {
+    if (fs.existsSync(DB_PATH)) {
+      fs.copyFileSync(DB_PATH, DB_PATH.replace(/\.db$/, `.pre-restore-${Date.now()}.db`));
+    }
+  } catch (e) {
+    console.error('restoreFromBuffer: could not write pre-restore safety copy, proceeding anyway:', e.message);
+  }
+
+  const previous = db;
+  db = fresh;
+  try {
+    ensureSchema();
+  } catch (e) {
+    db = previous;
+    try { fresh.close(); } catch {}
+    throw new Error('That backup could not be brought up to date: ' + e.message);
+  }
+  save();
+  clearAllBookTextCache();
+  try { if (previous) previous.close(); } catch {}
 }
 
 function uuid() { return crypto.randomUUID(); }
@@ -1951,6 +2029,7 @@ function getAllBulkImports() {
 
 module.exports = {
   getDb, save, uuid, run, get, all,
+  exportDbBytes, restoreFromBuffer,
   getParentByEmail, getParentById, createParent, setParentEmailPrefs, updateParentProfile,
   updateParentPasswordHash, primaryChildrenCountForParent, deleteParentAccount,
   getChildrenByParent, createChild, getChild, setChildAgeBand, updateChild, deleteChild,

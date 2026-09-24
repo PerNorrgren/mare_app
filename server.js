@@ -2041,6 +2041,143 @@ app.delete('/api/admin/pages/:id', auth.requireAuthApi(['admin', 'support']), (r
 });
 
 // ─────────────────────────────────────────────────────────────────────
+// DATABASE BACKUPS (Mare App 4) — ported from per_bot's Per App 25/34
+// work. The live database sits on the Railway volume, and Railway's own
+// volume backups can't be downloaded, so this gives admin three things:
+//   1. download a copy of the live database right now;
+//   2. automatic daily backups to R2 (NOT the volume, so a wiped volume
+//      can't take its own backups with it), listed and downloadable;
+//   3. restore from an uploaded backup file.
+// All admin-only — support accounts never see any of it.
+// ─────────────────────────────────────────────────────────────────────
+
+// Kept apart from everything else in Mare's own R2 bucket; never mixes
+// with per_bot's backups, which live in per_bot's bucket.
+const BACKUP_R2_PREFIX = 'db-backups/';
+const BACKUP_FILE_RE = /^mare-backup-(\d{4}-\d{2}-\d{2})\.db$/;
+// Result of the most recent daily or "Back up now" run since this
+// server started — lets the admin tab say plainly when the last attempt
+// failed, instead of a silent gap in the list.
+let lastBackupRun = null;
+
+// Grandfather-father-son retention, same as per_bot: the last 7 days
+// as dailies, the last 5 Mondays as weeklies, the 1st of the month for
+// the last 12 months. A date that fits more than one tier is simply
+// kept once. Dates are UTC calendar days, matching the file stamps.
+function computeBackupsToKeep(existingDates) {
+  const keep = new Set();
+  const today = new Date();
+  const y = today.getUTCFullYear(), m = today.getUTCMonth(), d = today.getUTCDate();
+  for (let i = 0; i < 7; i++) keep.add(new Date(Date.UTC(y, m, d - i)).toISOString().slice(0, 10));
+  const daysSinceMonday = (today.getUTCDay() + 6) % 7;
+  for (let i = 0; i < 5; i++) keep.add(new Date(Date.UTC(y, m, d - daysSinceMonday - 7 * i)).toISOString().slice(0, 10));
+  for (let i = 0; i < 12; i++) keep.add(new Date(Date.UTC(y, m - i, 1)).toISOString().slice(0, 10));
+  return existingDates.filter(date => keep.has(date));
+}
+
+async function runDailyBackup() {
+  const startedAt = new Date().toISOString();
+  try {
+    if (!media.isConfigured()) throw new Error('R2 is not configured, so backups cannot be stored.');
+    const stamp = startedAt.slice(0, 10);
+    const file = `mare-backup-${stamp}.db`;
+    const bytes = db.exportDbBytes();
+    await media.putObject(BACKUP_R2_PREFIX + file, bytes, 'application/octet-stream');
+
+    // Prune from what R2 actually holds now, so a missed day just
+    // leaves a gap rather than throwing the schedule off.
+    const existing = await media.listObjects(BACKUP_R2_PREFIX);
+    const dateOf = (obj) => (obj.key.slice(BACKUP_R2_PREFIX.length).match(BACKUP_FILE_RE) || [])[1];
+    const toKeep = new Set(computeBackupsToKeep(existing.map(dateOf).filter(Boolean)));
+    const toDelete = existing.filter(obj => { const date = dateOf(obj); return date && !toKeep.has(date); });
+    for (const obj of toDelete) {
+      try { await media.deleteObject(obj.key); }
+      catch (e) { console.error('[backup] prune failed for', obj.key, e.message); }
+    }
+    lastBackupRun = { ok: true, at: startedAt, file, sizeBytes: bytes.length, pruned: toDelete.length };
+    return lastBackupRun;
+  } catch (e) {
+    lastBackupRun = { ok: false, at: startedAt, error: e.message };
+    throw e;
+  }
+}
+
+app.get('/api/admin/backup/download', auth.requireAuthApi(['admin']), (req, res) => {
+  try {
+    const bytes = db.exportDbBytes();
+    // Time in the name as well as the date, so two downloads on the
+    // same day don't end up as "file (1).db" on your computer.
+    const stamp = new Date().toISOString().slice(0, 16).replace('T', '-').replace(':', '');
+    res.setHeader('Content-Type', 'application/octet-stream');
+    res.setHeader('Content-Disposition', `attachment; filename="mare-backup-${stamp}.db"`);
+    res.setHeader('Cache-Control', 'no-store');
+    res.send(bytes);
+  } catch (e) {
+    console.error('backup download failed:', e.message);
+    res.status(500).json({ error: 'Could not export the database right now.' });
+  }
+});
+
+// The browser sends the .db file as the raw request body (no multer in
+// this app, and none needed for one file). 200mb is far above the
+// database's real size; the global express.json() limit doesn't apply
+// to this content type.
+app.post('/api/admin/backup/restore',
+  auth.requireAuthApi(['admin']),
+  express.raw({ type: 'application/octet-stream', limit: '200mb' }),
+  async (req, res) => {
+    try {
+      if (!Buffer.isBuffer(req.body) || !req.body.length) return res.status(400).json({ error: 'No file received.' });
+      await db.restoreFromBuffer(req.body);
+      // Talk sessions held in memory point at rows from the old
+      // database — drop them so nothing carries across the restore.
+      talkSessions.clear();
+      console.log(`[backup] database restored from upload by ${req.user.email || req.user.id} (${req.body.length} bytes)`);
+      res.json({ ok: true });
+    } catch (e) {
+      console.error('backup restore failed:', e.message);
+      res.status(400).json({ error: e.message });
+    }
+  });
+
+app.post('/api/admin/backup/run', auth.requireAuthApi(['admin']), async (req, res) => {
+  try {
+    res.json(await runDailyBackup());
+  } catch (e) {
+    console.error('manual backup failed:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.get('/api/admin/backup/daily', auth.requireAuthApi(['admin']), async (req, res) => {
+  const base = { configured: media.isConfigured(), lastRun: lastBackupRun };
+  if (!base.configured) return res.json({ ...base, backups: [] });
+  try {
+    const objs = await media.listObjects(BACKUP_R2_PREFIX);
+    const backups = objs
+      .map(o => ({ filename: o.key.slice(BACKUP_R2_PREFIX.length), sizeBytes: o.sizeBytes, modifiedAt: o.modifiedAt }))
+      .filter(b => BACKUP_FILE_RE.test(b.filename))
+      .sort((a, b) => b.filename.localeCompare(a.filename));
+    res.json({ ...base, backups });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.get('/api/admin/backup/daily/:filename', auth.requireAuthApi(['admin']), async (req, res) => {
+  if (!BACKUP_FILE_RE.test(req.params.filename)) return res.status(400).json({ error: 'Invalid backup filename.' });
+  try {
+    const obj = await media.getPublicObject(BACKUP_R2_PREFIX + req.params.filename);
+    res.setHeader('Content-Type', 'application/octet-stream');
+    res.setHeader('Content-Disposition', `attachment; filename="${req.params.filename}"`);
+    res.setHeader('Cache-Control', 'no-store');
+    obj.Body.pipe(res);
+  } catch (e) {
+    res.status(404).json({ error: 'Backup not found.' });
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────
 // "Messages from Mare" — daily/weekly opt-in email, same cron shape as
 // per_bot's custom_reminders (hourly tick, dedup via a sent-today log).
 // Actual email send + Mare-voiced content generation is left as a stub
@@ -2073,6 +2210,17 @@ function startCron() {
       sendBroadcastNow(b).catch(e => console.error('scheduled broadcast send failed:', e.message));
     });
   });
+
+  // Daily database backup to R2 — 01:00 UK time, same as Per App, so a
+  // fresh copy is waiting at the start of the day.
+  cron.schedule('0 1 * * *', async () => {
+    try {
+      const result = await runDailyBackup();
+      console.log('[cron] daily backup:', JSON.stringify(result));
+    } catch (e) {
+      console.error('[cron] daily backup failed:', e.message);
+    }
+  }, { timezone: 'Europe/London' });
 }
 
 // ─────────────────────────────────────────────────────────────────────

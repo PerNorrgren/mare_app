@@ -166,6 +166,8 @@
     if (isAdmin) loadStaff();
     if (isAdmin) loadEmailLog();
     if (isAdmin) setupClearEmailLog();
+    if (isAdmin) setupBackups();
+    if (isAdmin) loadBackups();
   }
 
   function setupTabs() {
@@ -181,6 +183,7 @@
         // rather than making the admin manually reload the page to see
         // their own action reflected.
         if (target === 'emaillog' && currentUser && currentUser.role === 'admin') loadEmailLog();
+        if (target === 'backups' && currentUser && currentUser.role === 'admin') loadBackups();
         if (target === 'directory') { loadDirectory(); loadAdminSettings(); }
       });
     });
@@ -732,6 +735,123 @@
     table.appendChild(tbody);
     container.innerHTML = '';
     container.appendChild(table);
+  }
+
+  // ── Backups (admin only) ──
+  function formatBytes(n) {
+    if (n == null) return '';
+    if (n < 1024 * 1024) return `${Math.max(1, Math.round(n / 1024))} KB`;
+    return `${(n / (1024 * 1024)).toFixed(1)} MB`;
+  }
+  function formatWhen(iso) {
+    if (!iso) return '';
+    try {
+      return new Date(iso).toLocaleString(window.MareI18n.locale === 'nl' ? 'nl-NL' : 'en-GB',
+        { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+    } catch { return iso; }
+  }
+
+  async function loadBackups() {
+    const container = document.getElementById('backup-daily-table');
+    const lastRunEl = document.getElementById('backup-last-run');
+    try {
+      const data = await api('/api/admin/backup/daily');
+      if (data.lastRun) {
+        lastRunEl.textContent = data.lastRun.ok
+          ? t('adminBackupLastRunOk', { when: formatWhen(data.lastRun.at) })
+          : t('adminBackupLastRunFailed', { when: formatWhen(data.lastRun.at), error: data.lastRun.error || '' });
+        lastRunEl.style.color = data.lastRun.ok ? '' : '#A33B3B';
+        lastRunEl.hidden = false;
+      } else {
+        lastRunEl.hidden = true;
+      }
+      if (!data.configured) {
+        container.innerHTML = `<p class="admin-empty-note">${escapeHtml(t('adminBackupNotConfigured'))}</p>`;
+        return;
+      }
+      const rows = data.backups || [];
+      if (!rows.length) {
+        container.innerHTML = `<p class="admin-empty-note">${escapeHtml(t('adminBackupNoneYet'))}</p>`;
+        return;
+      }
+      const table = document.createElement('table');
+      table.className = 'admin-table';
+      table.innerHTML = `<thead><tr>
+        <th>${escapeHtml(t('adminBackupColFile'))}</th>
+        <th>${escapeHtml(t('adminBackupColSaved'))}</th>
+        <th>${escapeHtml(t('adminBackupColSize'))}</th>
+        <th></th>
+      </tr></thead>`;
+      const tbody = document.createElement('tbody');
+      rows.forEach(row => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${escapeHtml(row.filename)}</td>
+          <td>${escapeHtml(formatWhen(row.modifiedAt))}</td>
+          <td>${escapeHtml(formatBytes(row.sizeBytes))}</td>
+          <td><a class="btn-ghost btn-small" href="/api/admin/backup/daily/${encodeURIComponent(row.filename)}">${escapeHtml(t('adminBackupDownloadShort'))}</a></td>
+        `;
+        tbody.appendChild(tr);
+      });
+      table.appendChild(tbody);
+      container.innerHTML = '';
+      container.appendChild(table);
+    } catch {
+      container.innerHTML = `<p class="admin-empty-note">${escapeHtml(t('adminBackupCouldNotLoad'))}</p>`;
+    }
+  }
+
+  function setupBackups() {
+    const runBtn = document.getElementById('backup-run-btn');
+    runBtn.addEventListener('click', async () => {
+      const label = runBtn.textContent;
+      runBtn.disabled = true;
+      runBtn.textContent = t('adminBackupRunning');
+      try {
+        await api('/api/admin/backup/run', { method: 'POST' });
+      } catch (err) {
+        alert(err.message || t('errorGeneric'));
+      } finally {
+        runBtn.disabled = false;
+        runBtn.textContent = label;
+        loadBackups();
+      }
+    });
+
+    const fileInput = document.getElementById('backup-restore-file');
+    const restoreBtn = document.getElementById('backup-restore-btn');
+    const errorEl = document.getElementById('backup-restore-error');
+    fileInput.addEventListener('change', () => {
+      restoreBtn.disabled = !fileInput.files.length;
+      errorEl.hidden = true;
+    });
+    restoreBtn.addEventListener('click', async () => {
+      const file = fileInput.files[0];
+      if (!file) return;
+      errorEl.hidden = true;
+      if (!window.confirm(t('adminBackupRestoreConfirm', { file: file.name }))) return;
+      const label = restoreBtn.textContent;
+      restoreBtn.disabled = true;
+      fileInput.disabled = true;
+      restoreBtn.textContent = t('adminBackupRestoring');
+      try {
+        const res = await fetch('/api/admin/backup/restore', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/octet-stream' },
+          body: file,
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error || t('errorGeneric'));
+        alert(t('adminBackupRestoreDone'));
+        window.location.reload();
+      } catch (err) {
+        errorEl.textContent = err.message || t('errorGeneric');
+        errorEl.hidden = false;
+        restoreBtn.disabled = false;
+        fileInput.disabled = false;
+        restoreBtn.textContent = label;
+      }
+    });
   }
 
   // ── Email log (admin only) ──
