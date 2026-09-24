@@ -232,11 +232,17 @@
   // ── Teacher resources ──
   function setupResourceForm() {
     const categorySelect = document.getElementById('r-category');
-    categorySelect.addEventListener('change', () => {
+    // Show the file picker for Document, the URL box for Tool/Link.
+    // Run once at setup too: the form opens on Document, and the HTML's
+    // starting state (URL shown, file hidden) used to stay wrong until
+    // the type was changed and changed back.
+    function syncResourceFields() {
       const isDoc = categorySelect.value === 'document';
       document.getElementById('r-file-field').hidden = !isDoc;
       document.getElementById('r-url-field').hidden = isDoc;
-    });
+    }
+    categorySelect.addEventListener('change', syncResourceFields);
+    syncResourceFields();
 
     document.getElementById('resource-form').addEventListener('submit', async (e) => {
       e.preventDefault();
@@ -266,8 +272,7 @@
 
         document.getElementById('resource-form').reset();
         document.getElementById('r-upload-status').textContent = '';
-        document.getElementById('r-file-field').hidden = true;
-        document.getElementById('r-url-field').hidden = false;
+        syncResourceFields(); // reset() puts Type back to Document
         await loadResources();
       } catch (err) {
         showError('resource-error', err.message || t('adminErrorSaveResource'));
