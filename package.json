@@ -16,6 +16,7 @@
     "jsonwebtoken": "^9.0.2",
     "node-cron": "^4.5.0",
     "node-fetch": "^2.7.0",
+    "pdf-lib": "^1.17.1",
     "sql.js": "^1.14.1",
     "stripe": "^14.0.0",
     "uuid": "^9.0.1",

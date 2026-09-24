@@ -199,6 +199,55 @@
     document.getElementById('hub-view').hidden = true;
     document.getElementById('public-view').hidden = false;
     document.body.classList.add('auth-atmosphere');
+    loadPeekDocs();
+  }
+
+  // "Take a look inside" — the documents available in this language,
+  // each with a preview (first pages, cut on the server) or, if it
+  // can't be previewed, a sign-in prompt. (Mare App 4)
+  async function loadPeekDocs() {
+    const t = window.MareI18n.t;
+    const box = document.getElementById('peek-docs');
+    const lang = window.MareI18n.locale === 'nl' ? 'nl' : 'en';
+    let data = { resources: [], previewPages: 0 };
+    try {
+      const res = await fetch(`/api/teacher/resources/public?lang=${lang}`);
+      if (res.ok) data = await res.json();
+    } catch { /* falls through to the empty note */ }
+    box.innerHTML = '';
+    if (!data.resources.length) {
+      const p = document.createElement('p');
+      p.className = 'peek-empty';
+      p.textContent = t('teacherPeekDocsEmpty');
+      box.appendChild(p);
+      return;
+    }
+    data.resources.forEach(r => {
+      const item = document.createElement('div');
+      item.className = 'peek-doc';
+      const h = document.createElement('h4');
+      h.textContent = r.title;
+      item.appendChild(h);
+      if (r.description) {
+        const d = document.createElement('p');
+        d.textContent = r.description;
+        item.appendChild(d);
+      }
+      const a = document.createElement('a');
+      if (r.previewable) {
+        a.className = 'btn-primary peek-doc-btn';
+        a.href = `/api/teacher/resources/${encodeURIComponent(r.id)}/open`;
+        a.target = '_blank';
+        a.rel = 'noopener';
+        a.textContent = t('teacherPeekPreviewBtn', { n: data.previewPages });
+      } else {
+        a.className = 'btn-ghost peek-doc-btn';
+        a.href = '/teacher-login.html';
+        a.textContent = t('teacherPeekSignInToOpen');
+      }
+      item.appendChild(a);
+      box.appendChild(item);
+    });
   }
 
   async function init() {

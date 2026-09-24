@@ -44,19 +44,58 @@
     </div>
 
     <div class="benefit-grid">
-      <div class="benefit-card">
+      <a class="benefit-card benefit-card-link" href="#peek-practice">
         <h3 data-i18n="teacherBenefit1Title">Ready before the bell rings</h3>
         <p data-i18n="teacherBenefit1Desc">Narrated sessions, calming activities, and discussion prompts already built — press play and the whole class settles together, no prep the night before.</p>
-      </div>
-      <div class="benefit-card">
+        <span class="benefit-more" data-i18n="teacherPeekMore">Take a look inside ↓</span>
+      </a>
+      <a class="benefit-card benefit-card-link" href="#peek-science">
         <h3 data-i18n="teacherBenefit2Title">Built on real practice</h3>
         <p data-i18n="teacherBenefit2Desc">Grounded in the FELT·FIBRE framework for nervous-system regulation — written by a meditation teacher and a child psychologist, not repackaged as another story app.</p>
-      </div>
-      <div class="benefit-card">
+        <span class="benefit-more" data-i18n="teacherPeekMore">Take a look inside ↓</span>
+      </a>
+      <a class="benefit-card benefit-card-link" href="#peek-toolkit">
         <h3 data-i18n="teacherBenefit3Title">A toolkit that keeps growing</h3>
         <p data-i18n="teacherBenefit3Desc">Lesson guides, printable handouts, and classroom tools in one place — sign in and new material shows up here as it's ready, no separate download each time.</p>
-      </div>
+        <span class="benefit-more" data-i18n="teacherPeekMore">Take a look inside ↓</span>
+      </a>
     </div>
+
+
+    <!-- ── Take a look inside (Mare App 4) — what signed-out visitors
+         can see. Each benefit card above links to one panel. Practice
+         and science text is Patricia's, verbatim from the Teacher's
+         Guide in each language. ── -->
+    <section class="peek" id="peek">
+      <h2 class="peek-title" data-i18n="teacherPeekTitle">Take a look inside</h2>
+      <p class="peek-sub" data-i18n="teacherPeekSub">A few pages of what teachers get, open to everyone. Sign in for all of it.</p>
+
+      <article class="peek-panel" id="peek-practice">
+        <span class="peek-label" data-i18n="teacherPeekPracticeLabel">From the Teacher's Guide · Chapter 1, The birthday party</span>
+        <h3 data-i18n="teacherPeekPracticeTitle">Two practices, ready for tomorrow morning</h3>
+        <h4 data-i18n="teacherPeekPractice1Title">Feet and three breaths (1 min)</h4>
+        <p data-i18n="teacherPeekPractice1Body"></p>
+        <h4 data-i18n="teacherPeekPractice2Title">Give it a name (2 mins)</h4>
+        <p data-i18n="teacherPeekPractice2Body"></p>
+        <p class="peek-note" data-i18n="teacherPeekPracticeNote"></p>
+      </article>
+
+      <article class="peek-panel" id="peek-science">
+        <span class="peek-label" data-i18n="teacherPeekScienceLabel">From the Teacher's Guide</span>
+        <h3 data-i18n="teacherPeekScienceTitle">Why these little exercises work</h3>
+        <p data-i18n="teacherPeekScienceP1"></p>
+        <p data-i18n="teacherPeekScienceP2"></p>
+        <p data-i18n="teacherPeekScienceP3"></p>
+        <p class="peek-note" data-i18n="teacherPeekAuthors"></p>
+      </article>
+
+      <article class="peek-panel" id="peek-toolkit">
+        <span class="peek-label" data-i18n="teacherPeekToolkitLabel">For teachers</span>
+        <h3 data-i18n="teacherPeekToolkitTitle">What's ready for you</h3>
+        <div class="peek-docs" id="peek-docs"></div>
+        <p class="peek-note" data-i18n="teacherPeekToolkitNote"></p>
+      </article>
+    </section>
 
     <div class="belonging-band">
       <h2 data-i18n="teacherBelongingTitle">You're part of shaping this</h2>

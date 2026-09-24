@@ -24,6 +24,7 @@ const fetch = require('node-fetch');
 const Stripe = require('stripe');
 const WebSocket = require('ws');
 const Anthropic = require('@anthropic-ai/sdk');
+const { PDFDocument, StandardFonts, rgb } = require('pdf-lib');
 
 const db = require('./db');
 const auth = require('./auth');
@@ -1902,10 +1903,11 @@ app.get('/api/admin/settings', auth.requireAuthApi(['admin', 'support']), (req, 
     previewSceneLimit: db.getPreviewSceneLimit(),
     clubMarePreviewLimit: db.getClubMarePreviewLimit(),
     talkPreviewMessageLimit: db.getTalkPreviewMessageLimit(),
+    teacherDocPreviewPages: db.getTeacherDocPreviewPages(),
   });
 });
 app.put('/api/admin/settings', auth.requireAuthApi(['admin', 'support']), (req, res) => {
-  const { notifyEmail, previewSceneLimit, clubMarePreviewLimit, talkPreviewMessageLimit } = req.body || {};
+  const { notifyEmail, previewSceneLimit, clubMarePreviewLimit, talkPreviewMessageLimit, teacherDocPreviewPages } = req.body || {};
   if (notifyEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(notifyEmail)) {
     return res.status(400).json({ error: 'That doesn\'t look like a valid email address' });
   }
@@ -1917,11 +1919,14 @@ app.put('/api/admin/settings', auth.requireAuthApi(['admin', 'support']), (req, 
   };
   const err = checkNonNegativeInt(previewSceneLimit, 'Preview scene limit')
     || checkNonNegativeInt(clubMarePreviewLimit, 'Club Mare preview limit')
-    || checkNonNegativeInt(talkPreviewMessageLimit, 'Talk preview message limit');
+    || checkNonNegativeInt(talkPreviewMessageLimit, 'Talk preview message limit')
+    || checkNonNegativeInt(teacherDocPreviewPages, 'Teacher documents preview pages');
   if (err) return res.status(400).json({ error: err });
   if (previewSceneLimit !== undefined) db.setPreviewSceneLimit(Number(previewSceneLimit));
   if (clubMarePreviewLimit !== undefined) db.setClubMarePreviewLimit(Number(clubMarePreviewLimit));
   if (talkPreviewMessageLimit !== undefined) db.setTalkPreviewMessageLimit(Number(talkPreviewMessageLimit));
+  if (teacherDocPreviewPages !== undefined) db.setTeacherDocPreviewPages(Number(teacherDocPreviewPages));
+  teacherPreviewCache.clear(); // page count may have changed
   db.setNotifyEmail(notifyEmail || null);
   res.json({ ok: true });
 });
@@ -2027,10 +2032,123 @@ app.delete('/api/admin/teacher-resources/:id', auth.requireAuthApi(['admin', 'su
 // see) get a freshly signed link and the PDF opens in the browser;
 // anyone else is sent to the teacher login. This is also where the
 // signed-out preview will plug in.
+// ── Teacher document preview (Mare App 4) ──
+// Signed-out visitors (and parents) opening a teacher PDF get its first
+// few pages - the number is the "Teacher documents preview" setting in
+// admin - plus a closing page, in the document's own language, telling
+// them how to get the whole thing. Cut on the server with pdf-lib, so
+// the full file never reaches a signed-out browser. Built once per
+// document/page count and kept in memory; cleared when the setting
+// changes or the server restarts.
+const teacherPreviewCache = new Map(); // `${id}|${file_key}|${pages}` -> Buffer
+
+function isPdfResource(r) {
+  return !!(r && r.file_key && /\.pdf$/i.test(r.file_key));
+}
+
+async function streamToBuffer(stream) {
+  const chunks = [];
+  for await (const chunk of stream) chunks.push(Buffer.from(chunk));
+  return Buffer.concat(chunks);
+}
+
+// Helvetica (the built-in PDF font) only covers Western European
+// characters; anything else in a title is swapped rather than
+// crashing the preview.
+function pdfSafe(text) {
+  return String(text || '').replace(/[^\x20-\xFF\u2018\u2019\u201C\u201D\u2013\u2014\u2026\u20AC]/g, '?');
+}
+
+function wrapText(text, font, size, maxWidth) {
+  const lines = [];
+  let line = '';
+  for (const word of text.split(/\s+/)) {
+    const next = line ? `${line} ${word}` : word;
+    if (font.widthOfTextAtSize(next, size) > maxWidth && line) { lines.push(line); line = word; }
+    else line = next;
+  }
+  if (line) lines.push(line);
+  return lines;
+}
+
+async function buildTeacherDocPreview(resource, pages) {
+  const cacheKey = `${resource.id}|${resource.file_key}|${pages}`;
+  if (teacherPreviewCache.has(cacheKey)) return teacherPreviewCache.get(cacheKey);
+
+  const obj = await media.getPublicObject(resource.file_key);
+  const full = await PDFDocument.load(await streamToBuffer(obj.Body), { ignoreEncryption: true });
+  const total = full.getPageCount();
+  // Never hand out the whole document: at most total - 1 pages.
+  const count = Math.max(1, Math.min(pages, total - 1));
+
+  const out = await PDFDocument.create();
+  const copied = await out.copyPages(full, Array.from({ length: count }, (_, i) => i));
+  copied.forEach(p => out.addPage(p));
+
+  // Closing page, same size as the document's first page.
+  const { width, height } = full.getPage(0).getSize();
+  const page = out.addPage([width, height]);
+  page.drawRectangle({ x: 0, y: 0, width, height, color: rgb(0.96, 0.94, 0.88) });
+  const bold = await out.embedFont(StandardFonts.HelveticaBold);
+  const regular = await out.embedFont(StandardFonts.Helvetica);
+  const nl = resource.language === 'nl';
+  const heading = nl ? 'Dit is het einde van het voorproefje' : "That's the end of the preview";
+  const body = nl
+    ? `Je hebt de eerste ${count} pagina's van \u201C${resource.title}\u201D gelezen. Log in als leerkracht op mare.deepermindfulness.org/teacher.html om het volledige document te lezen. Nieuw bij Mare? Kies \u201CToegang aanvragen\u201D bij het inloggen.`
+    : `You've read the first ${count} pages of \u201C${resource.title}\u201D. Sign in as a teacher at mare.deepermindfulness.org/teacher.html to read the complete document. New to Mare? Choose \u201CRequest access\u201D when you sign in.`;
+  const margin = width * 0.14;
+  const navy = rgb(0.086, 0.188, 0.361);
+  let y = height * 0.62;
+  for (const line of wrapText(pdfSafe(heading), bold, 22, width - 2 * margin)) {
+    page.drawText(line, { x: margin, y, size: 22, font: bold, color: navy }); y -= 30;
+  }
+  y -= 14;
+  for (const line of wrapText(pdfSafe(body), regular, 13, width - 2 * margin)) {
+    page.drawText(line, { x: margin, y, size: 13, font: regular, color: navy }); y -= 20;
+  }
+
+  const bytes = Buffer.from(await out.save());
+  if (teacherPreviewCache.size >= 20) teacherPreviewCache.delete(teacherPreviewCache.keys().next().value);
+  teacherPreviewCache.set(cacheKey, bytes);
+  return bytes;
+}
+
+// Public list for the signed-out teacher page's "Take a look inside":
+// titles and descriptions only, never file keys or URLs.
+app.get('/api/teacher/resources/public', (req, res) => {
+  const lang = req.query.lang === 'nl' ? 'nl' : 'en';
+  const pages = db.getTeacherDocPreviewPages();
+  const resources = db.getActiveTeacherResources(lang).map(r => ({
+    id: r.id,
+    title: r.title,
+    description: r.description,
+    category: r.category,
+    previewable: pages > 0 && isPdfResource(r),
+  }));
+  res.json({ resources, previewPages: pages });
+});
+
 app.get('/api/teacher/resources/:id/open', async (req, res) => {
   const payload = auth.verifyToken(req.cookies?.[auth.COOKIE_NAME]);
   const allowed = payload && ['teacher', 'admin', 'support'].includes(payload.role);
-  if (!allowed) return res.redirect('/teacher-login.html');
+  if (!allowed) {
+    // Not a teacher: the preview if there is one, otherwise the login.
+    const pages = db.getTeacherDocPreviewPages();
+    const resource = db.getTeacherResourceById(req.params.id);
+    if (pages > 0 && resource && resource.active && isPdfResource(resource)) {
+      try {
+        const bytes = await buildTeacherDocPreview(resource, pages);
+        const base = resource.file_key.split('/').pop().replace(/^\d+-/, '').replace(/\.pdf$/i, '').replace(/["\\]/g, '');
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `inline; filename="${base}-preview.pdf"`);
+        res.setHeader('Cache-Control', 'private, max-age=300');
+        return res.send(bytes);
+      } catch (e) {
+        console.error('teacher doc preview failed:', e.message);
+      }
+    }
+    return res.redirect('/teacher-login.html');
+  }
   const resource = db.getTeacherResourceById(req.params.id);
   if (!resource || (!resource.active && payload.role === 'teacher')) return res.status(404).send('Not found');
   try {

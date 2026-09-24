@@ -651,6 +651,7 @@
       document.getElementById('preview-scene-limit').value = data.previewSceneLimit ?? '';
       document.getElementById('club-mare-preview-limit').value = data.clubMarePreviewLimit ?? '';
       document.getElementById('talk-preview-message-limit').value = data.talkPreviewMessageLimit ?? '';
+      document.getElementById('teacher-doc-preview-pages').value = data.teacherDocPreviewPages ?? '';
     } catch {
       // Non-critical — the fields just stay blank if this fails, no
       // need for a dedicated error state on a couple of inputs.
@@ -675,6 +676,7 @@
             previewSceneLimit: numOrUndefined('preview-scene-limit'),
             clubMarePreviewLimit: numOrUndefined('club-mare-preview-limit'),
             talkPreviewMessageLimit: numOrUndefined('talk-preview-message-limit'),
+            teacherDocPreviewPages: numOrUndefined('teacher-doc-preview-pages'),
           }),
         });
         successEl.textContent = t('adminSaved');

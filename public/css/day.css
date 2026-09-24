@@ -1172,3 +1172,34 @@ body.auth-atmosphere .brand { color: var(--gold); }
   background: rgba(22,48,92,0.06);
   border-color: #16305C;
 }
+
+/* ── Teacher page: clickable benefit cards + "Take a look inside"
+   (Mare App 4). Cards are now links to the panels below; panels are
+   white reading cards so longer text stays comfortable to read. ── */
+.benefit-card-link { display: block; text-decoration: none; color: inherit; transition: transform 0.2s, border-color 0.2s; }
+.auth-atmosphere #public-view .benefit-card-link:hover { transform: translateY(-2px); border-color: rgba(234,192,102,0.6); }
+.benefit-more { display: inline-block; margin-top: 12px; font-weight: 700; font-size: 0.88rem; color: var(--gold); }
+html:has(#peek) { scroll-behavior: smooth; }
+.peek { max-width: 820px; margin: 40px auto 8px; padding: 0 clamp(16px, 4vw, 24px); }
+.peek-title {
+  font-family: 'Fraunces', serif; font-weight: 600; font-size: clamp(1.5rem, 3.6vw, 2rem);
+  color: var(--gold); text-align: center; margin: 0 0 6px; text-shadow: 0 0 24px rgba(234,192,102,0.35);
+}
+.peek-sub { text-align: center; margin: 0 0 22px; color: rgba(243,236,217,0.8); font-weight: 600; }
+.peek-panel {
+  background: #FFFFFF; border-radius: 18px; padding: clamp(20px, 4vw, 34px);
+  margin-bottom: 18px; box-shadow: 0 16px 48px rgba(0,0,0,0.35);
+  color: #243049; line-height: 1.65; scroll-margin-top: 96px;
+}
+.peek-label { display: block; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #9A7A2E; margin-bottom: 6px; }
+.peek-panel h3 { font-family: 'Fraunces', serif; font-weight: 600; font-size: 1.35rem; color: #16305C; margin: 0 0 12px; }
+.peek-panel h4 { font-weight: 700; font-size: 1rem; color: #16305C; margin: 16px 0 4px; }
+.peek-panel p { margin: 0 0 12px; }
+.peek-note { font-size: 0.92rem; color: #4A5A78; border-top: 1px solid rgba(22,48,92,0.1); padding-top: 12px; margin-top: 16px !important; }
+.peek-doc { padding: 14px 0; border-bottom: 1px solid rgba(22,48,92,0.1); }
+.peek-doc:last-child { border-bottom: none; }
+.peek-doc h4 { margin-top: 0; }
+.peek-doc p { color: #4A5A78; }
+.peek-doc-btn { display: inline-block; text-decoration: none; font-size: 0.9rem; }
+.auth-atmosphere #public-view .peek-doc .btn-ghost { color: #16305C; border-color: rgba(22,48,92,0.28); }
+.peek-empty { color: #4A5A78; font-style: italic; }

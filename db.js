@@ -688,6 +688,9 @@ function ensureSchema() {
   try { db.run(`ALTER TABLE app_config ADD COLUMN preview_scene_limit INTEGER`); } catch {}
   try { db.run(`ALTER TABLE app_config ADD COLUMN club_mare_preview_limit INTEGER`); } catch {}
   try { db.run(`ALTER TABLE app_config ADD COLUMN talk_preview_message_limit INTEGER`); } catch {}
+  // Mare App 4 — how many pages of a teacher PDF a signed-out visitor
+  // can preview (0 = no preview, straight to the teacher login).
+  try { db.run(`ALTER TABLE app_config ADD COLUMN teacher_doc_preview_pages INTEGER`); } catch {}
   // Counts actual user turns only (not the free opening line — see the
   // comment on incrementTalkSessionMessageCount's call site) — compared
   // against getTalkPreviewMessageLimit() for user_role='anonymous'
@@ -1788,6 +1791,15 @@ function getTalkPreviewMessageLimit() {
 function setTalkPreviewMessageLimit(value) {
   run(`UPDATE app_config SET talk_preview_message_limit = ? WHERE id = 'default'`, [value]);
 }
+const DEFAULT_TEACHER_DOC_PREVIEW_PAGES = 4;
+function getTeacherDocPreviewPages() {
+  const config = getAppConfig();
+  const v = config && config.teacher_doc_preview_pages;
+  return (v === null || v === undefined) ? DEFAULT_TEACHER_DOC_PREVIEW_PAGES : v;
+}
+function setTeacherDocPreviewPages(value) {
+  run(`UPDATE app_config SET teacher_doc_preview_pages = ? WHERE id = 'default'`, [value]);
+}
 function incrementTalkSessionMessageCount(sessionId) {
   run(`UPDATE talk_sessions SET message_count = message_count + 1 WHERE id = ?`, [sessionId]);
 }
@@ -2049,6 +2061,7 @@ module.exports = {
   getPreviewSceneLimit, setPreviewSceneLimit, getScenePosition,
   getClubMarePreviewLimit, setClubMarePreviewLimit,
   getTalkPreviewMessageLimit, setTalkPreviewMessageLimit, incrementTalkSessionMessageCount,
+  getTeacherDocPreviewPages, setTeacherDocPreviewPages,
   getAdminByEmail, getAdminById, createAdmin, updateAdminPasswordHash, getAllStaff,
   getAllParentsDirectory, getAllTeachersDirectory, setParentStatus, setTeacherStatus,
   createPasswordResetToken, getValidPasswordResetToken, getPasswordResetTokenAnyState,
