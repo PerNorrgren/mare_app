@@ -1465,17 +1465,17 @@ app.get('/api/admin/products', auth.requireAuthApi(['admin']), (req, res) => {
   res.json({ products: db.getAllProductsAdmin() });
 });
 app.post('/api/admin/products', auth.requireAuthApi(['admin']), (req, res) => {
-  const { name, description, priceCents, currency, imageKey, imageKeys, videoKey, variantOptions, stock, sortOrder } = req.body || {};
+  const { name, description, priceCents, currency, imageKey, imageKeys, videoKey, variantOptions, stock, sortOrder, active, featured, nameNl, descriptionNl } = req.body || {};
   if (!name || !name.trim()) return res.status(400).json({ error: 'Name is required' });
   if (!priceCents || priceCents <= 0) return res.status(400).json({ error: 'A valid price is required' });
-  const id = db.createProduct({ name, description, priceCents, currency, imageKey, imageKeys, videoKey, variantOptions, stock, sortOrder });
+  const id = db.createProduct({ name, description, priceCents, currency, imageKey, imageKeys, videoKey, variantOptions, stock, sortOrder, active, featured, nameNl, descriptionNl });
   res.json({ ok: true, id });
 });
 app.patch('/api/admin/products/:id', auth.requireAuthApi(['admin']), (req, res) => {
-  const { name, description, priceCents, currency, imageKey, imageKeys, videoKey, variantOptions, stock, active, sortOrder } = req.body || {};
+  const { name, description, priceCents, currency, imageKey, imageKeys, videoKey, variantOptions, stock, active, sortOrder, featured, nameNl, descriptionNl } = req.body || {};
   if (!name || !name.trim()) return res.status(400).json({ error: 'Name is required' });
   if (!priceCents || priceCents <= 0) return res.status(400).json({ error: 'A valid price is required' });
-  db.updateProduct(req.params.id, { name, description, priceCents, currency, imageKey, imageKeys, videoKey, variantOptions, stock, active, sortOrder });
+  db.updateProduct(req.params.id, { name, description, priceCents, currency, imageKey, imageKeys, videoKey, variantOptions, stock, active, sortOrder, featured, nameNl, descriptionNl });
   res.json({ ok: true });
 });
 app.delete('/api/admin/products/:id', auth.requireAuthApi(['admin']), (req, res) => {

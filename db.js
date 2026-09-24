@@ -447,6 +447,14 @@ function ensureSchema() {
   )`);
   try { db.run(`ALTER TABLE products ADD COLUMN image_keys_json TEXT`); } catch {}
   try { db.run(`ALTER TABLE products ADD COLUMN video_key TEXT`); } catch {}
+  // Mare App 4 — "Show on the home page": featured products appear in
+  // the 'From Mare's Shop' band on the home page (up to three).
+  try { db.run(`ALTER TABLE products ADD COLUMN featured INTEGER NOT NULL DEFAULT 0`); } catch {}
+  // Mare App 4 — Dutch name and description. name/description stay the
+  // English (and fallback) text; the shop shows the Dutch fields to
+  // visitors using the site in Dutch, when they're filled in.
+  try { db.run(`ALTER TABLE products ADD COLUMN name_nl TEXT`); } catch {}
+  try { db.run(`ALTER TABLE products ADD COLUMN description_nl TEXT`); } catch {}
 
   // ── Broadcasts — admin-composed messages to parents/teachers (the
   // "comms" system). One row per message, whatever state it's in.
@@ -1436,25 +1444,33 @@ function getProduct(id) {
 function getAllProductsAdmin() {
   return all(`SELECT * FROM products ORDER BY sort_order, name`).map(parseProductRow);
 }
-function createProduct({ name, description, priceCents, currency, imageKey, imageKeys, videoKey, variantOptions, stock, sortOrder }) {
+function createProduct({ name, description, priceCents, currency, imageKey, imageKeys, videoKey, variantOptions, stock, sortOrder, active, featured, nameNl, descriptionNl }) {
   const id = uuid();
+  // active: the admin form's Active tick was previously ignored on
+  // create (every new product went live); now honoured. (Mare App 4)
   run(
-    `INSERT INTO products (id, name, description, price_cents, currency, image_key, image_keys_json, video_key, variant_options_json, stock, sort_order)
-     VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
+    `INSERT INTO products (id, name, description, price_cents, currency, image_key, image_keys_json, video_key, variant_options_json, stock, sort_order, active, featured, name_nl, description_nl)
+     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
     [id, name, description || null, priceCents, currency || 'gbp',
      imageKey || (imageKeys && imageKeys[0]) || null,
      JSON.stringify(imageKeys || []), videoKey || null,
-     JSON.stringify(variantOptions || {}), stock ?? null, sortOrder || 0]
+     JSON.stringify(variantOptions || {}), stock ?? null, sortOrder || 0,
+     active === undefined ? 1 : (active ? 1 : 0), featured ? 1 : 0,
+     (nameNl || '').trim() || null, (descriptionNl || '').trim() || null]
   );
   return id;
 }
-function updateProduct(id, { name, description, priceCents, currency, imageKey, imageKeys, videoKey, variantOptions, stock, active, sortOrder }) {
+function updateProduct(id, { name, description, priceCents, currency, imageKey, imageKeys, videoKey, variantOptions, stock, active, sortOrder, featured, nameNl, descriptionNl }) {
+  const existing = get(`SELECT featured, name_nl, description_nl FROM products WHERE id = ?`, [id]) || {};
   run(
-    `UPDATE products SET name=?, description=?, price_cents=?, currency=?, image_key=?, image_keys_json=?, video_key=?, variant_options_json=?, stock=?, active=?, sort_order=? WHERE id=?`,
+    `UPDATE products SET name=?, description=?, price_cents=?, currency=?, image_key=?, image_keys_json=?, video_key=?, variant_options_json=?, stock=?, active=?, sort_order=?, featured=?, name_nl=?, description_nl=? WHERE id=?`,
     [name, description || null, priceCents, currency || 'gbp',
      imageKey || (imageKeys && imageKeys[0]) || null,
      JSON.stringify(imageKeys || []), videoKey || null,
-     JSON.stringify(variantOptions || {}), stock ?? null, active ? 1 : 0, sortOrder || 0, id]
+     JSON.stringify(variantOptions || {}), stock ?? null, active ? 1 : 0, sortOrder || 0,
+     featured === undefined ? (existing.featured || 0) : (featured ? 1 : 0),
+     nameNl === undefined ? existing.name_nl : ((nameNl || '').trim() || null),
+     descriptionNl === undefined ? existing.description_nl : ((descriptionNl || '').trim() || null), id]
   );
 }
 function deleteProduct(id) {

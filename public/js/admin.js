@@ -1906,10 +1906,13 @@
     document.getElementById('product-modal-title').textContent = t(id ? 'adminEditProduct' : 'adminNewProduct');
     document.getElementById('pr-name').value = product ? product.name : '';
     document.getElementById('pr-description').value = product ? (product.description || '') : '';
+    document.getElementById('pr-name-nl').value = product ? (product.name_nl || '') : '';
+    document.getElementById('pr-description-nl').value = product ? (product.description_nl || '') : '';
     document.getElementById('pr-price').value = product ? (product.price_cents / 100).toFixed(2) : '';
     document.getElementById('pr-currency').value = product ? product.currency : 'gbp';
     document.getElementById('pr-stock').value = product && product.stock != null ? product.stock : '';
     document.getElementById('pr-active').checked = product ? !!product.active : true;
+    document.getElementById('pr-featured').checked = product ? !!product.featured : false;
     document.getElementById('pr-image-file').value = '';
     document.getElementById('pr-video-file').value = '';
     document.getElementById('pr-video-status').textContent = prUploadedVideoKey ? t('adminVideoAttached') : '';
@@ -1958,16 +1961,19 @@
     document.getElementById('pr-save-btn').addEventListener('click', async () => {
       const name = document.getElementById('pr-name').value.trim();
       const description = document.getElementById('pr-description').value.trim();
+      const nameNl = document.getElementById('pr-name-nl').value.trim();
+      const descriptionNl = document.getElementById('pr-description-nl').value.trim();
       const priceVal = parseFloat(document.getElementById('pr-price').value);
       const currency = document.getElementById('pr-currency').value;
       const stockVal = document.getElementById('pr-stock').value;
       const active = document.getElementById('pr-active').checked;
+      const featured = document.getElementById('pr-featured').checked;
       if (!name || !priceVal || priceVal <= 0) { showModalError('product-error', t('errorMissingFields')); return; }
       try {
         const payload = JSON.stringify({
           name, description, priceCents: Math.round(priceVal * 100), currency,
           imageKeys: prUploadedImageKeys, videoKey: prUploadedVideoKey,
-          stock: stockVal === '' ? null : Number(stockVal), active,
+          stock: stockVal === '' ? null : Number(stockVal), active, featured, nameNl, descriptionNl,
         });
         if (prEditingId) {
           await api(`/api/admin/products/${prEditingId}`, { method: 'PATCH', body: payload });

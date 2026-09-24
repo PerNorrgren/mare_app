@@ -216,6 +216,64 @@
     document.getElementById('sales-outro').hidden = false;
   }
 
+  // ── From Mare's Shop — featured products (Mare App 4) ──
+  async function loadFeaturedProducts() {
+    const t = window.MareI18n.t;
+    let products = [];
+    try {
+      const res = await fetch('/api/products');
+      products = ((await res.json()).products || []).filter(p => p.featured).slice(0, 3);
+    } catch { return; }
+    if (!products.length) return;
+    const grid = document.getElementById('home-shop-grid');
+    const locale = window.MareI18n.locale === 'nl' ? 'nl-NL' : 'en-GB';
+    for (const p of products) {
+      const card = document.createElement('a');
+      card.className = 'home-shop-card';
+      card.href = '/merchandise.html';
+      const key = p.image_key || (p.image_keys && p.image_keys[0]);
+      if (key) {
+        try {
+          const r = await fetch(`/api/playback-url?key=${encodeURIComponent(key)}`);
+          const { url } = await r.json();
+          if (url) {
+            const img = document.createElement('img');
+            img.src = url;
+            img.alt = (window.MareI18n.locale === 'nl' && p.name_nl) ? p.name_nl : p.name;
+            img.loading = 'lazy';
+            card.appendChild(img);
+          }
+        } catch { /* card still shows without the photo */ }
+      }
+      const body = document.createElement('div');
+      body.className = 'home-shop-body';
+      const h = document.createElement('h3');
+      const nl = window.MareI18n.locale === 'nl';
+      h.textContent = (nl && p.name_nl) ? p.name_nl : p.name;
+      body.appendChild(h);
+      const desc = (nl && p.description_nl) ? p.description_nl : p.description;
+      if (desc) {
+        const d = document.createElement('p');
+        d.textContent = desc;
+        body.appendChild(d);
+      }
+      const price = document.createElement('span');
+      price.className = 'home-shop-price';
+      try {
+        price.textContent = new Intl.NumberFormat(locale, { style: 'currency', currency: (p.currency || 'gbp').toUpperCase() }).format(p.price_cents / 100);
+      } catch { price.textContent = (p.price_cents / 100).toFixed(2); }
+      body.appendChild(price);
+      const cta = document.createElement('span');
+      cta.className = 'btn-primary home-shop-btn';
+      cta.textContent = t('homeShopButton');
+      body.appendChild(cta);
+      card.appendChild(body);
+      grid.appendChild(card);
+    }
+    grid.classList.toggle('home-shop-single', products.length === 1);
+    document.getElementById('home-shop').hidden = false;
+  }
+
   // ── Signed-in header ──
   function applySignedIn(user) {
     document.getElementById('login-link').hidden = true;
@@ -278,6 +336,7 @@
     setupAppTiles();
     setupTalkDemoModal();
     loadSocialFooter();
+    loadFeaturedProducts();
 
     const [user] = await Promise.all([checkSession(), loadBooks()]);
     if (user) {

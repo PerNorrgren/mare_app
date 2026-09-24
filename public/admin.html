@@ -337,14 +337,27 @@
     <div class="admin-modal-backdrop" id="product-modal" hidden>
       <div class="admin-modal-card admin-modal-card-wide">
         <h3 id="product-modal-title" data-i18n="adminNewProduct">New product</h3>
-        <div class="field">
-          <label for="pr-name" data-i18n="adminFieldProductName">Name</label>
-          <input type="text" id="pr-name" required>
+        <div class="admin-form-row">
+          <div class="field">
+            <label for="pr-name" data-i18n="adminFieldProductNameEn">Name (English)</label>
+            <input type="text" id="pr-name" required>
+          </div>
+          <div class="field">
+            <label for="pr-name-nl" data-i18n="adminFieldProductNameNl">Naam (Nederlands)</label>
+            <input type="text" id="pr-name-nl">
+          </div>
         </div>
-        <div class="field">
-          <label for="pr-description" data-i18n="adminFieldDescriptionOptional">Description (optional)</label>
-          <textarea id="pr-description" rows="3"></textarea>
+        <div class="admin-form-row">
+          <div class="field">
+            <label for="pr-description" data-i18n="adminFieldProductDescEn">Description (English)</label>
+            <textarea id="pr-description" rows="8"></textarea>
+          </div>
+          <div class="field">
+            <label for="pr-description-nl" data-i18n="adminFieldProductDescNl">Beschrijving (Nederlands)</label>
+            <textarea id="pr-description-nl" rows="8"></textarea>
+          </div>
         </div>
+        <p class="admin-empty-note" data-i18n="adminProductLanguageHint">Line breaks are kept as you type them. If the Dutch fields are empty, Dutch visitors see the English.</p>
         <div class="admin-form-row">
           <div class="field">
             <label for="pr-price" data-i18n="adminFieldPrice">Price</label>
@@ -376,6 +389,7 @@
         </div>
 
         <label class="mkt-platform-check"><input type="checkbox" id="pr-active" checked> <span data-i18n="adminActive">Active</span></label>
+        <label class="mkt-platform-check"><input type="checkbox" id="pr-featured"> <span data-i18n="adminProductFeatured">Show on the home page</span></label>
         <p class="form-error" id="product-error" hidden></p>
         <div class="admin-modal-btns">
           <button type="button" class="btn-ghost" id="pr-close-btn" data-i18n="adminClose">Close</button>

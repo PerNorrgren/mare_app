@@ -1,5 +1,10 @@
 (function () {
   let products = [];
+  // Mare App 4 — product text in the visitor's language (Dutch fields
+  // when the site is in Dutch and they're filled in, else English).
+  const isNl = () => window.MareI18n && window.MareI18n.locale === 'nl';
+  const pName = p => (isNl() && p.name_nl) ? p.name_nl : p.name;
+  const pDesc = p => (isNl() && p.description_nl) ? p.description_nl : (p.description || '');
   let cart = []; // { productId, name, priceCents, currency, qty, variant }
   let currentProduct = null;
   let currentFrameUrls = []; // resolved playback URLs for the open product's 360 frames
@@ -60,7 +65,7 @@
       grid.innerHTML = products.map(p => `
         <button type="button" class="shop-product-card" data-product-id="${escapeHtml(p.id)}">
           <span class="shop-product-image" style="background-image:url('/images/mare-front-cover.jpg')" data-image-key="${escapeHtml(p.image_key || '')}"></span>
-          <span class="shop-product-name">${escapeHtml(p.name)}</span>
+          <span class="shop-product-name">${escapeHtml(pName(p))}</span>
           <span class="shop-product-price">${escapeHtml(formatPrice(p.price_cents, p.currency))}</span>
         </button>
       `).join('');
@@ -91,9 +96,9 @@
     currentProduct = product;
     currentFrameIndex = 0;
 
-    document.getElementById('pd-name').textContent = product.name;
+    document.getElementById('pd-name').textContent = pName(product);
     document.getElementById('pd-price').textContent = formatPrice(product.price_cents, product.currency);
-    document.getElementById('pd-desc').textContent = product.description || '';
+    document.getElementById('pd-desc').textContent = pDesc(product);
     document.getElementById('pd-qty').value = 1;
 
     // Variants
@@ -227,7 +232,7 @@
         existing.qty += qty;
       } else {
         cart.push({
-          productId: currentProduct.id, name: currentProduct.name,
+          productId: currentProduct.id, name: pName(currentProduct),
           priceCents: currentProduct.price_cents, currency: currentProduct.currency,
           qty, variant,
         });
