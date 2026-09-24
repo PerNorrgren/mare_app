@@ -2019,6 +2019,34 @@ app.delete('/api/admin/teacher-resources/:id', auth.requireAuthApi(['admin', 'su
   res.json({ ok: true });
 });
 
+// Mare App 4 — the Open button on the teacher page. Replaces the old
+// approach (the page pre-signed a 10-minute R2 link at load time, so
+// Open silently failed once the page had been open a while, and the
+// link was handed out without checking who asked). Now every click
+// comes here: signed-in teachers (and staff, to check what teachers
+// see) get a freshly signed link and the PDF opens in the browser;
+// anyone else is sent to the teacher login. This is also where the
+// signed-out preview will plug in.
+app.get('/api/teacher/resources/:id/open', async (req, res) => {
+  const payload = auth.verifyToken(req.cookies?.[auth.COOKIE_NAME]);
+  const allowed = payload && ['teacher', 'admin', 'support'].includes(payload.role);
+  if (!allowed) return res.redirect('/teacher-login.html');
+  const resource = db.getTeacherResourceById(req.params.id);
+  if (!resource || (!resource.active && payload.role === 'teacher')) return res.status(404).send('Not found');
+  try {
+    if (resource.file_key) {
+      const original = resource.file_key.split('/').pop().replace(/^\d+-/, '');
+      const url = await media.getPlaybackUrl(resource.file_key, { inlineName: original });
+      return res.redirect(302, url);
+    }
+    if (resource.external_url) return res.redirect(302, resource.external_url);
+    res.status(404).send('Not found');
+  } catch (e) {
+    console.error('teacher resource open failed:', e.message);
+    res.status(500).send('Could not open this document right now.');
+  }
+});
+
 app.get('/api/teacher/resources', auth.requireAuthApi(['teacher']), (req, res) => {
   res.json({ resources: db.getActiveTeacherResources() });
 });

@@ -1491,6 +1491,9 @@ function upsertReadingProgress(parentId, bookId, chapterId, sceneId) {
 function getActiveTeacherResources() {
   return all(`SELECT * FROM teacher_resources WHERE active = 1 ORDER BY sort_order, created_at`);
 }
+function getTeacherResourceById(id) {
+  return get(`SELECT * FROM teacher_resources WHERE id = ?`, [id]);
+}
 function getAllTeacherResources() {
   return all(`SELECT * FROM teacher_resources ORDER BY sort_order, created_at`);
 }
@@ -2045,7 +2048,7 @@ module.exports = {
   createPasswordResetToken, getValidPasswordResetToken, getPasswordResetTokenAnyState,
   hasRecentPasswordResetToken, markPasswordResetTokenUsed,
   getRecentEmailLog, getEmailStats, clearEmailLog, getAdminOverviewStats,
-  getActiveTeacherResources, getAllTeacherResources,
+  getActiveTeacherResources, getAllTeacherResources, getTeacherResourceById,
   createTeacherResource, updateTeacherResource, deleteTeacherResource,
   getActiveAppPages, getAllAppPages, createAppPage, updateAppPage, deleteAppPage,
   createTalkSession, getTalkSession, canAccessTalkSession, touchTalkSession, endTalkSession,

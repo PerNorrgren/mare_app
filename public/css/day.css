@@ -1156,3 +1156,19 @@ body.auth-atmosphere .brand { color: var(--gold); }
 .press-contact { margin-top: 32px; padding-top: 18px; border-top: 1px solid rgba(22,48,92,0.12); font-weight: 600; }
 .press-contact p { margin: 0 0 4px; }
 .press-contact a { color: #16305C; }
+
+/* ── Teacher resource Open button (Mare App 4) ──
+   The button sits on a white card inside #hub-view, where the
+   dark-backdrop rule above ('.auth-atmosphere #hub-view .btn-ghost')
+   turned it cream-on-white. Scoped back to navy-on-white here, with
+   higher specificity (id + three classes + element) so it wins. */
+.auth-atmosphere #hub-view .resource-card a.btn-ghost,
+.auth-atmosphere #public-view .resource-card a.btn-ghost {
+  color: #16305C;
+  border-color: rgba(22,48,92,0.28);
+}
+.auth-atmosphere #hub-view .resource-card a.btn-ghost:hover,
+.auth-atmosphere #public-view .resource-card a.btn-ghost:hover {
+  background: rgba(22,48,92,0.06);
+  border-color: #16305C;
+}

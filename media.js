@@ -90,6 +90,9 @@ async function getPlaybackUrl(key, options = {}) {
   const params = { Bucket: R2_BUCKET, Key: key };
   if (options.noCache) params.ResponseCacheControl = 'no-cache, no-store, must-revalidate';
   if (options.forceUtf8) params.ResponseContentType = 'text/html; charset=utf-8';
+  // Mare App 4 — open in the browser tab (PDF viewer) rather than
+  // download, under a readable filename instead of the storage key.
+  if (options.inlineName) params.ResponseContentDisposition = `inline; filename="${String(options.inlineName).replace(/["\\]/g, '')}"`;
   const cmd = new GetObjectCommand(params);
   return getSignedUrl(client, cmd, { expiresIn: 600 });
 }

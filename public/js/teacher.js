@@ -20,19 +20,6 @@
 
   const CATEGORY_LABEL_KEY = { document: 'resourceCategoryDocument', tool: 'resourceCategoryTool', link: 'resourceCategoryLink' };
 
-  async function resolveResourceUrl(resource) {
-    if (resource.file_key) {
-      try {
-        const res = await fetch(`/api/playback-url?key=${encodeURIComponent(resource.file_key)}`);
-        const data = await res.json();
-        return data.url;
-      } catch {
-        return null;
-      }
-    }
-    return resource.external_url || null;
-  }
-
   async function renderResources(resources) {
     const grid = document.getElementById('resource-grid');
     const empty = document.getElementById('resource-empty');
@@ -69,9 +56,9 @@
       link.textContent = t('resourceOpen');
       link.target = '_blank';
       link.rel = 'noopener';
-      const url = await resolveResourceUrl(resource);
-      if (url) link.href = url;
-      else link.setAttribute('aria-disabled', 'true');
+      // Always via the app, which checks the sign-in and signs a fresh
+      // link at the moment of the click (Mare App 4).
+      link.href = `/api/teacher/resources/${encodeURIComponent(resource.id)}/open`;
       card.appendChild(link);
 
       grid.appendChild(card);
