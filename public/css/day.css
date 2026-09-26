@@ -1385,3 +1385,14 @@ html:has(#peek) { scroll-behavior: smooth; }
 @keyframes checkout-spin { to { transform: rotate(360deg); } }
 @keyframes checkout-fade { from { opacity: 0; } to { opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { .checkout-yinyang { animation-duration: 8s; } }
+
+/* ── Whisper Question (Mare App 4) ── */
+.wq-card { border-color: rgba(160,200,255,0.45); }
+.wq-answers { margin-top: 16px; }
+.wq-answers h3, .wq-past summary { font-size: 1rem; color: var(--gold); margin: 0 0 8px; cursor: pointer; }
+.wq-answer { background: rgba(243,236,217,0.07); border-radius: 12px; padding: 10px 14px; margin-bottom: 8px; }
+.wq-answer p { margin: 0 0 4px; font-style: italic; color: #F3ECD9; white-space: pre-line; }
+.wq-answer-by { font-size: 0.85rem; color: rgba(243,236,217,0.7); }
+.wq-past { margin-top: 14px; }
+.wq-past h4 { color: #F3ECD9; margin: 12px 0 6px; font-size: 0.95rem; }
+.whisper-p-kind { font-size: 0.72rem; font-weight: 700; padding: 2px 10px; border-radius: 999px; background: rgba(22,48,92,0.08); color: var(--navy); }

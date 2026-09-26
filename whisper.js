@@ -20,6 +20,8 @@
 
 const WORD_MAX = 30;
 const REASON_MAX = 280;
+const ANSWER_MAX = 280;
+const KINDS = ['word_month', 'question'];
 const PER_CHILD_PER_PROMPT = 3;
 const FOREST_MEMBER_LIMIT = 40;
 const FOREST_PREVIEW_LIMIT = 8;
@@ -42,6 +44,10 @@ function promptForLocale(p, locale) {
     title: (nl && p.title_nl) ? p.title_nl : p.title_en,
     body: (nl && p.body_nl) ? p.body_nl : (p.body_en || ''),
   };
+}
+
+function publicAnswer(s) {
+  return { id: s.id, answer: s.reason || '', name: s.child_name, ageBand: s.age_band || null };
 }
 
 function publicWord(s, mineIds) {
@@ -78,7 +84,9 @@ function register(app, { db, auth, media, anthropic, model, getOptionalUser }) {
         system: `You pre-screen words that children aged about 8-12 submit to a children's book website, before a human moderator reviews them. The child submits one word and optionally a short reason. Reply with JSON only: {"flag":"ok"|"check","note":"..."}.
 Use "check" if ANY of these apply: personal information (a surname, full name, school name, address, phone, email, username, anything identifying a real person or place near them); rude, unkind, sexual, violent or hateful content, including disguised or misspelled; anything suggesting the child may be unsafe, hurt, frightened or in distress; spam or nonsense that isn't playful. Otherwise "ok". Invented words, silly words and words in any language are fine.
 The note is one short sentence for the moderator, in English. If distress is possible, say so plainly so the adult can follow up with the parent.`,
-        messages: [{ role: 'user', content: `Word: ${sub.word}\nReason: ${sub.reason || '(none)'}` }],
+        messages: [{ role: 'user', content: sub.word
+          ? `Word: ${sub.word}\nReason: ${sub.reason || '(none)'}`
+          : `Answer to a question from the book's character: ${sub.reason || '(empty)'}` }],
       });
       const text = (response.content || []).map(c => c.text || '').join('');
       const out = parseJsonReply(text, '{', '}');
@@ -112,11 +120,22 @@ The note is one short sentence for the moderator, in English. If distress is pos
     const total = db.whisperCountApproved();
 
     const prompt = db.whisperGetOpenPrompt('word_month');
+    // Whisper Question: this month's question, what children answered,
+    // and the last few closed questions with some of their answers.
+    const question = db.whisperGetOpenPrompt('question');
+    const answers = question ? db.whisperGetAnswers(question.id, member ? 12 : 4).map(publicAnswer) : [];
+    const pastQuestions = db.whisperGetClosedPrompts('question', 3).map(q => ({
+      ...promptForLocale(q, locale),
+      answers: db.whisperGetAnswers(q.id, 3).map(publicAnswer),
+    })).filter(q => q.answers.length);
     // The most recent Whisper Word chosen, for the Club home.
     const lastWinner = forest.find(w => w.isWinner) || null;
 
     res.json({
       prompt: promptForLocale(prompt, locale),
+      question: promptForLocale(question, locale),
+      answers,
+      pastQuestions,
       lastWinner,
       forest,
       forestTotal: total,
@@ -127,7 +146,7 @@ The note is one short sentence for the moderator, in English. If distress is pos
         isParent,
         member,
         children: isParent ? db.getChildrenByParent(user.id).map(c => ({ id: c.id, name: firstName(c.name) })) : [],
-        mine: mine.map(m => ({ word: m.word, status: m.status, isWinner: !!m.is_winner, name: m.child_name })),
+        mine: mine.map(m => ({ kind: m.kind, word: m.word, answer: m.kind === 'question' ? (m.reason || '') : '', status: m.status, isWinner: !!m.is_winner, name: m.child_name })),
       },
     });
   });
@@ -144,6 +163,25 @@ The note is one short sentence for the moderator, in English. If distress is pos
     if (!prompt || prompt.status !== 'open') return res.status(400).json({ error: nl ? 'Deze vraag is gesloten.' : 'This one has closed.' });
     const child = db.getChildrenByParent(req.user.id).find(c => c.id === childId);
     if (!child) return res.status(400).json({ error: nl ? 'Kies wie dit woord plant.' : 'Choose who is planting this word.' });
+
+    // Whisper Question: a short answer instead of a single word.
+    if (prompt.kind === 'question') {
+      const answer = String((req.body && req.body.answer) || '').trim();
+      if (!answer || answer.length > ANSWER_MAX) {
+        return res.status(400).json({ error: nl ? `Schrijf een antwoord van hoogstens ${ANSWER_MAX} tekens.` : `Write an answer of up to ${ANSWER_MAX} characters.` });
+      }
+      if (db.whisperCountForChild(prompt.id, child.id) >= 1) {
+        return res.status(429).json({ error: nl ? `${firstName(child.name)} heeft deze vraag al beantwoord.` : `${firstName(child.name)} has already answered this question.` });
+      }
+      const qid = db.whisperCreateSubmission({
+        promptId: prompt.id, parentId: req.user.id, childId: child.id,
+        childName: firstName(child.name), ageBand: child.age_band,
+        word: '', reason: answer, locale: nl ? 'nl' : 'en',
+      });
+      screenSubmission(db.whisperGetSubmission(qid));
+      return res.json({ ok: true });
+    }
+
     if (!word || word.length > WORD_MAX || /\s{2,}/.test(word) || word.split(/\s+/).length > 3) {
       return res.status(400).json({ error: nl ? `Eén woord, hoogstens ${WORD_MAX} tekens.` : `One word, up to ${WORD_MAX} letters.` });
     }
@@ -179,9 +217,10 @@ The note is one short sentence for the moderator, in English. If distress is pos
 
   app.post('/api/admin/whisper/prompts', staff, (req, res) => {
     const { month, titleEn, titleNl, bodyEn, bodyNl } = req.body || {};
+    const kind = KINDS.includes(req.body && req.body.kind) ? req.body.kind : 'word_month';
     if (!titleEn || !String(titleEn).trim()) return res.status(400).json({ error: 'An English title is required.' });
     if (month && !/^\d{4}-\d{2}$/.test(month)) return res.status(400).json({ error: 'Month must look like 2026-10.' });
-    const id = db.whisperCreatePrompt({ kind: 'word_month', month, titleEn: String(titleEn).trim(), titleNl, bodyEn, bodyNl });
+    const id = db.whisperCreatePrompt({ kind, month, titleEn: String(titleEn).trim(), titleNl, bodyEn, bodyNl });
     res.json({ ok: true, id });
   });
 
@@ -196,12 +235,18 @@ The note is one short sentence for the moderator, in English. If distress is pos
     if (decision !== 'approve' && decision !== 'reject') return res.status(400).json({ error: 'decision must be approve or reject' });
     const fields = { status: decision === 'approve' ? 'approved' : 'rejected' };
     // Staff may tidy a typo while approving.
-    if (req.body.word !== undefined) {
+    const existing = db.whisperGetSubmission(req.params.id);
+    if (!existing) return res.status(404).json({ error: 'Not found' });
+    const isAnswer = !existing.word;
+    if (req.body.word !== undefined && !isAnswer) {
       const w = String(req.body.word).trim();
       if (!w || w.length > WORD_MAX) return res.status(400).json({ error: `Word must be 1-${WORD_MAX} characters.` });
       fields.word = w;
     }
-    if (req.body.reason !== undefined) fields.reason = String(req.body.reason).trim().slice(0, REASON_MAX);
+    if (req.body.reason !== undefined) {
+      fields.reason = String(req.body.reason).trim().slice(0, isAnswer ? ANSWER_MAX : REASON_MAX);
+      if (isAnswer && !fields.reason) return res.status(400).json({ error: 'The answer cannot be empty.' });
+    }
     if (!db.whisperReview(req.params.id, fields)) return res.status(404).json({ error: 'Not found' });
     res.json({ ok: true });
   });
@@ -240,6 +285,7 @@ The note is one short sentence for the moderator, in English. If distress is pos
   app.post('/api/admin/whisper/prompts/:id/winner', staff, (req, res) => {
     const prompt = db.whisperGetPrompt(req.params.id);
     if (!prompt) return res.status(404).json({ error: 'Not found' });
+    if (prompt.kind !== 'word_month') return res.status(400).json({ error: 'Only a Whisper Word month has a winner.' });
     const { submissionId } = req.body || {};
     if (submissionId) {
       const s = db.whisperGetSubmission(submissionId);

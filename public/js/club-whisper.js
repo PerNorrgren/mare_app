@@ -14,6 +14,7 @@
 
   function statusText(m) {
     if (m.isWinner) return t('whisperStatusWinner');
+    if (m.status === 'approved' && m.kind === 'question') return t('wqStatusShown');
     if (m.status === 'approved') return t('whisperStatusApproved');
     if (m.status === 'rejected') return t('whisperStatusRejected');
     return t('whisperStatusPending');
@@ -27,7 +28,10 @@
     mine.forEach(m => {
       const li = document.createElement('li');
       const w = document.createElement('strong');
-      w.textContent = m.word;
+      // Whisper Question answers show a snippet of the answer instead of a word.
+      w.textContent = m.kind === 'question'
+        ? `“${m.answer.length > 40 ? m.answer.slice(0, 40) + '…' : m.answer}”`
+        : m.word;
       const who = document.createElement('span');
       who.className = 'whisper-mine-who';
       who.textContent = ` — ${m.name}`;
@@ -38,6 +42,85 @@
       list.appendChild(li);
     });
     box.hidden = false;
+  }
+
+  function answerCard(a) {
+    const div = document.createElement('div');
+    div.className = 'wq-answer';
+    const p = document.createElement('p');
+    p.textContent = `“${a.answer}”`;
+    const by = document.createElement('span');
+    by.className = 'wq-answer-by';
+    by.textContent = `— ${a.name}${a.ageBand ? `, ${ageText(a.ageBand)}` : ''}`;
+    div.append(p, by);
+    return div;
+  }
+
+  // Mare's Whisper Question: the question, approved answers, the form
+  // for members, and a fold-out of earlier questions.
+  function renderQuestion(data, me) {
+    const q = data.question;
+    const past = data.pastQuestions || [];
+    const section = document.getElementById('wq');
+    if (!q && !past.length) { section.hidden = true; return; }
+    document.getElementById('wq-title').textContent = q ? q.title : t('wqNoQuestion');
+    document.getElementById('wq-body').textContent = q ? q.body : '';
+
+    const list = document.getElementById('wq-answers-list');
+    list.innerHTML = '';
+    (data.answers || []).forEach(a => list.appendChild(answerCard(a)));
+    document.getElementById('wq-answers').hidden = !(data.answers || []).length;
+
+    const pastList = document.getElementById('wq-past-list');
+    pastList.innerHTML = '';
+    past.forEach(pq => {
+      const h = document.createElement('h4');
+      h.textContent = pq.title;
+      pastList.appendChild(h);
+      pq.answers.forEach(a => pastList.appendChild(answerCard(a)));
+    });
+    document.getElementById('wq-past').hidden = !past.length;
+
+    const form = document.getElementById('wq-form');
+    if (q && me.isParent && me.member && me.children.length) {
+      const sel = document.getElementById('wq-child');
+      sel.innerHTML = '';
+      me.children.forEach(c => {
+        const o = document.createElement('option');
+        o.value = c.id;
+        o.textContent = c.name;
+        sel.appendChild(o);
+      });
+      form.hidden = false;
+      form.onsubmit = async (e) => {
+        e.preventDefault();
+        const err = document.getElementById('wq-error');
+        err.hidden = true;
+        const btn = form.querySelector('button[type=submit]');
+        btn.disabled = true;
+        try {
+          const res = await fetch('/api/club/whisper/submit', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ promptId: q.id, childId: sel.value, answer: document.getElementById('wq-answer').value, locale: nl() ? 'nl' : 'en' }),
+          });
+          const out = await res.json().catch(() => ({}));
+          if (!res.ok) throw new Error(out.error || t('errorGeneric'));
+          document.getElementById('wq-answer').value = '';
+          document.getElementById('wq-thanks').hidden = false;
+          setTimeout(() => { document.getElementById('wq-thanks').hidden = true; }, 8000);
+          load();
+        } catch (ex) {
+          err.textContent = ex.message;
+          err.hidden = false;
+        } finally {
+          btn.disabled = false;
+        }
+      };
+    } else {
+      form.hidden = true;
+    }
+    section.hidden = false;
   }
 
   async function load() {
@@ -114,6 +197,7 @@
     }
     renderMine(me.mine || []);
     section.hidden = false;
+    renderQuestion(data, me);
   }
 
   async function init() {

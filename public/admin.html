@@ -675,9 +675,15 @@
       </div>
 
       <div class="admin-card">
-        <h2 data-i18n="adminWhisperPromptsTitle">Whisper Word of the Month</h2>
-        <p class="admin-card-sub" data-i18n="adminWhisperPromptsDesc">Each month's question, shown on the Club Mare page. Children plant words for the open one. At the end of the month, ask for a shortlist, choose the Whisper Word, then close it and open the next.</p>
+        <h2 data-i18n="adminWhisperPromptsTitle2">Mare's monthly questions</h2>
+        <p class="admin-card-sub" data-i18n="adminWhisperPromptsDesc2">Two kinds, both on the Club Mare page. Whisper Word: children plant one word, the words grow in the forest, and at the end of the month you choose the Whisper Word. Whisper Question: an imaginative question children answer in a sentence; approved answers appear under it. One of each can be open at a time — close the old one when you open the next.</p>
         <div class="admin-form-row">
+          <div class="field" style="max-width:260px;"><label for="wp-kind" data-i18n="adminWhisperKind">What kind</label>
+            <select id="wp-kind">
+              <option value="word_month" data-i18n="adminWhisperKindWord">Whisper Word (children plant one word)</option>
+              <option value="question" data-i18n="adminWhisperKindQuestion">Whisper Question (children answer in a sentence)</option>
+            </select>
+          </div>
           <div class="field" style="max-width:180px;"><label for="wp-month" data-i18n="adminWhisperMonth">Month</label><input type="month" id="wp-month"></div>
         </div>
         <div class="admin-form-row">

@@ -1598,7 +1598,7 @@ function whisperReview(id, { status, word, reason }) {
   return true;
 }
 function whisperGetByStatus(status) {
-  return all(`SELECT s.*, p.title_en AS prompt_title, p.month AS prompt_month FROM whisper_submissions s
+  return all(`SELECT s.*, p.title_en AS prompt_title, p.month AS prompt_month, COALESCE(p.kind, 'word_month') AS prompt_kind FROM whisper_submissions s
               LEFT JOIN whisper_prompts p ON p.id = s.prompt_id WHERE s.status = ? ORDER BY s.created_at ASC`, [status]);
 }
 function whisperGetApprovedForPrompt(promptId) {
@@ -1617,17 +1617,20 @@ function whisperSetWinner(promptId, submissionId) {
 // always included so the tree keeps its winners as it fills up.
 function whisperGetForest(limit) {
   const winners = all(`SELECT s.*, p.month AS prompt_month FROM whisper_submissions s LEFT JOIN whisper_prompts p ON p.id = s.prompt_id
-                       WHERE s.status = 'approved' AND s.is_winner = 1 ORDER BY p.month DESC LIMIT 12`);
+                       WHERE s.status = 'approved' AND s.is_winner = 1 AND COALESCE(p.kind, 'word_month') = 'word_month' ORDER BY p.month DESC LIMIT 12`);
   const others = all(`SELECT s.*, p.month AS prompt_month FROM whisper_submissions s LEFT JOIN whisper_prompts p ON p.id = s.prompt_id
-                      WHERE s.status = 'approved' AND s.is_winner = 0 ORDER BY s.reviewed_at DESC, s.created_at DESC LIMIT ?`, [Math.max(0, limit - winners.length)]);
+                      WHERE s.status = 'approved' AND s.is_winner = 0 AND COALESCE(p.kind, 'word_month') = 'word_month'
+                      ORDER BY s.reviewed_at DESC, s.created_at DESC LIMIT ?`, [Math.max(0, limit - winners.length)]);
   return winners.concat(others);
 }
 function whisperCountApproved() {
-  const r = get(`SELECT COUNT(*) AS n FROM whisper_submissions WHERE status = 'approved'`);
+  const r = get(`SELECT COUNT(*) AS n FROM whisper_submissions s LEFT JOIN whisper_prompts p ON p.id = s.prompt_id
+                 WHERE s.status = 'approved' AND COALESCE(p.kind, 'word_month') = 'word_month'`);
   return r ? r.n : 0;
 }
 function whisperGetForParent(parentId) {
-  return all(`SELECT s.id, s.word, s.reason, s.status, s.is_winner, s.child_name, s.created_at FROM whisper_submissions s
+  return all(`SELECT s.id, s.word, s.reason, s.status, s.is_winner, s.child_name, s.created_at, COALESCE(p.kind, 'word_month') AS kind
+              FROM whisper_submissions s LEFT JOIN whisper_prompts p ON p.id = s.prompt_id
               WHERE s.parent_id = ? ORDER BY s.created_at DESC LIMIT 30`, [parentId]);
 }
 function getHomeNotice() {
@@ -1636,6 +1639,16 @@ function getHomeNotice() {
 }
 function setHomeNotice(notice) {
   run(`UPDATE app_config SET home_notice_json = ? WHERE id = 'default'`, [notice ? JSON.stringify(notice) : null]);
+}
+// Whisper Question (Mare App 4): approved answers for one question,
+// newest first, and the most recent closed questions for the archive.
+function whisperGetAnswers(promptId, limit) {
+  return all(`SELECT * FROM whisper_submissions WHERE prompt_id = ? AND status = 'approved'
+              ORDER BY reviewed_at DESC, created_at DESC LIMIT ?`, [promptId, limit || 12]);
+}
+function whisperGetClosedPrompts(kind, limit) {
+  return all(`SELECT * FROM whisper_prompts WHERE kind = ? AND status = 'closed'
+              ORDER BY COALESCE(month, created_at) DESC, created_at DESC LIMIT ?`, [kind, limit || 3]);
 }
 function setForestImageKey(key) { run(`UPDATE app_config SET forest_image_key = ? WHERE id = 'default'`, [key || null]); }
 
@@ -2250,7 +2263,7 @@ module.exports = {
   whisperGetPrompts, whisperGetPrompt, whisperGetOpenPrompt, whisperCreatePrompt, whisperUpdatePrompt,
   whisperCreateSubmission, whisperGetSubmission, whisperSetScreening, whisperReview, whisperGetByStatus,
   whisperGetApprovedForPrompt, whisperCountForChild, whisperSetWinner, whisperGetForest, whisperCountApproved,
-  whisperGetForParent, setForestImageKey, getHomeNotice, setHomeNotice,
+  whisperGetForParent, whisperGetAnswers, whisperGetClosedPrompts, setForestImageKey, getHomeNotice, setHomeNotice,
   getAdminByEmail, getAdminById, createAdmin, updateAdminPasswordHash, getAllStaff,
   getAllParentsDirectory, getAllTeachersDirectory, setParentStatus, setTeacherStatus,
   createPasswordResetToken, getValidPasswordResetToken, getPasswordResetTokenAnyState,

@@ -97,6 +97,43 @@
     </div>
   </section>
 
+  <!-- ── Whisper Question (Mare App 4) — Mare's imaginative question of
+       the month. Everyone sees it and the approved answers; members
+       answer for one of their children. Same engine and approval queue
+       as the Whisper Word; answers never go on the forest picture. ── -->
+  <section class="whisper" id="wq" hidden>
+    <div class="whisper-card wq-card">
+      <span class="whisper-label" data-i18n="wqLabel">Mare's Whisper Question</span>
+      <h2 id="wq-title"></h2>
+      <p class="whisper-body" id="wq-body"></p>
+
+      <form class="whisper-form" id="wq-form" hidden>
+        <div class="field">
+          <label for="wq-child" data-i18n="wqWho">Who is answering?</label>
+          <select id="wq-child"></select>
+        </div>
+        <div class="field">
+          <label for="wq-answer" data-i18n="wqAnswerLabel">Your answer</label>
+          <textarea id="wq-answer" rows="3" maxlength="280"></textarea>
+        </div>
+        <p class="whisper-privacy" data-i18n="whisperPrivacy">Only the first name and age group are shown with a word, and every word is read by a grown-up before it appears in the forest.</p>
+        <p class="form-error" id="wq-error" hidden></p>
+        <button type="submit" class="btn-primary" data-i18n="wqSendBtn">Whisper it to Mare</button>
+      </form>
+      <p class="whisper-thanks" id="wq-thanks" hidden data-i18n="wqThanks">Mare has your answer! Once a grown-up has read it, it may appear here for everyone.</p>
+
+      <div class="wq-answers" id="wq-answers" hidden>
+        <h3 data-i18n="wqAnswersTitle">What children whispered</h3>
+        <div id="wq-answers-list"></div>
+      </div>
+
+      <details class="wq-past" id="wq-past" hidden>
+        <summary data-i18n="wqPastTitle">Earlier questions</summary>
+        <div id="wq-past-list"></div>
+      </details>
+    </div>
+  </section>
+
   <!-- Signed out — now a real preview, not a dead end -->
   <section id="cm-preview-view" hidden>
     <div class="clubmare-posts" id="cm-preview-posts-list"></div>

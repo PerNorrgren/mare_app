@@ -1961,8 +1961,9 @@
           <span>${escapeHtml(s.child_name)}${s.age_band ? ', ' + escapeHtml(s.age_band) : ''} · ${escapeHtml(whisperMonthLabel(s.prompt_month) || s.prompt_title || '')}</span>
         </div>
         ${s.ai_note ? `<p class="whisper-q-note">${escapeHtml(s.ai_note)}</p>` : ''}
+        ${s.prompt_kind === 'question' ? `<p class="admin-empty-note">${escapeHtml(t('adminWhisperAnswerTo'))} ${escapeHtml(s.prompt_title || '')}</p>` : ''}
         <div class="admin-form-row" style="margin-bottom:8px;">
-          <div class="field" style="max-width:220px;"><input type="text" class="wq-word" maxlength="30" value="${escapeHtml(s.word)}"></div>
+          ${s.prompt_kind === 'question' ? '' : `<div class="field" style="max-width:220px;"><input type="text" class="wq-word" maxlength="30" value="${escapeHtml(s.word)}"></div>`}
           <div class="field"><textarea class="wq-reason" rows="2" maxlength="280">${escapeHtml(s.reason || '')}</textarea></div>
         </div>
         <div class="whisper-q-btns">
@@ -1973,7 +1974,9 @@
         row.querySelectorAll('button').forEach(b => { b.disabled = true; });
         try {
           await api(`/api/admin/whisper/submissions/${s.id}/review`, { method: 'POST', body: JSON.stringify({
-            decision, word: row.querySelector('.wq-word').value, reason: row.querySelector('.wq-reason').value,
+            decision,
+            ...(row.querySelector('.wq-word') ? { word: row.querySelector('.wq-word').value } : {}),
+            reason: row.querySelector('.wq-reason').value,
           }) });
           loadWhisper();
         } catch (err) {
@@ -1998,11 +2001,12 @@
       card.className = 'whisper-p-row';
       card.innerHTML = `
         <div class="whisper-p-head">
+          <span class="whisper-p-kind">${escapeHtml(p.kind === 'question' ? t('adminWhisperKindQuestionShort') : t('adminWhisperKindWordShort'))}</span>
           <strong>${escapeHtml(whisperMonthLabel(p.month) || '—')}</strong>
           <span class="whisper-p-status whisper-p-status-${p.status}">${escapeHtml(p.status === 'open' ? t('adminWhisperOpen') : t('adminWhisperClosed'))}</span>
         </div>
         <p class="whisper-p-q">${escapeHtml(p.title_en)}${p.title_nl ? ` <span class="admin-empty-note">/ ${escapeHtml(p.title_nl)}</span>` : ''}</p>
-        <p class="admin-empty-note">${escapeHtml(t('adminWhisperApprovedCount', { n: p.approvedCount }))}${p.winner ? ` · ${escapeHtml(t('adminWhisperWinnerIs'))} <strong>${escapeHtml(p.winner.word)}</strong> (${escapeHtml(p.winner.child_name)})` : ''}</p>
+        <p class="admin-empty-note">${escapeHtml(t(p.kind === 'question' ? 'adminWhisperAnswersCount' : 'adminWhisperApprovedCount', { n: p.approvedCount }))}${p.winner ? ` · ${escapeHtml(t('adminWhisperWinnerIs'))} <strong>${escapeHtml(p.winner.word)}</strong> (${escapeHtml(p.winner.child_name)})` : ''}</p>
         <div class="whisper-q-btns">
           <button type="button" class="btn-ghost btn-small wp-shortlist">${escapeHtml(t('adminWhisperShortlist'))}</button>
           <button type="button" class="btn-ghost btn-small wp-choose">${escapeHtml(t('adminWhisperChoose'))}</button>
@@ -2010,6 +2014,11 @@
         </div>
         <div class="wp-extra"></div>`;
       const extra = card.querySelector('.wp-extra');
+      if (p.kind === 'question') {
+        // Answers have no winner or shortlist.
+        card.querySelector('.wp-shortlist').hidden = true;
+        card.querySelector('.wp-choose').hidden = true;
+      }
       const choose = async (submissionId) => {
         await api(`/api/admin/whisper/prompts/${p.id}/winner`, { method: 'POST', body: JSON.stringify({ submissionId }) });
         loadWhisper();
@@ -2053,6 +2062,7 @@
       const val = id => document.getElementById(id).value.trim();
       try {
         await api('/api/admin/whisper/prompts', { method: 'POST', body: JSON.stringify({
+          kind: document.getElementById('wp-kind').value,
           month: val('wp-month'), titleEn: val('wp-title-en'), titleNl: val('wp-title-nl'), bodyEn: val('wp-body-en'), bodyNl: val('wp-body-nl'),
         }) });
         ['wp-month', 'wp-title-en', 'wp-title-nl', 'wp-body-en', 'wp-body-nl'].forEach(id => { document.getElementById(id).value = ''; });
