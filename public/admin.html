@@ -502,6 +502,32 @@
     <!-- Showcase Page -->
     <div class="admin-panel" id="panel-showcase">
       <div class="admin-card">
+        <h2 data-i18n="adminNoticeTitle">Home page notice</h2>
+        <p class="admin-card-sub" data-i18n="adminNoticeDesc">A box at the top of the home page, for everyone (signed in or not). Leave the Dutch fields empty to show the English to Dutch visitors.</p>
+        <label class="mkt-platform-check" style="margin-bottom:12px;"><input type="checkbox" id="hn-active"> <span data-i18n="adminNoticeShow">Show on the home page</span></label>
+        <div class="admin-form-row">
+          <div class="field"><label for="hn-title-en" data-i18n="adminNoticeTitleEn">Title (English)</label><input type="text" id="hn-title-en" maxlength="200"></div>
+          <div class="field"><label for="hn-title-nl" data-i18n="adminNoticeTitleNl">Titel (Nederlands)</label><input type="text" id="hn-title-nl" maxlength="200"></div>
+        </div>
+        <div class="admin-form-row">
+          <div class="field"><label for="hn-body-en" data-i18n="adminNoticeBodyEn">Text (English)</label><textarea id="hn-body-en" rows="5" maxlength="1200"></textarea></div>
+          <div class="field"><label for="hn-body-nl" data-i18n="adminNoticeBodyNl">Tekst (Nederlands)</label><textarea id="hn-body-nl" rows="5" maxlength="1200"></textarea></div>
+        </div>
+        <div class="admin-form-row">
+          <div class="field"><label for="hn-code" data-i18n="adminNoticeCode">Code to show (optional)</label><input type="text" id="hn-code" maxlength="40" placeholder="MAREGIFT"></div>
+          <div class="field"><label for="hn-url" data-i18n="adminNoticeUrl">Button link (optional)</label><input type="text" id="hn-url" placeholder="https://… or /merchandise.html"></div>
+        </div>
+        <div class="admin-form-row">
+          <div class="field"><label for="hn-button-en" data-i18n="adminNoticeButtonEn">Button text (English)</label><input type="text" id="hn-button-en" maxlength="60"></div>
+          <div class="field"><label for="hn-button-nl" data-i18n="adminNoticeButtonNl">Knoptekst (Nederlands)</label><input type="text" id="hn-button-nl" maxlength="60"></div>
+        </div>
+        <p class="admin-empty-note" data-i18n="adminNoticeCodeHint">The code must also exist as an offer in Sales &amp; Marketing, or it won't work at checkout.</p>
+        <p class="form-error" id="hn-error" hidden></p>
+        <p class="form-success" id="hn-success" hidden></p>
+        <button type="button" class="btn-primary" id="hn-save-btn" data-i18n="adminSaveChanges">Save</button>
+      </div>
+
+      <div class="admin-card">
         <h2 data-i18n="adminShowcaseWelcomeTitle">Welcome message</h2>
         <p class="admin-card-sub" data-i18n="adminShowcaseWelcomeDesc">Shown at the top of the public showcase page — the first thing a visitor reads.</p>
         <div class="field">

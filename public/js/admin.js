@@ -145,6 +145,7 @@
     setupClubMarePostModal();
     setupProductModal();
     setupShipping();
+    setupHomeNotice();
     setupAdminSettings();
     loadOverview();
     loadResources();
@@ -158,6 +159,7 @@
     loadOffers();
     loadProducts();
     loadShipping();
+    loadHomeNotice();
     loadMarketingStats();
     loadShowcaseContent();
     loadShowcaseTiles();
@@ -1920,6 +1922,39 @@
     document.getElementById('pr-video-status').textContent = prUploadedVideoKey ? t('adminVideoAttached') : '';
     renderImageChips();
     document.getElementById('product-modal').hidden = false;
+  }
+
+  // ── Home page notice (Mare App 4) ──
+  const HN = { active: 'hn-active', titleEn: 'hn-title-en', titleNl: 'hn-title-nl', bodyEn: 'hn-body-en', bodyNl: 'hn-body-nl', code: 'hn-code', url: 'hn-url', buttonEn: 'hn-button-en', buttonNl: 'hn-button-nl' };
+  async function loadHomeNotice() {
+    try {
+      const n = (await api('/api/admin/home-notice')).notice || {};
+      for (const [k, id] of Object.entries(HN)) {
+        const el = document.getElementById(id);
+        if (k === 'active') el.checked = !!n.active; else el.value = n[k] || '';
+      }
+    } catch { /* leave the form empty */ }
+  }
+  function setupHomeNotice() {
+    document.getElementById('hn-save-btn').addEventListener('click', async () => {
+      const errorEl = document.getElementById('hn-error');
+      const okEl = document.getElementById('hn-success');
+      errorEl.hidden = true; okEl.hidden = true;
+      const body = {};
+      for (const [k, id] of Object.entries(HN)) {
+        const el = document.getElementById(id);
+        body[k] = k === 'active' ? el.checked : el.value;
+      }
+      try {
+        await api('/api/admin/home-notice', { method: 'PUT', body: JSON.stringify(body) });
+        okEl.textContent = t('adminSaved');
+        okEl.hidden = false;
+        setTimeout(() => { okEl.hidden = true; }, 3000);
+      } catch (err) {
+        errorEl.textContent = err.message || t('errorGeneric');
+        errorEl.hidden = false;
+      }
+    });
   }
 
   // ── Delivery & postage (Mare App 4) ──

@@ -216,6 +216,38 @@
     document.getElementById('sales-outro').hidden = false;
   }
 
+  // ── Home page notice (Mare App 4) ──
+  async function loadHomeNotice() {
+    let n = null;
+    try {
+      const res = await fetch(`/api/home-notice?lang=${window.MareI18n.locale === 'nl' ? 'nl' : 'en'}`);
+      n = (await res.json()).notice;
+    } catch { return; }
+    if (!n) return;
+    document.getElementById('home-notice-title').textContent = n.title;
+    document.getElementById('home-notice-body').textContent = n.body;
+    if (n.code) {
+      document.getElementById('home-notice-code').textContent = n.code;
+      document.getElementById('home-notice-code-row').hidden = false;
+      const copyBtn = document.getElementById('home-notice-copy');
+      copyBtn.addEventListener('click', async () => {
+        try {
+          await navigator.clipboard.writeText(n.code);
+          copyBtn.textContent = window.MareI18n.t('homeNoticeCopied');
+          setTimeout(() => { copyBtn.textContent = window.MareI18n.t('homeNoticeCopy'); }, 2000);
+        } catch { /* the code is on screen to copy by hand */ }
+      });
+    }
+    if (n.url && n.button) {
+      const btn = document.getElementById('home-notice-btn');
+      btn.href = n.url;
+      btn.textContent = n.button;
+      if (/^https?:/i.test(n.url)) { btn.target = '_blank'; btn.rel = 'noopener'; }
+      btn.hidden = false;
+    }
+    document.getElementById('home-notice').hidden = false;
+  }
+
   // ── From Mare's Shop — featured products (Mare App 4) ──
   async function loadFeaturedProducts() {
     const t = window.MareI18n.t;
@@ -337,6 +369,7 @@
     setupTalkDemoModal();
     loadSocialFooter();
     loadFeaturedProducts();
+    loadHomeNotice();
 
     const [user] = await Promise.all([checkSession(), loadBooks()]);
     if (user) {

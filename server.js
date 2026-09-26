@@ -505,6 +505,9 @@ function getOptionalUser(req) {
   return token ? auth.verifyToken(token) : null;
 }
 
+// Whisper Forest — Club Mare's participation engine (Mare App 4).
+require('./whisper').register(app, { db, auth, media, anthropic, model: TALK_MODEL, getOptionalUser });
+
 app.get('/api/books/:slug', (req, res) => {
   const book = db.getBookBySlug(req.params.slug);
   if (!book) return res.status(404).json({ error: 'Not found' });
@@ -1714,6 +1717,37 @@ app.delete('/api/admin/offers-catalog/:id', auth.requireAuthApi(['admin', 'suppo
 // splash page itself needs this with no auth); everything else is
 // admin/support.
 // ─────────────────────────────────────────────────────────────────────
+
+// ── Home page notice (Mare App 4) — an admin-editable box at the top
+// of the home page, for everyone: title, text, an optional code with a
+// copy button, an optional button link. Both languages; Dutch falls
+// back to English when empty. ──
+const NOTICE_FIELDS = ['titleEn', 'titleNl', 'bodyEn', 'bodyNl', 'buttonEn', 'buttonNl', 'url', 'code'];
+app.get('/api/home-notice', (req, res) => {
+  const n = db.getHomeNotice();
+  if (!n || !n.active || !n.titleEn) return res.json({ notice: null });
+  const nl = req.query.lang === 'nl';
+  const pick = (en, nlv) => (nl && n[nlv]) ? n[nlv] : (n[en] || '');
+  res.json({ notice: {
+    title: pick('titleEn', 'titleNl'),
+    body: pick('bodyEn', 'bodyNl'),
+    button: pick('buttonEn', 'buttonNl'),
+    url: n.url || '',
+    code: n.code || '',
+  } });
+});
+app.get('/api/admin/home-notice', auth.requireAuthApi(['admin', 'support']), (req, res) => {
+  res.json({ notice: db.getHomeNotice() || { active: false } });
+});
+app.put('/api/admin/home-notice', auth.requireAuthApi(['admin', 'support']), (req, res) => {
+  const b = req.body || {};
+  const notice = { active: !!b.active };
+  for (const f of NOTICE_FIELDS) notice[f] = String(b[f] || '').trim().slice(0, f.startsWith('body') ? 1200 : 200);
+  if (notice.url && !/^(https?:\/\/|\/)/i.test(notice.url)) return res.status(400).json({ error: 'The link must start with https:// or /' });
+  if (notice.active && !notice.titleEn) return res.status(400).json({ error: 'An English title is needed to show the notice.' });
+  db.setHomeNotice(notice);
+  res.json({ ok: true });
+});
 
 app.get('/api/showcase', async (req, res) => {
   const content = db.getShowcaseContent();

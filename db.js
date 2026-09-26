@@ -430,6 +430,48 @@ function ensureSchema() {
     active INTEGER NOT NULL DEFAULT 1
   )`);
 
+  // ── Whisper Forest (Mare App 4) — Club Mare's participation engine.
+  // Mare asks (a prompt: the Whisper Word of the Month now; questions,
+  // missions later) -> a child answers through their parent's account
+  // -> an adult approves -> it grows in the Forest of Words. Children
+  // never have their own login or email: submissions carry the child
+  // profile's first name and age band only, snapshotted at the time. ──
+  db.run(`CREATE TABLE IF NOT EXISTS whisper_prompts (
+    id TEXT PRIMARY KEY,
+    kind TEXT NOT NULL DEFAULT 'word_month',
+    month TEXT,                 -- 'YYYY-MM' for the Whisper Word of the Month
+    title_en TEXT NOT NULL,
+    title_nl TEXT,
+    body_en TEXT,
+    body_nl TEXT,
+    status TEXT NOT NULL DEFAULT 'open',   -- 'open' | 'closed'
+    winner_submission_id TEXT,
+    created_at TEXT DEFAULT (datetime('now'))
+  )`);
+  db.run(`CREATE TABLE IF NOT EXISTS whisper_submissions (
+    id TEXT PRIMARY KEY,
+    prompt_id TEXT NOT NULL,
+    parent_id TEXT NOT NULL,
+    child_id TEXT NOT NULL,
+    child_name TEXT NOT NULL,   -- first name only
+    age_band TEXT,
+    word TEXT NOT NULL,
+    reason TEXT,
+    locale TEXT,
+    status TEXT NOT NULL DEFAULT 'pending', -- 'pending' | 'approved' | 'rejected'
+    ai_flag TEXT,               -- 'ok' | 'check' | null (not screened)
+    ai_note TEXT,
+    is_winner INTEGER NOT NULL DEFAULT 0,
+    reviewed_at TEXT,
+    created_at TEXT DEFAULT (datetime('now'))
+  )`);
+  // The picture the Forest of Words grows on (R2 key); null = the
+  // built-in cover image until a word-free version is uploaded.
+  try { db.run(`ALTER TABLE app_config ADD COLUMN forest_image_key TEXT`); } catch {}
+  // Mare App 4 — the editable notice box at the top of the home page
+  // (e.g. the MAREGIFT thank-you). JSON, both languages.
+  try { db.run(`ALTER TABLE app_config ADD COLUMN home_notice_json TEXT`); } catch {}
+
   // ── Merchandise — real in-app Stripe checkout, not a link-out. ──
   db.run(`CREATE TABLE IF NOT EXISTS products (
     id TEXT PRIMARY KEY,
@@ -1511,6 +1553,92 @@ function setOrderPaidDetails(orderId, { name, email, address }) {
 function markOrderNotified(orderId) {
   run(`UPDATE orders SET notified_at = datetime('now') WHERE id = ?`, [orderId]);
 }
+// ── Whisper Forest ──
+function whisperGetPrompts() {
+  return all(`SELECT * FROM whisper_prompts ORDER BY COALESCE(month, created_at) DESC, created_at DESC`);
+}
+function whisperGetPrompt(id) { return get(`SELECT * FROM whisper_prompts WHERE id = ?`, [id]); }
+function whisperGetOpenPrompt(kind) {
+  return get(`SELECT * FROM whisper_prompts WHERE kind = ? AND status = 'open' ORDER BY COALESCE(month, created_at) DESC LIMIT 1`, [kind || 'word_month']);
+}
+function whisperCreatePrompt({ kind, month, titleEn, titleNl, bodyEn, bodyNl }) {
+  const id = uuid();
+  run(`INSERT INTO whisper_prompts (id, kind, month, title_en, title_nl, body_en, body_nl) VALUES (?,?,?,?,?,?,?)`,
+    [id, kind || 'word_month', month || null, titleEn, titleNl || null, bodyEn || null, bodyNl || null]);
+  return id;
+}
+function whisperUpdatePrompt(id, fields) {
+  const p = whisperGetPrompt(id);
+  if (!p) return false;
+  run(`UPDATE whisper_prompts SET month=?, title_en=?, title_nl=?, body_en=?, body_nl=?, status=? WHERE id=?`, [
+    fields.month !== undefined ? (fields.month || null) : p.month,
+    fields.titleEn !== undefined ? fields.titleEn : p.title_en,
+    fields.titleNl !== undefined ? (fields.titleNl || null) : p.title_nl,
+    fields.bodyEn !== undefined ? (fields.bodyEn || null) : p.body_en,
+    fields.bodyNl !== undefined ? (fields.bodyNl || null) : p.body_nl,
+    fields.status === 'closed' || fields.status === 'open' ? fields.status : p.status,
+    id]);
+  return true;
+}
+function whisperCreateSubmission({ promptId, parentId, childId, childName, ageBand, word, reason, locale }) {
+  const id = uuid();
+  run(`INSERT INTO whisper_submissions (id, prompt_id, parent_id, child_id, child_name, age_band, word, reason, locale) VALUES (?,?,?,?,?,?,?,?,?)`,
+    [id, promptId, parentId, childId, childName, ageBand || null, word, reason || null, locale || null]);
+  return id;
+}
+function whisperGetSubmission(id) { return get(`SELECT * FROM whisper_submissions WHERE id = ?`, [id]); }
+function whisperSetScreening(id, flag, note) {
+  run(`UPDATE whisper_submissions SET ai_flag = ?, ai_note = ? WHERE id = ?`, [flag, note || null, id]);
+}
+function whisperReview(id, { status, word, reason }) {
+  const s = whisperGetSubmission(id);
+  if (!s) return false;
+  run(`UPDATE whisper_submissions SET status = ?, word = ?, reason = ?, reviewed_at = datetime('now') WHERE id = ?`,
+    [status, word !== undefined ? word : s.word, reason !== undefined ? (reason || null) : s.reason, id]);
+  return true;
+}
+function whisperGetByStatus(status) {
+  return all(`SELECT s.*, p.title_en AS prompt_title, p.month AS prompt_month FROM whisper_submissions s
+              LEFT JOIN whisper_prompts p ON p.id = s.prompt_id WHERE s.status = ? ORDER BY s.created_at ASC`, [status]);
+}
+function whisperGetApprovedForPrompt(promptId) {
+  return all(`SELECT * FROM whisper_submissions WHERE prompt_id = ? AND status = 'approved' ORDER BY created_at ASC`, [promptId]);
+}
+function whisperCountForChild(promptId, childId) {
+  const r = get(`SELECT COUNT(*) AS n FROM whisper_submissions WHERE prompt_id = ? AND child_id = ? AND status != 'rejected'`, [promptId, childId]);
+  return r ? r.n : 0;
+}
+function whisperSetWinner(promptId, submissionId) {
+  run(`UPDATE whisper_submissions SET is_winner = 0 WHERE prompt_id = ?`, [promptId]);
+  if (submissionId) run(`UPDATE whisper_submissions SET is_winner = 1 WHERE id = ? AND prompt_id = ?`, [submissionId, promptId]);
+  run(`UPDATE whisper_prompts SET winner_submission_id = ? WHERE id = ?`, [submissionId || null, promptId]);
+}
+// The forest: approved words, newest first; Whisper Words of the Month
+// always included so the tree keeps its winners as it fills up.
+function whisperGetForest(limit) {
+  const winners = all(`SELECT s.*, p.month AS prompt_month FROM whisper_submissions s LEFT JOIN whisper_prompts p ON p.id = s.prompt_id
+                       WHERE s.status = 'approved' AND s.is_winner = 1 ORDER BY p.month DESC LIMIT 12`);
+  const others = all(`SELECT s.*, p.month AS prompt_month FROM whisper_submissions s LEFT JOIN whisper_prompts p ON p.id = s.prompt_id
+                      WHERE s.status = 'approved' AND s.is_winner = 0 ORDER BY s.reviewed_at DESC, s.created_at DESC LIMIT ?`, [Math.max(0, limit - winners.length)]);
+  return winners.concat(others);
+}
+function whisperCountApproved() {
+  const r = get(`SELECT COUNT(*) AS n FROM whisper_submissions WHERE status = 'approved'`);
+  return r ? r.n : 0;
+}
+function whisperGetForParent(parentId) {
+  return all(`SELECT s.id, s.word, s.reason, s.status, s.is_winner, s.child_name, s.created_at FROM whisper_submissions s
+              WHERE s.parent_id = ? ORDER BY s.created_at DESC LIMIT 30`, [parentId]);
+}
+function getHomeNotice() {
+  const config = getAppConfig();
+  try { return (config && config.home_notice_json) ? JSON.parse(config.home_notice_json) : null; } catch { return null; }
+}
+function setHomeNotice(notice) {
+  run(`UPDATE app_config SET home_notice_json = ? WHERE id = 'default'`, [notice ? JSON.stringify(notice) : null]);
+}
+function setForestImageKey(key) { run(`UPDATE app_config SET forest_image_key = ? WHERE id = 'default'`, [key || null]); }
+
 function getShippingOptions() {
   const config = getAppConfig();
   try {
@@ -2119,6 +2247,10 @@ module.exports = {
   getTeacherDocPreviewPages, setTeacherDocPreviewPages,
   getOrderBySession, getOrderItemsDetailed, setOrderPaidDetails, markOrderNotified,
   getShippingOptions, setShippingOptions,
+  whisperGetPrompts, whisperGetPrompt, whisperGetOpenPrompt, whisperCreatePrompt, whisperUpdatePrompt,
+  whisperCreateSubmission, whisperGetSubmission, whisperSetScreening, whisperReview, whisperGetByStatus,
+  whisperGetApprovedForPrompt, whisperCountForChild, whisperSetWinner, whisperGetForest, whisperCountApproved,
+  whisperGetForParent, setForestImageKey, getHomeNotice, setHomeNotice,
   getAdminByEmail, getAdminById, createAdmin, updateAdminPasswordHash, getAllStaff,
   getAllParentsDirectory, getAllTeachersDirectory, setParentStatus, setTeacherStatus,
   createPasswordResetToken, getValidPasswordResetToken, getPasswordResetTokenAnyState,
