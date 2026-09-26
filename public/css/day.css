@@ -1510,3 +1510,38 @@ html:has(#peek) { scroll-behavior: smooth; }
 .forest-chip-mission { border: 1px solid rgba(140,210,150,0.9); color: #CFF5D6; }
 .forest-card-mission { color: #2E6B43 !important; }
 .forest-card-mission[hidden] { display: none; }
+
+/* Mare App 5 — Staff Accounts: pick an existing parent/teacher. */
+.staff-find { position: relative; }
+.staff-find input[hidden], .staff-results[hidden], .staff-picked[hidden] { display: none; }
+.staff-results {
+  margin-top: 6px; max-height: 260px; overflow-y: auto;
+  border: 1.5px solid rgba(22,48,92,0.15); border-radius: 10px; background: #fff;
+}
+.staff-result {
+  display: block; width: 100%; text-align: left; cursor: pointer;
+  padding: 9px 14px; border: 0; border-bottom: 1px solid rgba(22,48,92,0.08);
+  background: transparent; color: var(--navy); font-family: 'Quicksand', sans-serif; font-size: 0.9rem;
+}
+.staff-result:last-child { border-bottom: 0; }
+.staff-result:hover:not(:disabled), .staff-result:focus-visible { background: var(--cloud); outline: none; }
+.staff-result:disabled { cursor: default; opacity: 0.55; }
+.staff-result span { color: var(--navy-soft); margin-left: 6px; }
+.staff-result em { display: block; font-style: normal; font-size: 0.78rem; color: var(--navy-soft); margin-top: 2px; }
+.staff-results-empty { margin: 0; padding: 10px 14px; font-size: 0.85rem; color: var(--navy-soft); }
+.staff-picked {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  padding: 10px 14px; border-radius: 10px; background: var(--cloud);
+  border: 1.5px solid var(--gold); color: var(--navy); font-size: 0.92rem;
+}
+.staff-picked span { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.staff-change {
+  border: 0; background: transparent; color: var(--navy); text-decoration: underline;
+  cursor: pointer; font-family: 'Quicksand', sans-serif; font-size: 0.85rem; font-weight: 700;
+}
+
+.staff-welcome-opt { display: flex; gap: 8px; align-items: flex-start; font-size: 0.88rem; color: var(--navy); margin: 0 0 14px; cursor: pointer; }
+.staff-welcome-opt input { margin-top: 3px; }
+.staff-done { color: #2E7D4F; font-size: 0.9rem; font-weight: 600; }
+.staff-done.warn { color: #A33B3B; }
+.staff-done[hidden] { display: none; }

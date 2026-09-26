@@ -901,12 +901,17 @@
     <div class="admin-panel" id="panel-staff">
       <div class="admin-card">
         <h2 data-i18n="adminStaffAddTitle">Add a staff account</h2>
-        <p class="admin-card-sub" data-i18n="adminStaffAddDesc">Support accounts can manage content and help parents/teachers, but never see products or payments.</p>
+        <p class="admin-card-sub" data-i18n="adminStaffAddDesc">Staff are chosen from existing parents and teachers. They keep their own email and password; after signing in they choose where to go (Parent, Teacher, Support…). Support can manage content and help parents/teachers, but never sees products or payments.</p>
         <form id="staff-form">
           <div class="admin-form-row">
-            <div class="field">
-              <label for="s-name" data-i18n="fieldName">Name</label>
-              <input type="text" id="s-name" required>
+            <div class="field staff-find">
+              <label for="s-search" data-i18n="adminStaffFindLabel">Find a parent or teacher</label>
+              <input type="search" id="s-search" autocomplete="off" placeholder="Type a name or email">
+              <div class="staff-results" id="s-results" hidden></div>
+              <div class="staff-picked" id="s-picked" hidden>
+                <span id="s-picked-text"></span>
+                <button type="button" class="staff-change" id="s-change" data-i18n="adminStaffChange">Change</button>
+              </div>
             </div>
             <div class="field">
               <label for="s-role" data-i18n="adminFieldRole">Role</label>
@@ -917,17 +922,9 @@
               </select>
             </div>
           </div>
-          <div class="admin-form-row">
-            <div class="field">
-              <label for="s-email" data-i18n="fieldEmail">Email</label>
-              <input type="email" id="s-email" required>
-            </div>
-            <div class="field">
-              <label for="s-password" data-i18n="fieldPassword">Password</label>
-              <input type="password" id="s-password" required minlength="8">
-            </div>
-          </div>
+          <label class="staff-welcome-opt"><input type="checkbox" id="s-welcome" checked> <span data-i18n="adminStaffSendWelcome">Send them a welcome email (in their language) saying what their role can do and how to sign in</span></label>
           <p class="form-error" id="staff-error" hidden></p>
+          <p class="staff-done" id="staff-done" hidden></p>
           <button type="submit" class="btn-primary" data-i18n="adminCreateAccount">Create account</button>
         </form>
       </div>

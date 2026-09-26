@@ -295,7 +295,15 @@ app.post('/api/auth/reset-password', async (req, res) => {
 
   const hash = await auth.hashPassword(password);
   if (record.role === 'teacher') db.updateTeacherPasswordHash(record.user_id, hash);
-  else if (record.role === 'admin') db.updateAdminPasswordHash(record.user_id, hash);
+  else if (record.role === 'admin') {
+    // Mare App 5 — a linked staff account has no password of its own; a
+    // reset from the staff sign-in sets the linked parent/teacher password.
+    const staff = db.getAdminById(record.user_id);
+    const linked = db.getStaffLinkedAccount(staff);
+    if (linked && staff.linked_role === 'teacher') db.updateTeacherPasswordHash(linked.id, hash);
+    else if (linked) db.updateParentPasswordHash(linked.id, hash);
+    else db.updateAdminPasswordHash(record.user_id, hash);
+  }
   else db.updateParentPasswordHash(record.user_id, hash);
 
   db.markPasswordResetTokenUsed(token);
@@ -2004,14 +2012,42 @@ app.post('/api/admin/bootstrap', async (req, res) => {
 app.get('/api/admin/staff', auth.requireAuthApi(['admin']), (req, res) => {
   res.json({ staff: db.getAllStaff() });
 });
+// Mare App 5 — search existing parents/teachers to make one of them staff.
+app.get('/api/admin/staff/candidates', auth.requireAuthApi(['admin']), (req, res) => {
+  const q = String(req.query.q || '').trim();
+  if (q.length < 2) return res.json({ people: [] });
+  res.json({ people: db.searchStaffCandidates(q.slice(0, 100)) });
+});
 app.post('/api/admin/staff', auth.requireAuthApi(['admin']), async (req, res) => {
   try {
-    const { email, password, name, role } = req.body || {};
-    if (!email || !password || !name) return res.status(400).json({ error: 'Missing fields' });
+    // Mare App 5 — normal path: link to an existing parent or teacher, who
+    // keeps their one email + password and chooses the role at sign-in.
+    const { linkedRole, linkedId } = req.body || {};
+    if (linkedRole || linkedId) {
+      if (!['parent', 'teacher'].includes(linkedRole) || !linkedId) return res.status(400).json({ error: 'Missing fields' });
+      const person = linkedRole === 'teacher' ? db.getTeacherById(linkedId) : db.getParentById(linkedId);
+      if (!person) return res.status(404).json({ error: 'Not found' });
+      if (db.getAdminByEmail(person.email)) return res.status(409).json({ error: 'Already staff' });
+      const unusable = await auth.hashPassword(crypto.randomBytes(24).toString('hex'));
+      const id = db.createAdmin({ email: person.email, passwordHash: unusable, name: person.name, role: req.body.role, linkedRole, linkedId: person.id });
+      // Mare App 5 — tell them, in their own language (unless the admin
+      // unticked "Send them a welcome email").
+      let emailed = null;
+      if (req.body.sendWelcome !== false) {
+        const staff = db.getAdminById(id);
+        const sent = await email.sendStaffWelcomeEmail(person.email, { name: person.name, role: staff.role, locale: person.preferred_locale })
+          .catch(e => ({ ok: false, error: e.message }));
+        emailed = !!(sent && sent.ok);
+      }
+      return res.json({ ok: true, id, emailed });
+    }
+    // (named staffEmail so it doesn't shadow the email module above)
+    const { email: staffEmail, password, name, role } = req.body || {};
+    if (!staffEmail || !password || !name) return res.status(400).json({ error: 'Missing fields' });
     if (password.length < 8) return res.status(400).json({ error: 'Password must be at least 8 characters' });
-    if (db.getAdminByEmail(email)) return res.status(409).json({ error: 'Email already registered' });
+    if (db.getAdminByEmail(staffEmail)) return res.status(409).json({ error: 'Email already registered' });
     const hash = await auth.hashPassword(password);
-    const id = db.createAdmin({ email, passwordHash: hash, name, role: ['support', 'editor'].includes(role) ? role : 'admin' });
+    const id = db.createAdmin({ email: staffEmail, passwordHash: hash, name, role: ['support', 'editor'].includes(role) ? role : 'admin' });
     res.json({ ok: true, id });
   } catch (e) {
     console.error('staff create failed', e);

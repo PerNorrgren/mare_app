@@ -64,7 +64,12 @@ async function loginTeacher(email, password) {
 async function loginAdmin(email, password) {
   const admin = db.getAdminByEmail(email);
   if (!admin) return null;
-  const valid = await verifyPassword(password, admin.password_hash);
+  // Mare App 5 — a staff account linked to a parent/teacher account signs
+  // in with that account's current password (so a password change or
+  // reset there carries over). If the linked account has been deleted,
+  // the staff account's own (unusable) hash is checked and login fails.
+  const linked = db.getStaffLinkedAccount(admin);
+  const valid = await verifyPassword(password, linked ? linked.password_hash : admin.password_hash);
   if (!valid) return null;
   // Mare App 4 — 'editor' (site texts only) added. Every stored role is
   // mapped explicitly: before this, anything that wasn't 'support'

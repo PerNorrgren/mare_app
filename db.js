@@ -175,6 +175,14 @@ function ensureSchema() {
     created_at TEXT DEFAULT (datetime('now'))
   )`);
   try { db.run(`ALTER TABLE admins ADD COLUMN role TEXT NOT NULL DEFAULT 'admin'`); } catch {}
+  // Mare App 5 — a staff account can be LINKED to an existing parent or
+  // teacher account. A linked staff account has no password of its own:
+  // sign-in checks the linked account's current password (auth.loginAdmin),
+  // so the person keeps one email and one password and picks Support /
+  // Admin / Editor in the "Where would you like to go?" popup. Its own
+  // password_hash is a random, unusable one (column is NOT NULL).
+  try { db.run(`ALTER TABLE admins ADD COLUMN linked_role TEXT`); } catch {}
+  try { db.run(`ALTER TABLE admins ADD COLUMN linked_id TEXT`); } catch {}
 
   // ── Teacher resources — documents/tools/links shown in the teacher hub
   // (public/teacher.html once logged in). Admin and support can both
@@ -1248,17 +1256,40 @@ function getAdminByEmail(email) {
 function getAdminById(id) {
   return get(`SELECT * FROM admins WHERE id = ?`, [id]);
 }
-function createAdmin({ email, passwordHash, name, role }) {
+function createAdmin({ email, passwordHash, name, role, linkedRole, linkedId }) {
   const id = uuid();
-  run(`INSERT INTO admins (id, email, password_hash, name, role) VALUES (?,?,?,?,?)`,
-    [id, email.toLowerCase().trim(), passwordHash, name, ['support', 'editor'].includes(role) ? role : 'admin']);
+  const lr = ['parent', 'teacher'].includes(linkedRole) ? linkedRole : null;
+  run(`INSERT INTO admins (id, email, password_hash, name, role, linked_role, linked_id) VALUES (?,?,?,?,?,?,?)`,
+    [id, email.toLowerCase().trim(), passwordHash, name, ['support', 'editor'].includes(role) ? role : 'admin', lr, lr ? linkedId : null]);
   return id;
+}
+// Mare App 5 — the parent/teacher row a linked staff account signs in
+// with, or null (not linked, or the linked account no longer exists).
+function getStaffLinkedAccount(admin) {
+  if (!admin || !admin.linked_role || !admin.linked_id) return null;
+  if (admin.linked_role === 'teacher') return get(`SELECT * FROM teachers WHERE id = ?`, [admin.linked_id]) || null;
+  if (admin.linked_role === 'parent') return get(`SELECT * FROM parents WHERE id = ?`, [admin.linked_id]) || null;
+  return null;
+}
+// Mare App 5 — people who could be made staff: parents and teachers whose
+// name or email contains q. password_hash never selected. Each row says
+// whether that email already has a staff account.
+function searchStaffCandidates(q, limit = 20) {
+  const like = '%' + String(q || '').toLowerCase().trim() + '%';
+  const rows = all(`
+    SELECT 'parent' AS kind, id, name, email, status FROM parents
+      WHERE lower(name) LIKE ? OR lower(email) LIKE ?
+    UNION ALL
+    SELECT 'teacher' AS kind, id, name, email, status FROM teachers
+      WHERE lower(name) LIKE ? OR lower(email) LIKE ?
+    ORDER BY name COLLATE NOCASE, kind LIMIT ?`, [like, like, like, like, limit]);
+  return rows.map(r => ({ ...r, isStaff: !!getAdminByEmail(r.email) }));
 }
 function updateAdminPasswordHash(adminId, passwordHash) {
   run(`UPDATE admins SET password_hash = ? WHERE id = ?`, [passwordHash, adminId]);
 }
 function getAllStaff() {
-  return all(`SELECT id, email, name, role, created_at FROM admins ORDER BY role, created_at`);
+  return all(`SELECT id, email, name, role, linked_role, created_at FROM admins ORDER BY role, created_at`);
 }
 
 // ── Directory lookups for support/admin to help troubleshoot parent and
@@ -2559,6 +2590,7 @@ module.exports = {
   marePostRecipients, setParentEmailOptOut, setBroadcastOptOut,
   textGetOverrides, textGetAllOverrides, textGetOverride, textSet, textGetChanges, textGetChange, textMarkUndone, getHomeNotice, setHomeNotice,
   getAdminByEmail, getAdminById, createAdmin, updateAdminPasswordHash, getAllStaff,
+  getStaffLinkedAccount, searchStaffCandidates,
   getAllParentsDirectory, getAllTeachersDirectory, setParentStatus, setTeacherStatus,
   createPasswordResetToken, getValidPasswordResetToken, getPasswordResetTokenAnyState,
   hasRecentPasswordResetToken, markPasswordResetTokenUsed,

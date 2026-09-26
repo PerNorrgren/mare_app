@@ -144,6 +144,91 @@ function escapeHtml(str) {
     .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
+// ── Mare App 5 — "you're now on the Mare team" email, sent when an admin
+// makes an existing parent/teacher into staff (Admin → Staff Accounts).
+// In the person's own language; says what the role can do and how to
+// get there (same email + password, then choose the role in the popup).
+const STAFF_WELCOME = {
+  en: {
+    subject: { support: 'You are now Mare Support', editor: 'You are now a Mare Editor', admin: 'You are now a Mare Admin' },
+    roleName: { support: 'Support', editor: 'Editor', admin: 'Admin' },
+    popupName: { support: 'Support', editor: 'Editor', admin: 'Admin' }, // as in the sign-in popup
+    hi: (n) => `Hi ${n},`,
+    news: (r) => `Good news: you now have the <strong>${r}</strong> role in the Mare app.`,
+    canDo: 'What you can do:',
+    items: {
+      support: [
+        'Approve what children send to Club Mare: words, answers and pictures, before anything is shown',
+        'Look after Club Mare: the monthly Whisper Word and Question, Missions, Riddles and Mare’s monthly letter',
+        'Help parents and teachers: look up accounts, add teacher accounts, pause or restore an account',
+        'Manage teacher resources and pages',
+        'Send news emails to families and teachers',
+        'Change the texts on the site in English and Dutch, and the home-page notice',
+        'Manage discount codes',
+      ],
+      editor: [
+        'Change any text on the site, in English and in Dutch',
+        'Every change is live at once and is listed with an Undo, so nothing is ever lost',
+      ],
+      admin: [
+        'Everything in the app: Club Mare, parents and teachers, resources, messages and site texts',
+        'The shop: products, postage and discount codes',
+        'Staff accounts, the email log and database backups',
+      ],
+    },
+    howTitle: 'How to get there',
+    how: (url, r) => `Sign in at <a href="${url}">${url.replace(/^https?:\/\//, '')}</a> with your usual email address and password. You will be asked where you would like to go: choose <strong>${r}</strong>.`,
+    nothingChanges: 'Your own account stays exactly as it is.',
+  },
+  nl: {
+    subject: { support: 'Je bent nu Ondersteuning bij Mare', editor: 'Je bent nu Redacteur bij Mare', admin: 'Je bent nu Beheerder bij Mare' },
+    roleName: { support: 'Ondersteuning', editor: 'Redacteur', admin: 'Beheerder' },
+    popupName: { support: 'Ondersteuning', editor: 'Redacteur', admin: 'Beheer' }, // as in the sign-in popup
+    hi: (n) => `Hoi ${n},`,
+    news: (r) => `Goed nieuws: je hebt nu de rol <strong>${r}</strong> in de Mare-app.`,
+    canDo: 'Wat je kunt doen:',
+    items: {
+      support: [
+        'Goedkeuren wat kinderen naar Club Mare sturen: woorden, antwoorden en tekeningen, voordat er iets zichtbaar wordt',
+        'Club Mare verzorgen: het Fluisterwoord en de Fluistervraag van de maand, Missies, Raadsels en Mares maandelijkse brief',
+        'Ouders en leerkrachten helpen: accounts opzoeken, leerkrachtaccounts aanmaken, een account pauzeren of herstellen',
+        'Materialen voor leerkrachten en pagina’s beheren',
+        'Nieuwsmails naar gezinnen en leerkrachten sturen',
+        'De teksten op de site aanpassen, in het Nederlands en het Engels, en de melding op de startpagina',
+        'Kortingscodes beheren',
+      ],
+      editor: [
+        'Elke tekst op de site aanpassen, in het Nederlands en in het Engels',
+        'Elke wijziging staat meteen live en komt in een lijst met Ongedaan maken, dus er gaat nooit iets verloren',
+      ],
+      admin: [
+        'Alles in de app: Club Mare, ouders en leerkrachten, materialen, berichten en teksten',
+        'De winkel: producten, verzendkosten en kortingscodes',
+        'Medewerkersaccounts, het e-maillogboek en back-ups van de database',
+      ],
+    },
+    howTitle: 'Zo kom je er',
+    how: (url, r) => `Log in op <a href="${url}">${url.replace(/^https?:\/\//, '')}</a> met je gewone e-mailadres en wachtwoord. Je krijgt de vraag waar je heen wilt: kies <strong>${r}</strong>.`,
+    nothingChanges: 'Je eigen account blijft precies zoals het is.',
+  },
+};
+function sendStaffWelcomeEmail(to, { name, role, locale }) {
+  const L = STAFF_WELCOME[locale === 'nl' ? 'nl' : 'en'];
+  const r = ['support', 'editor', 'admin'].includes(role) ? role : 'support';
+  const url = `${APP_URL}/login.html`;
+  let html = wrapHtml(`
+    <p>${L.hi(escapeHtml(name))}</p>
+    <p>${L.news(L.roleName[r])}</p>
+    <p style="margin-bottom:6px;"><strong>${L.canDo}</strong></p>
+    <ul style="margin-top:0;padding-left:20px;line-height:1.5;">${L.items[r].map(i => `<li>${i}</li>`).join('')}</ul>
+    <p style="margin-bottom:6px;"><strong>${L.howTitle}</strong></p>
+    <p style="margin-top:0;">${L.how(url, L.popupName[r])}</p>
+    <p style="font-size:0.85rem;color:#4A5C82;">${L.nothingChanges}</p>
+  `);
+  if (locale === 'nl') html = html.replace('— The Mare team', '— Het Mare-team');
+  return sendEmail(to, L.subject[r], html, { kind: 'staff_welcome' });
+}
+
 // ── Admin notifications — teacher signup requests and in-app questions,
 // both sent to app_config.contact_email (the admin-configured "Notify"
 // address, see db.getAppConfig/setNotifyEmail). No wrapHtml() template
@@ -206,6 +291,7 @@ module.exports = {
   sendEmail,
   sendWelcomeParentEmail,
   sendWelcomeTeacherEmail,
+  sendStaffWelcomeEmail,
   sendPasswordResetEmail,
   sendBroadcastEmail,
   sendTeacherSignupRequestNotification,

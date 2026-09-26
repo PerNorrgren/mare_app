@@ -973,20 +973,92 @@
   }
 
   // ── Staff ──
+  // Mare App 5 — staff are picked from existing parents/teachers. The
+  // staff account is linked to that account: same email, same password,
+  // and the person chooses the role in the sign-in popup.
+  let staffPick = null; // { kind, id, name, email }
+  function staffKindLabel(kind) { return t(kind === 'teacher' ? 'adminStaffKindTeacher' : 'adminStaffKindParent'); }
   function setupStaffForm() {
+    const search = document.getElementById('s-search');
+    const results = document.getElementById('s-results');
+    const picked = document.getElementById('s-picked');
+    search.placeholder = t('adminStaffFindPlaceholder');
+    let timer = null, seq = 0;
+
+    function showPicked() {
+      search.hidden = !!staffPick;
+      results.hidden = true;
+      picked.hidden = !staffPick;
+      if (staffPick) {
+        document.getElementById('s-picked-text').textContent =
+          `${staffPick.name} \u00b7 ${staffPick.email} \u00b7 ${staffKindLabel(staffPick.kind)}`;
+      }
+    }
+
+    async function runSearch() {
+      const q = search.value.trim();
+      const mine = ++seq;
+      if (q.length < 2) { results.hidden = true; results.innerHTML = ''; return; }
+      try {
+        const data = await api('/api/admin/staff/candidates?q=' + encodeURIComponent(q));
+        if (mine !== seq) return; // a newer search has started
+        const people = data.people || [];
+        results.innerHTML = '';
+        if (!people.length) {
+          results.innerHTML = `<p class="staff-results-empty">${escapeHtml(t('adminStaffNoMatch'))}</p>`;
+        }
+        people.forEach(p => {
+          const b = document.createElement('button');
+          b.type = 'button';
+          b.className = 'staff-result';
+          b.disabled = !!p.isStaff;
+          const note = p.isStaff ? t('adminStaffAlready') : (p.status === 'suspended' ? t('adminStaffSuspended') : '');
+          b.innerHTML = `<strong>${escapeHtml(p.name)}</strong> <span>${escapeHtml(p.email)}</span>
+            <em>${escapeHtml(staffKindLabel(p.kind))}${note ? ' \u00b7 ' + escapeHtml(note) : ''}</em>`;
+          b.addEventListener('click', () => {
+            staffPick = { kind: p.kind, id: p.id, name: p.name, email: p.email };
+            clearError('staff-error');
+            showPicked();
+          });
+          results.appendChild(b);
+        });
+        results.hidden = false;
+      } catch {
+        if (mine === seq) { results.innerHTML = `<p class="staff-results-empty">${escapeHtml(t('adminStaffSearchFailed'))}</p>`; results.hidden = false; }
+      }
+    }
+
+    search.addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(runSearch, 250); });
+    // Enter in the search box searches; it never submits the form.
+    search.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); clearTimeout(timer); runSearch(); } });
+    document.getElementById('s-change').addEventListener('click', () => {
+      staffPick = null;
+      showPicked();
+      search.focus();
+      if (search.value.trim().length >= 2) runSearch();
+    });
+
     document.getElementById('staff-form').addEventListener('submit', async (e) => {
       e.preventDefault();
       clearError('staff-error');
+      document.getElementById('staff-done').hidden = true;
+      if (!staffPick) { showError('staff-error', t('adminStaffPickFirst')); return; }
       try {
-        const name = document.getElementById('s-name').value.trim();
-        const email = document.getElementById('s-email').value.trim();
-        const password = document.getElementById('s-password').value;
         const role = document.getElementById('s-role').value;
-        await api('/api/admin/staff', { method: 'POST', body: JSON.stringify({ name, email, password, role }) });
+        const sendWelcome = document.getElementById('s-welcome').checked;
+        const res = await api('/api/admin/staff', { method: 'POST', body: JSON.stringify({ linkedRole: staffPick.kind, linkedId: staffPick.id, role, sendWelcome }) });
+        const done = document.getElementById('staff-done');
+        done.textContent = t(res.emailed === true ? 'adminStaffDoneEmailed' : (res.emailed === false ? 'adminStaffDoneEmailFailed' : 'adminStaffDone'), { name: staffPick.name });
+        done.classList.toggle('warn', res.emailed === false);
+        done.hidden = false;
+        staffPick = null;
         document.getElementById('staff-form').reset();
+        results.innerHTML = '';
+        showPicked();
         loadStaff();
       } catch (err) {
-        showError('staff-error', t(SERVER_ERROR_MAP[err.message] || 'adminErrorCreateAccount'));
+        const key = err.message === 'Already staff' ? 'adminStaffAlreadyError' : SERVER_ERROR_MAP[err.message];
+        showError('staff-error', t(key || 'adminErrorCreateAccount'));
       }
     });
   }
@@ -1002,7 +1074,7 @@
       }
       const table = document.createElement('table');
       table.className = 'admin-table';
-      table.innerHTML = `<thead><tr><th>${t('fieldName')}</th><th>${t('fieldEmail')}</th><th>${t('adminFieldRole')}</th><th>${t('adminSince')}</th></tr></thead>`;
+      table.innerHTML = `<thead><tr><th>${t('fieldName')}</th><th>${t('fieldEmail')}</th><th>${t('adminFieldRole')}</th><th>${t('adminStaffSignsIn')}</th><th>${t('adminSince')}</th></tr></thead>`;
       const tbody = document.createElement('tbody');
       staff.forEach(s => {
         const tr = document.createElement('tr');
@@ -1010,6 +1082,7 @@
           <td>${escapeHtml(s.name)}</td>
           <td>${escapeHtml(s.email)}</td>
           <td><span class="role-pill ${s.role === 'admin' ? 'admin' : ''}">${escapeHtml(t(s.role === 'admin' ? 'staffRoleAdmin' : (s.role === 'editor' ? 'staffRoleEditor' : 'staffRoleSupport')))}</span></td>
+          <td>${escapeHtml(t(s.linked_role === 'teacher' ? 'adminStaffLoginTeacher' : (s.linked_role === 'parent' ? 'adminStaffLoginParent' : 'adminStaffLoginOwn')))}</td>
           <td>${escapeHtml(s.created_at)}</td>
         `;
         tbody.appendChild(tr);
