@@ -728,6 +728,8 @@
   "shopDeliverTo": "Bezorgen in",
   "shopPostage": "Verzendkosten: {amount}",
   "shopCheckoutNote": "Hierna vul je je naam, e-mail en bezorgadres in en betaal je veilig via Stripe. Geen account nodig.",
+  "shopCheckoutWaitTitle": "Veilige betaling wordt geopend…",
+  "shopCheckoutWaitSub": "Dit duurt een paar seconden. Sluit de pagina niet.",
   "shopNoShipping": "Bezorgen is nog niet ingesteld — kom binnenkort terug.",
   "shopThankYou": "Bedankt voor je bestelling! We hebben hem ontvangen en sturen je pakketje snel op.",
   "shopProcessing": "Bedankt! Je betaling wordt verwerkt — we sturen je pakketje op zodra die rond is.",

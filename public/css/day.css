@@ -1370,3 +1370,18 @@ html:has(#peek) { scroll-behavior: smooth; }
 .whisper-p-q { margin: 6px 0; }
 .whisper-pick { display: flex; justify-content: space-between; gap: 12px; align-items: center; padding: 10px 0; border-top: 1px solid rgba(22,48,92,0.08); }
 .whisper-why { color: #9A7A2E; font-size: 0.88rem; }
+
+/* ── Checkout waiting message (Mare App 4) ── */
+.checkout-wait[hidden] { display: none; }
+.checkout-wait {
+  position: fixed; inset: 0; z-index: 2000; display: flex; align-items: center; justify-content: center;
+  background: rgba(8,16,12,0.72); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+  animation: checkout-fade 0.2s ease-out;
+}
+.checkout-wait-card { text-align: center; padding: 28px 32px; max-width: 320px; }
+.checkout-yinyang { animation: checkout-spin 2.4s linear infinite; filter: drop-shadow(0 0 18px rgba(234,192,102,0.45)); }
+.checkout-wait-title { font-family: 'Fraunces', serif; font-weight: 600; font-size: 1.25rem; color: var(--gold); margin: 18px 0 6px; }
+.checkout-wait-sub { color: rgba(243,236,217,0.85); margin: 0; font-size: 0.92rem; }
+@keyframes checkout-spin { to { transform: rotate(360deg); } }
+@keyframes checkout-fade { from { opacity: 0; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .checkout-yinyang { animation-duration: 8s; } }

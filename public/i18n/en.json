@@ -728,6 +728,8 @@
   "shopDeliverTo": "Deliver to",
   "shopPostage": "Postage: {amount}",
   "shopCheckoutNote": "Next you'll give your name, email and delivery address, and pay securely with Stripe. No account needed.",
+  "shopCheckoutWaitTitle": "Opening secure payment…",
+  "shopCheckoutWaitSub": "This takes a few seconds. Please don't close the page.",
   "shopNoShipping": "Delivery isn't set up yet — please check back soon.",
   "shopThankYou": "Thank you for your order! We've received it and will post your parcel soon.",
   "shopProcessing": "Thank you! Your payment is being processed — we'll post your parcel as soon as it's complete.",

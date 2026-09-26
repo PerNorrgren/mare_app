@@ -362,6 +362,10 @@
 
       const btn = document.getElementById('cart-checkout-btn');
       btn.disabled = true;
+      // Immediate feedback (Mare App 4): the turning yin-yang stays up
+      // until Stripe's page has loaded; it only comes down on an error.
+      const wait = document.getElementById('checkout-wait');
+      wait.hidden = false;
       try {
         const offerCode = document.getElementById('cart-offer-code').value.trim();
         const res = await fetch('/api/checkout', {
@@ -381,11 +385,17 @@
         // doesn't lose it.
         window.location.href = data.url;
       } catch (err) {
+        wait.hidden = true;
+        btn.disabled = false;
         errorEl.textContent = err.message;
         errorEl.hidden = false;
-      } finally {
-        btn.disabled = false;
       }
+    });
+    // Coming back from Stripe with the browser's Back button can restore
+    // this page exactly as it was left - waiting message included.
+    window.addEventListener('pageshow', () => {
+      document.getElementById('checkout-wait').hidden = true;
+      document.getElementById('cart-checkout-btn').disabled = false;
     });
   }
 

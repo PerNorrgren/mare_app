@@ -125,6 +125,21 @@
   </div>
 </div>
 
+<!-- Shown the moment Checkout is pressed, until Stripe's page opens
+     (Mare App 4). A slowly turning yin-yang. -->
+<div class="checkout-wait" id="checkout-wait" hidden role="status" aria-live="polite">
+  <div class="checkout-wait-card">
+    <svg class="checkout-yinyang" viewBox="0 0 100 100" width="72" height="72" aria-hidden="true">
+      <circle cx="50" cy="50" r="48" fill="#F3ECD9" stroke="#EAC066" stroke-width="2"/>
+      <path d="M50 2 a48 48 0 0 1 0 96 a24 24 0 0 1 0 -48 a24 24 0 0 0 0 -48z" fill="#16305C"/>
+      <circle cx="50" cy="26" r="7" fill="#16305C"/>
+      <circle cx="50" cy="74" r="7" fill="#F3ECD9"/>
+    </svg>
+    <p class="checkout-wait-title" data-i18n="shopCheckoutWaitTitle">Opening secure payment…</p>
+    <p class="checkout-wait-sub" data-i18n="shopCheckoutWaitSub">This takes a few seconds. Please don't close the page.</p>
+  </div>
+</div>
+
 <script src="/js/i18n.js"></script>
 <script src="/js/mare-helper-widget.js"></script>
 <script src="/js/bg-slideshow.js"></script>
