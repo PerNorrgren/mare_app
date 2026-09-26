@@ -46,18 +46,11 @@
     const submitBtn = document.getElementById('submit-btn');
     submitBtn.disabled = true;
     try {
-      const res = await fetch('/api/teacher/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        showError(SERVER_ERROR_MAP[data.error] || 'errorGeneric');
-        submitBtn.disabled = false;
-        return;
-      }
-      window.location.href = '/teacher.html';
+      // Shared sign-in (Mare App 4): one account goes straight to its
+      // page; several (e.g. teacher + editor) get a choice popup.
+      const out = await window.MareLogin.signIn(email, password);
+      if (out.error) showError(SERVER_ERROR_MAP[out.error] || 'errorGeneric');
+      if (!out.ok) submitBtn.disabled = false;
     } catch {
       showError('errorGeneric');
       submitBtn.disabled = false;

@@ -495,6 +495,24 @@ function ensureSchema() {
     undone INTEGER NOT NULL DEFAULT 0
   )`);
 
+  // ── Mare's monthly post (Mare App 4) — a letter from Mare to Club Mare
+  // families who opted in to messages from Mare. Drafted (optionally by
+  // the app), edited and approved by a person, then sent once. ──
+  db.run(`CREATE TABLE IF NOT EXISTS mare_posts (
+    id TEXT PRIMARY KEY,
+    month TEXT,
+    subject_en TEXT NOT NULL DEFAULT '',
+    subject_nl TEXT NOT NULL DEFAULT '',
+    body_en TEXT NOT NULL DEFAULT '',
+    body_nl TEXT NOT NULL DEFAULT '',
+    status TEXT NOT NULL DEFAULT 'draft',  -- 'draft' | 'sending' | 'sent'
+    recipient_count INTEGER,
+    sent_count INTEGER,
+    failed_count INTEGER,
+    created_at TEXT DEFAULT (datetime('now')),
+    sent_at TEXT
+  )`);
+
   // ── Merchandise — real in-app Stripe checkout, not a link-out. ──
   db.run(`CREATE TABLE IF NOT EXISTS products (
     id TEXT PRIMARY KEY,
@@ -1703,6 +1721,52 @@ function textGetChanges(sinceIso) {
 function textGetChange(id) { return get(`SELECT * FROM text_changes WHERE id = ?`, [id]); }
 function textMarkUndone(id) { run(`UPDATE text_changes SET undone = 1 WHERE id = ?`, [id]); }
 
+// ── Mare's monthly post ──
+function marePostList() { return all(`SELECT * FROM mare_posts ORDER BY created_at DESC LIMIT 24`); }
+function marePostGet(id) { return get(`SELECT * FROM mare_posts WHERE id = ?`, [id]); }
+function marePostCreate({ month, subjectEn, subjectNl, bodyEn, bodyNl }) {
+  const id = uuid();
+  run(`INSERT INTO mare_posts (id, month, subject_en, subject_nl, body_en, body_nl) VALUES (?,?,?,?,?,?)`,
+    [id, month || null, subjectEn || '', subjectNl || '', bodyEn || '', bodyNl || '']);
+  return id;
+}
+function marePostUpdate(id, f) {
+  const p = marePostGet(id);
+  if (!p || p.status !== 'draft') return false;
+  run(`UPDATE mare_posts SET month=?, subject_en=?, subject_nl=?, body_en=?, body_nl=? WHERE id=?`, [
+    f.month !== undefined ? (f.month || null) : p.month,
+    f.subjectEn !== undefined ? f.subjectEn : p.subject_en,
+    f.subjectNl !== undefined ? f.subjectNl : p.subject_nl,
+    f.bodyEn !== undefined ? f.bodyEn : p.body_en,
+    f.bodyNl !== undefined ? f.bodyNl : p.body_nl, id]);
+  return true;
+}
+function marePostDelete(id) { run(`DELETE FROM mare_posts WHERE id = ? AND status = 'draft'`, [id]); }
+// Claims the post for sending; false if it isn't a draft any more, so a
+// double click can never send twice.
+function marePostClaim(id) {
+  const p = marePostGet(id);
+  if (!p || p.status !== 'draft') return false;
+  run(`UPDATE mare_posts SET status = 'sending' WHERE id = ? AND status = 'draft'`, [id]);
+  return marePostGet(id).status === 'sending';
+}
+function marePostMarkSent(id, { recipientCount, sentCount, failedCount }) {
+  run(`UPDATE mare_posts SET status='sent', sent_at=datetime('now'), recipient_count=?, sent_count=?, failed_count=? WHERE id=?`,
+    [recipientCount, sentCount, failedCount, id]);
+}
+// Club Mare members who asked for messages from Mare, with their
+// children's first names for the greeting.
+function marePostRecipients() {
+  const parents = all(`SELECT p.id, p.email, p.name, p.preferred_locale FROM parents p
+                       JOIN club_mare_members m ON m.parent_id = p.id
+                       WHERE p.email_opt_in = 1 AND m.tier >= 1 AND COALESCE(p.status, 'active') = 'active'`);
+  return parents.map(p => ({
+    ...p,
+    childNames: getChildrenByParent(p.id).map(c => String(c.name || '').trim().split(/\s+/)[0]).filter(Boolean),
+  }));
+}
+function setParentEmailOptOut(parentId) { run(`UPDATE parents SET email_opt_in = 0 WHERE id = ?`, [parentId]); }
+
 function setForestImageKey(key) { run(`UPDATE app_config SET forest_image_key = ? WHERE id = 'default'`, [key || null]); }
 
 function getShippingOptions() {
@@ -2317,6 +2381,8 @@ module.exports = {
   whisperCreateSubmission, whisperGetSubmission, whisperSetScreening, whisperReview, whisperGetByStatus,
   whisperGetApprovedForPrompt, whisperCountForChild, whisperSetWinner, whisperGetForest, whisperCountApproved,
   whisperGetForParent, whisperGetAnswers, whisperGetClosedPrompts, setForestImageKey,
+  marePostList, marePostGet, marePostCreate, marePostUpdate, marePostDelete, marePostClaim, marePostMarkSent,
+  marePostRecipients, setParentEmailOptOut,
   textGetOverrides, textGetAllOverrides, textGetOverride, textSet, textGetChanges, textGetChange, textMarkUndone, getHomeNotice, setHomeNotice,
   getAdminByEmail, getAdminById, createAdmin, updateAdminPasswordHash, getAllStaff,
   getAllParentsDirectory, getAllTeachersDirectory, setParentStatus, setTeacherStatus,

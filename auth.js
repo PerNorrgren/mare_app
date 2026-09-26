@@ -26,6 +26,11 @@ async function verifyPassword(password, hash) {
 function createToken(payload) {
   return jwt.sign(payload, JWT_SECRET, { expiresIn: '30d' });
 }
+// Mare App 4 — short-lived token for the "which account?" step at
+// sign-in; never set as a cookie, only handed back to /api/login-choose.
+function createChoiceToken(options) {
+  return jwt.sign({ kind: 'choice', options }, JWT_SECRET, { expiresIn: '5m' });
+}
 function verifyToken(token) {
   try { return jwt.verify(token, JWT_SECRET); } catch { return null; }
 }
@@ -95,7 +100,7 @@ function requireAuthApi(roles = []) {
 }
 
 module.exports = {
-  hashPassword, verifyPassword, createToken, verifyToken,
+  hashPassword, verifyPassword, createToken, verifyToken, createChoiceToken,
   loginParent, loginTeacher, loginAdmin,
   requireAuth, requireAuthApi,
   COOKIE_NAME, COOKIE_OPTIONS,

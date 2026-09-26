@@ -711,6 +711,19 @@
         <div id="whisper-prompts" style="margin-top:18px;"></div>
       </div>
 
+      <!-- Mare's monthly post (Mare App 4) -->
+      <div class="admin-card">
+        <h2 data-i18n="adminPostTitle">Mare's monthly post</h2>
+        <p class="admin-card-sub" id="mp-desc"></p>
+        <div class="admin-form-row">
+          <div class="field" style="max-width:180px;"><label for="mp-month" data-i18n="adminWhisperMonth">Month</label><input type="month" id="mp-month"></div>
+          <div class="field"><label for="mp-notes" data-i18n="adminPostNotes">Anything Mare should mention? (optional)</label><input type="text" id="mp-notes" maxlength="600" placeholder="autumn leaves, the Whisper Word, a new story coming"></div>
+        </div>
+        <p class="form-error" id="mp-error" hidden></p>
+        <button type="button" class="btn-primary" id="mp-draft-btn" data-i18n="adminPostDraft">Draft this month's post</button>
+        <div id="mp-list" style="margin-top:18px;"></div>
+      </div>
+
       <div class="admin-card">
         <h2 data-i18n="adminWhisperImageTitle">Forest picture</h2>
         <p class="admin-card-sub" data-i18n="adminWhisperImageDesc">The picture the words grow on. Best: the book's forest illustration without any words on it, portrait, at least 1200 pixels tall. Until one is uploaded, the book cover is used.</p>
@@ -948,6 +961,7 @@
 <script src="/js/mare-helper-widget.js"></script>
 <script src="/js/bg-slideshow.js"></script>
 <script src="/js/message-editor.js"></script>
+<script src="/js/role-chooser.js"></script>
 <script src="/js/admin.js"></script>
 <script>window.MareBgSlideshow.init('bg-slideshow', ['/images/mare-front-cover.jpg', '/images/mare-back-cover.jpg']);</script>
 </body>

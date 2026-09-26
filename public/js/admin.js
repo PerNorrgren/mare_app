@@ -98,14 +98,14 @@
       const submitBtn = document.getElementById('submit-btn');
       submitBtn.disabled = true;
       try {
-        await api('/api/admin/login', { method: 'POST', body: JSON.stringify({ email, password }) });
-        currentUser = await checkSession();
-        // Editors (site texts only) go straight to their own page.
-        if (currentUser && currentUser.role === 'editor') { window.location.href = '/editor.html'; return; }
-        if (currentUser) enterDashboard(currentUser);
+        // Shared sign-in (Mare App 4): goes to the right page for the
+        // account (admin reloads here, editors go to /editor.html), or
+        // asks which one when the details match several accounts.
+        const out = await window.MareLogin.signIn(email, password);
+        if (out.error) showError('form-error', t(SERVER_ERROR_MAP[out.error] || 'errorGeneric'));
+        if (!out.ok) submitBtn.disabled = false;
       } catch (err) {
         showError('form-error', t(SERVER_ERROR_MAP[err.message] || 'errorGeneric'));
-      } finally {
         submitBtn.disabled = false;
       }
     });
@@ -150,6 +150,7 @@
     setupHomeNotice();
     setupWhisper();
     setupTextChanges();
+    setupMarePosts();
     setupAdminSettings();
     loadOverview();
     loadResources();
@@ -166,6 +167,7 @@
     loadHomeNotice();
     loadWhisper();
     loadTextChanges();
+    loadMarePosts();
     loadMarketingStats();
     loadShowcaseContent();
     loadShowcaseTiles();
@@ -2091,6 +2093,113 @@
     document.getElementById('whisper-image-reset').addEventListener('click', async () => {
       await api('/api/admin/whisper/forest-image', { method: 'PUT', body: JSON.stringify({ key: null }) });
       loadWhisper();
+    });
+  }
+
+  // ── Mare's monthly post (Mare App 4) ──
+  let mpRecipients = 0;
+  async function loadMarePosts() {
+    let data;
+    try { data = await api('/api/admin/mare-posts'); } catch { return; }
+    mpRecipients = data.recipients || 0;
+    document.getElementById('mp-desc').textContent = t('adminPostDesc', { n: mpRecipients });
+    const list = document.getElementById('mp-list');
+    list.innerHTML = '';
+    (data.posts || []).forEach(p => list.appendChild(marePostCard(p)));
+  }
+  function marePostCard(p) {
+    const card = document.createElement('div');
+    card.className = 'whisper-p-row';
+    const head = `<div class="whisper-p-head"><strong>${escapeHtml(whisperMonthLabel(p.month) || '—')}</strong>
+      <span class="whisper-p-status ${p.status === 'draft' ? '' : 'whisper-p-status-open'}">${escapeHtml(t(p.status === 'draft' ? 'adminPostStatusDraft' : 'adminPostStatusSent'))}</span></div>`;
+    if (p.status !== 'draft') {
+      card.innerHTML = `${head}<p class="admin-empty-note">${escapeHtml(t('adminPostSentLine', { n: p.sent_count ?? 0, total: p.recipient_count ?? 0, failed: p.failed_count ?? 0 }))}</p>
+        <details><summary>${escapeHtml(p.subject_en)}</summary><p style="white-space:pre-line;">${escapeHtml(p.body_en)}</p></details>`;
+      return card;
+    }
+    card.innerHTML = `${head}
+      <div class="admin-form-row">
+        <div class="field"><label>${escapeHtml(t('adminPostSubjectEn'))}</label><input type="text" class="mp-subject-en" maxlength="200"></div>
+        <div class="field"><label>${escapeHtml(t('adminPostSubjectNl'))}</label><input type="text" class="mp-subject-nl" maxlength="200"></div>
+      </div>
+      <div class="admin-form-row">
+        <div class="field"><label>${escapeHtml(t('adminPostBodyEn'))}</label><textarea class="mp-body-en" rows="12" maxlength="4000"></textarea></div>
+        <div class="field"><label>${escapeHtml(t('adminPostBodyNl'))}</label><textarea class="mp-body-nl" rows="12" maxlength="4000"></textarea></div>
+      </div>
+      <p class="admin-empty-note">${escapeHtml(t('adminPostNamesHint'))}</p>
+      <p class="form-success mp-ok" hidden></p><p class="form-error mp-err" hidden></p>
+      <div class="whisper-q-btns">
+        <button type="button" class="btn-ghost btn-small mp-save">${escapeHtml(t('adminSaveChanges'))}</button>
+        <button type="button" class="btn-ghost btn-small mp-test-en">${escapeHtml(t('adminPostTestEn'))}</button>
+        <button type="button" class="btn-ghost btn-small mp-test-nl">${escapeHtml(t('adminPostTestNl'))}</button>
+        <button type="button" class="btn-primary btn-small mp-send">${escapeHtml(t('adminPostSend', { n: mpRecipients }))}</button>
+        <button type="button" class="btn-ghost btn-small mp-delete">${escapeHtml(t('adminPostDelete'))}</button>
+      </div>`;
+    const q = sel => card.querySelector(sel);
+    q('.mp-subject-en').value = p.subject_en; q('.mp-subject-nl').value = p.subject_nl;
+    q('.mp-body-en').value = p.body_en; q('.mp-body-nl').value = p.body_nl;
+    const say = (ok, msg) => {
+      q('.mp-ok').hidden = !ok; q('.mp-err').hidden = ok;
+      (ok ? q('.mp-ok') : q('.mp-err')).textContent = msg;
+    };
+    const save = () => api(`/api/admin/mare-posts/${p.id}`, { method: 'PATCH', body: JSON.stringify({
+      subjectEn: q('.mp-subject-en').value, subjectNl: q('.mp-subject-nl').value,
+      bodyEn: q('.mp-body-en').value, bodyNl: q('.mp-body-nl').value,
+    }) });
+    q('.mp-save').addEventListener('click', async () => {
+      try { await save(); say(true, t('adminSaved')); } catch (e) { say(false, e.message || t('errorGeneric')); }
+    });
+    for (const locale of ['en', 'nl']) {
+      q(`.mp-test-${locale}`).addEventListener('click', async (e) => {
+        e.target.disabled = true;
+        try {
+          await save();
+          await api(`/api/admin/mare-posts/${p.id}/test`, { method: 'POST', body: JSON.stringify({ locale }) });
+          say(true, t('adminPostTestSent'));
+        } catch (err) { say(false, err.message || t('errorGeneric')); }
+        e.target.disabled = false;
+      });
+    }
+    q('.mp-send').addEventListener('click', async (e) => {
+      if (!window.confirm(t('adminPostSendConfirm', { n: mpRecipients }))) return;
+      e.target.disabled = true;
+      e.target.textContent = t('adminPostSending');
+      try {
+        await save();
+        const out = await api(`/api/admin/mare-posts/${p.id}/send`, { method: 'POST' });
+        alert(t('adminPostSentLine', { n: out.sent, total: out.recipients, failed: out.failed }));
+        loadMarePosts();
+      } catch (err) {
+        say(false, err.message || t('errorGeneric'));
+        e.target.disabled = false;
+        e.target.textContent = t('adminPostSend', { n: mpRecipients });
+      }
+    });
+    q('.mp-delete').addEventListener('click', async () => {
+      if (!window.confirm(t('adminPostDeleteConfirm'))) return;
+      await api(`/api/admin/mare-posts/${p.id}`, { method: 'DELETE' });
+      loadMarePosts();
+    });
+    return card;
+  }
+  function setupMarePosts() {
+    document.getElementById('mp-month').value = new Date().toISOString().slice(0, 7);
+    document.getElementById('mp-draft-btn').addEventListener('click', async (e) => {
+      const err = document.getElementById('mp-error');
+      err.hidden = true;
+      e.target.disabled = true;
+      const label = e.target.textContent;
+      e.target.textContent = t('adminPostWriting');
+      try {
+        const out = await api('/api/admin/mare-posts/draft', { method: 'POST', body: JSON.stringify({
+          month: document.getElementById('mp-month').value, notes: document.getElementById('mp-notes').value,
+        }) });
+        if (out.note) { err.textContent = out.note; err.hidden = false; }
+        document.getElementById('mp-notes').value = '';
+        loadMarePosts();
+      } catch (ex) { err.textContent = ex.message || t('errorGeneric'); err.hidden = false; }
+      e.target.disabled = false;
+      e.target.textContent = label;
     });
   }
 

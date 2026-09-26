@@ -1432,3 +1432,18 @@ html:has(#peek) { scroll-behavior: smooth; }
 .text-change-old { color: #8a5412; text-decoration: line-through; white-space: pre-line; font-size: 0.92rem; }
 .text-change-new { color: #16305C; white-space: pre-line; font-size: 0.92rem; margin-bottom: 6px; }
 #text-undo-today { margin-top: 10px; }
+
+/* ── "Where would you like to go?" at sign-in (Mare App 4) ── */
+.role-chooser { z-index: 3000; }
+.role-chooser-card { max-width: 420px; text-align: center; }
+.role-chooser-card h2 { font-family: 'Fraunces', serif; color: #16305C; margin: 0 0 6px; }
+.role-chooser-sub { color: #4A5A78; margin: 0 0 16px; }
+.role-chooser-options { display: flex; flex-direction: column; gap: 10px; margin-bottom: 14px; }
+.role-chooser-option {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 2px; text-align: left;
+  font-family: 'Quicksand', sans-serif; padding: 14px 18px; border-radius: 14px; cursor: pointer;
+  border: 1.5px solid rgba(22,48,92,0.2); background: #fff; color: #16305C; transition: border-color 0.15s, background 0.15s;
+}
+.role-chooser-option:hover, .role-chooser-option:focus { border-color: #EAC066; background: #FFFBF0; outline: none; }
+.role-chooser-option strong { font-size: 1.05rem; }
+.role-chooser-option span { font-size: 0.85rem; color: #4A5A78; }

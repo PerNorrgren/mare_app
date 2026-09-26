@@ -91,6 +91,21 @@
     const submitBtn = document.getElementById('submit-btn');
     submitBtn.disabled = true;
 
+    // Sign-in goes through the shared helper (Mare App 4): it finds every
+    // account with these details and asks where to go if there's more
+    // than one. Registering is unchanged.
+    if (state.mode === 'login') {
+      try {
+        const out = await window.MareLogin.signIn(email, password);
+        if (out.error) showError(SERVER_ERROR_MAP[out.error] || 'errorGeneric');
+        if (!out.ok) submitBtn.disabled = false;
+      } catch {
+        showError('errorGeneric');
+        submitBtn.disabled = false;
+      }
+      return;
+    }
+
     try {
       const res = await fetch(endpoint, {
         method: 'POST',

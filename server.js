@@ -183,6 +183,37 @@ app.post('/api/admin/login', async (req, res) => {
   res.json({ ok: true, role: result.role });
 });
 
+// ── One sign-in for every kind of account (Mare App 4) ──
+// The same email can have a parent, a teacher and a staff account (each
+// with its own password). All three login pages now post here: the
+// accounts whose password matches are found; one match signs straight
+// in, several return a short-lived choice token and the page shows a
+// small "where would you like to go?" popup (role-chooser.js).
+const HOME_FOR_ROLE = { parent: '/', teacher: '/teacher.html', admin: '/admin.html', support: '/admin.html', editor: '/editor.html' };
+app.post('/api/login-any', async (req, res) => {
+  const { email: rawEmail, password } = req.body || {};
+  const e = rawEmail || '', p = password || '';
+  const found = [await auth.loginParent(e, p), await auth.loginTeacher(e, p), await auth.loginAdmin(e, p)].filter(Boolean);
+  const usable = found.filter(r => r !== 'suspended');
+  if (!usable.length) {
+    return res.status(found.length ? 403 : 401).json({ error: found.length ? 'Account suspended' : 'Invalid email or password' });
+  }
+  if (usable.length === 1) {
+    res.cookie(auth.COOKIE_NAME, auth.createToken(usable[0]), auth.COOKIE_OPTIONS);
+    return res.json({ ok: true, role: usable[0].role, redirect: HOME_FOR_ROLE[usable[0].role] || '/' });
+  }
+  res.json({ choose: usable.map(u => u.role), choiceToken: auth.createChoiceToken(usable) });
+});
+app.post('/api/login-choose', (req, res) => {
+  const payload = auth.verifyToken((req.body && req.body.choiceToken) || '');
+  if (!payload || payload.kind !== 'choice') return res.status(401).json({ error: 'Please sign in again.' });
+  const pick = (payload.options || []).find(o => o.role === (req.body && req.body.role));
+  if (!pick) return res.status(400).json({ error: 'Please sign in again.' });
+  const { role, id, name, email: em } = pick;
+  res.cookie(auth.COOKIE_NAME, auth.createToken({ role, id, name, email: em }), auth.COOKIE_OPTIONS);
+  res.json({ ok: true, role, redirect: HOME_FOR_ROLE[role] || '/' });
+});
+
 app.post('/api/logout', (req, res) => {
   res.clearCookie(auth.COOKIE_NAME);
   res.json({ ok: true });
@@ -511,6 +542,10 @@ function getOptionalUser(req) {
 
 // Whisper Forest — Club Mare's participation engine (Mare App 4).
 require('./whisper').register(app, { db, auth, media, anthropic, model: TALK_MODEL, getOptionalUser });
+// Mare's monthly post — Club Mare step 4 (Mare App 4). Links in the
+// letters use APP_URL, or the live domain if it isn't set.
+require('./marepost').register(app, { db, auth, email, anthropic, model: TALK_MODEL,
+  appUrl: process.env.APP_URL || 'https://mare.deepermindfulness.org' });
 
 app.get('/api/books/:slug', (req, res) => {
   const book = db.getBookBySlug(req.params.slug);
