@@ -62,8 +62,11 @@
   <div class="acc-card">
     <div class="acc-card-header" data-card="prefs"><span class="acc-card-title" data-i18n="accPrefsTitle">Messages from Mare</span><span class="acc-chevron">▾</span></div>
     <div class="acc-card-body" id="body-prefs">
-      <label class="acc-checkbox-row"><input type="checkbox" id="p-email-optin"> <span data-i18n="accEmailOptIn">Send me messages from Mare by email</span></label>
-      <div class="field" id="p-frequency-field">
+      <label class="acc-checkbox-row"><input type="checkbox" id="p-email-optin"> <span data-i18n="accEmailOptInMonthly">Send me Mare's monthly letter by email (Club Mare members)</span></label>
+      <label class="acc-checkbox-row"><input type="checkbox" id="p-news-optin"> <span data-i18n="accNewsOptIn">Send me news and updates from Mare</span></label>
+      <!-- Mare App 4: the old daily/weekly choice belonged to placeholder
+           messages that never sent; Mare now writes once a month. -->
+      <div class="field" id="p-frequency-field" hidden>
         <label for="p-frequency" data-i18n="accFrequency">How often</label>
         <select id="p-frequency">
           <option value="weekly" data-i18n="accWeekly">Weekly</option>

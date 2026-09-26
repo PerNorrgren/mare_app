@@ -769,6 +769,10 @@ function ensureSchema() {
   try { db.run(`ALTER TABLE books ADD COLUMN locale TEXT NOT NULL DEFAULT 'en'`); } catch {}
   try { db.run(`ALTER TABLE books ADD COLUMN group_slug TEXT NOT NULL DEFAULT ''`); } catch {}
   try { db.run(`ALTER TABLE parents ADD COLUMN preferred_locale TEXT NOT NULL DEFAULT 'en'`); } catch {}
+  // Mare App 4 — 'Stop these emails' from a broadcast (news/updates).
+  // Separate from email_opt_in, which is Mare's monthly letter.
+  try { db.run(`ALTER TABLE parents ADD COLUMN broadcast_opt_out INTEGER NOT NULL DEFAULT 0`); } catch {}
+  try { db.run(`ALTER TABLE teachers ADD COLUMN broadcast_opt_out INTEGER NOT NULL DEFAULT 0`); } catch {}
   try { db.run(`ALTER TABLE teachers ADD COLUMN preferred_locale TEXT NOT NULL DEFAULT 'en'`); } catch {}
   // Talk to Mare for teachers — no specific child involved, so the
   // session is keyed by a chosen age band instead. child_id stays
@@ -2240,11 +2244,17 @@ function markBroadcastSent(id, { recipientCount, sentCount, failedCount }) {
     [recipientCount, sentCount, failedCount, id]);
 }
 function getBroadcastAudienceEmails(audience) {
+  // Mare App 4: anyone who pressed 'Stop these emails' is left out, and
+  // each row says which kind of account it is (for the stop link).
   const parents = (audience === 'parents' || audience === 'both')
-    ? all(`SELECT id, email, name FROM parents WHERE status != 'suspended'`) : [];
+    ? all(`SELECT id, email, name, preferred_locale, 'parent' AS kind FROM parents WHERE status != 'suspended' AND COALESCE(broadcast_opt_out, 0) = 0`) : [];
   const teachers = (audience === 'teachers' || audience === 'both')
-    ? all(`SELECT id, email, name FROM teachers WHERE status != 'suspended'`) : [];
+    ? all(`SELECT id, email, name, preferred_locale, 'teacher' AS kind FROM teachers WHERE status != 'suspended' AND COALESCE(broadcast_opt_out, 0) = 0`) : [];
   return [...parents, ...teachers];
+}
+function setBroadcastOptOut(kind, id, optOut) {
+  const table = kind === 'teacher' ? 'teachers' : 'parents';
+  run(`UPDATE ${table} SET broadcast_opt_out = ? WHERE id = ?`, [optOut ? 1 : 0, id]);
 }
 
 // ── Offers (sales & marketing) ──
@@ -2382,7 +2392,7 @@ module.exports = {
   whisperGetApprovedForPrompt, whisperCountForChild, whisperSetWinner, whisperGetForest, whisperCountApproved,
   whisperGetForParent, whisperGetAnswers, whisperGetClosedPrompts, setForestImageKey,
   marePostList, marePostGet, marePostCreate, marePostUpdate, marePostDelete, marePostClaim, marePostMarkSent,
-  marePostRecipients, setParentEmailOptOut,
+  marePostRecipients, setParentEmailOptOut, setBroadcastOptOut,
   textGetOverrides, textGetAllOverrides, textGetOverride, textSet, textGetChanges, textGetChange, textMarkUndone, getHomeNotice, setHomeNotice,
   getAdminByEmail, getAdminById, createAdmin, updateAdminPasswordHash, getAllStaff,
   getAllParentsDirectory, getAllTeachersDirectory, setParentStatus, setTeacherStatus,

@@ -470,8 +470,9 @@ app.patch('/api/account', auth.requireAuthApi(['parent']), (req, res) => {
   res.json({ ok: true });
 });
 app.patch('/api/account/email-prefs', auth.requireAuthApi(['parent']), (req, res) => {
-  const { optIn, frequency } = req.body || {};
+  const { optIn, frequency, newsOptIn } = req.body || {};
   db.setParentEmailPrefs(req.user.id, !!optIn, frequency === 'daily' ? 'daily' : 'weekly');
+  if (newsOptIn !== undefined) db.setBroadcastOptOut('parent', req.user.id, !newsOptIn);
   res.json({ ok: true });
 });
 app.get('/api/account/addresses', auth.requireAuthApi(['parent']), (req, res) => {
@@ -1660,8 +1661,11 @@ async function sendBroadcastNow(broadcast) {
   db.markBroadcastSending(broadcast.id);
   const recipients = db.getBroadcastAudienceEmails(broadcast.audience);
   let sentCount = 0, failedCount = 0;
+  const base = (process.env.APP_URL || 'https://mare.deepermindfulness.org').replace(/\/$/, '');
   for (const r of recipients) {
-    const result = await email.sendBroadcastEmail(r.email, broadcast.subject, broadcast.body_html, r.id);
+    // Every broadcast carries a personal 'Stop these emails' link (Mare App 4).
+    const html = broadcast.body_html + require('./marepost').newsFooter(r.kind, r.id, r.preferred_locale, base);
+    const result = await email.sendBroadcastEmail(r.email, broadcast.subject, html, r.id);
     if (result.ok) sentCount++; else failedCount++;
   }
   db.markBroadcastSent(broadcast.id, { recipientCount: recipients.length, sentCount, failedCount });
@@ -1694,7 +1698,7 @@ app.delete('/api/admin/broadcasts/:id', auth.requireAuthApi(['admin', 'support']
 app.post('/api/admin/broadcasts/:id/send-test', auth.requireAuthApi(['admin', 'support']), async (req, res) => {
   const b = db.getBroadcast(req.params.id);
   if (!b) return res.status(404).json({ error: 'Not found' });
-  const result = await email.sendBroadcastEmail(req.user.email, `[TEST] ${b.subject}`, b.body_html, req.user.id);
+  const result = await email.sendBroadcastEmail(req.user.email, `[TEST] ${b.subject}`, b.body_html + require('./marepost').newsFooter('parent', null, 'en', ''), req.user.id);
   if (!result.ok) return res.status(502).json({ error: result.error || 'Test send failed' });
   res.json({ ok: true });
 });

@@ -111,13 +111,15 @@
   function renderPrefs(parent) {
     document.getElementById('p-email-optin').checked = !!parent.email_opt_in;
     document.getElementById('p-frequency').value = parent.email_frequency || 'weekly';
+    document.getElementById('p-news-optin').checked = !parent.broadcast_opt_out;
   }
   function setupPrefsForm() {
     document.getElementById('prefs-save-btn').addEventListener('click', async () => {
       const optIn = document.getElementById('p-email-optin').checked;
       const frequency = document.getElementById('p-frequency').value;
       try {
-        await api('/api/account/email-prefs', { method: 'PATCH', body: JSON.stringify({ optIn, frequency }) });
+        const newsOptIn = document.getElementById('p-news-optin').checked;
+        await api('/api/account/email-prefs', { method: 'PATCH', body: JSON.stringify({ optIn, frequency, newsOptIn }) });
         flashSaved('prefs-saved');
       } catch { /* silent — low-stakes toggle, no error UI needed */ }
     });

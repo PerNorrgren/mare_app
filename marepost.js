@@ -18,6 +18,20 @@ function unsubToken(parentId) {
   return crypto.createHmac('sha256', SECRET).update(`unsub:${parentId}`).digest('hex').slice(0, 32);
 }
 
+function newsToken(kind, id) {
+  return crypto.createHmac('sha256', SECRET).update(`news:${kind}:${id}`).digest('hex').slice(0, 32);
+}
+
+// Footer added to every broadcast email (Mare App 4): why they're
+// getting it, and a one-click stop link for that person.
+function newsFooter(kind, id, locale, base) {
+  const nl = locale === 'nl';
+  const link = id ? `${base}/unsubscribe?k=news&r=${kind === 'teacher' ? 'teacher' : 'parent'}&p=${encodeURIComponent(id)}&t=${newsToken(kind, id)}` : '#';
+  return `<p style="font-family:Arial,sans-serif;font-size:0.75rem;color:#6b7a99;margin-top:28px;border-top:1px solid #e5e2d8;padding-top:12px;line-height:1.5;">
+    ${nl ? 'Je krijgt deze e-mail omdat je een Mare-account hebt.' : "You're getting this email because you have a Mare account."}
+    <a href="${link}" style="color:#6b7a99;">${nl ? 'Geen nieuws meer ontvangen' : 'Stop these emails'}</a></p>`;
+}
+
 function escapeHtml(s) {
   return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
@@ -149,17 +163,22 @@ function register(app, { db, auth, email, anthropic, model, appUrl }) {
   // One-click stop, from the link in every letter.
   app.get('/unsubscribe', (req, res) => {
     const pid = String(req.query.p || '');
-    const ok = pid && req.query.t === unsubToken(pid);
-    if (ok) db.setParentEmailOptOut(pid);
+    const news = req.query.k === 'news';
+    const kind = req.query.r === 'teacher' ? 'teacher' : 'parent';
+    // Two kinds of stop link: Mare's monthly letter, or news broadcasts.
+    const ok = pid && req.query.t === (news ? newsToken(kind, pid) : unsubToken(pid));
+    if (ok) { if (news) db.setBroadcastOptOut(kind, pid, true); else db.setParentEmailOptOut(pid); }
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     res.send(`<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Mare</title></head>
       <body style="font-family:Arial,sans-serif;background:#F4F1E8;color:#16305C;display:flex;align-items:center;justify-content:center;min-height:90vh;margin:0;">
       <div style="max-width:420px;background:#fff;border-radius:16px;padding:28px;text-align:center;">
       ${ok
-        ? '<h1 style="font-family:Georgia,serif;font-size:1.4rem;">Done — no more letters</h1><p>You won’t get letters from Mare any more. You can turn them back on in your account at any time.</p><hr style="border:none;border-top:1px solid #eee;margin:18px 0;"><p><strong>Klaar — geen brieven meer.</strong> Je krijgt geen brieven van Mare meer. Je kunt ze altijd weer aanzetten in je account.</p>'
+        ? (news
+          ? '<h1 style="font-family:Georgia,serif;font-size:1.4rem;">Done — no more news emails</h1><p>You won’t get news and updates from Mare any more.</p><hr style="border:none;border-top:1px solid #eee;margin:18px 0;"><p><strong>Klaar — geen nieuws meer.</strong> Je krijgt geen nieuws en updates van Mare meer.</p>'
+          : '<h1 style="font-family:Georgia,serif;font-size:1.4rem;">Done — no more letters</h1><p>You won’t get letters from Mare any more. You can turn them back on in your account at any time.</p><hr style="border:none;border-top:1px solid #eee;margin:18px 0;"><p><strong>Klaar — geen brieven meer.</strong> Je krijgt geen brieven van Mare meer. Je kunt ze altijd weer aanzetten in je account.</p>')
         : '<h1 style="font-family:Georgia,serif;font-size:1.4rem;">That link didn’t work</h1><p>You can switch letters off in your Mare account instead.<br>Deze link werkt niet — je kunt brieven uitzetten in je Mare-account.</p>'}
       <p style="margin-top:20px;"><a href="/" style="color:#16305C;">mare.deepermindfulness.org</a></p></div></body></html>`);
   });
 }
 
-module.exports = { register, unsubToken, joinNames };
+module.exports = { register, unsubToken, joinNames, newsFooter };

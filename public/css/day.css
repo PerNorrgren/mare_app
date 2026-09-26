@@ -1447,3 +1447,6 @@ html:has(#peek) { scroll-behavior: smooth; }
 .role-chooser-option:hover, .role-chooser-option:focus { border-color: #EAC066; background: #FFFBF0; outline: none; }
 .role-chooser-option strong { font-size: 1.05rem; }
 .role-chooser-option span { font-size: 0.85rem; color: #4A5A78; }
+
+/* Old daily/weekly choice on the account page, retired (Mare App 4) */
+#p-frequency-field[hidden] { display: none; }

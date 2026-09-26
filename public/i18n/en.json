@@ -417,6 +417,8 @@
   "accErrorGeneric": "Something went wrong — please try again.",
   "accPrefsTitle": "Messages from Mare",
   "accEmailOptIn": "Send me messages from Mare by email",
+  "accEmailOptInMonthly": "Send me Mare's monthly letter by email (Club Mare members)",
+  "accNewsOptIn": "Send me news and updates from Mare",
   "accFrequency": "How often",
   "accWeekly": "Weekly",
   "accDaily": "Daily",

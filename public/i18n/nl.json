@@ -417,6 +417,8 @@
   "accErrorGeneric": "Er ging iets mis — probeer het opnieuw.",
   "accPrefsTitle": "Berichten van Mare",
   "accEmailOptIn": "Stuur me berichten van Mare per e-mail",
+  "accEmailOptInMonthly": "Stuur me Mares maandelijkse brief per e-mail (Club Mare-leden)",
+  "accNewsOptIn": "Stuur me nieuws en updates van Mare",
   "accFrequency": "Hoe vaak",
   "accWeekly": "Wekelijks",
   "accDaily": "Dagelijks",
