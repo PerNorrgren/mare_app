@@ -21,7 +21,7 @@
 const WORD_MAX = 30;
 const REASON_MAX = 280;
 const ANSWER_MAX = 280;
-const KINDS = ['word_month', 'question', 'makers'];
+const KINDS = ['word_month', 'question', 'makers', 'mission'];
 const MAKERS_MAX_BYTES = 8 * 1024 * 1024;
 const MAKERS_PER_CHILD_PER_MONTH = 3;
 const TITLE_MAX = 60;
@@ -62,6 +62,7 @@ function publicWord(s, mineIds) {
     name: s.child_name,
     ageBand: s.age_band || null,
     isWinner: !!s.is_winner,
+    isMission: s.prompt_kind === 'mission',
     month: s.prompt_month || null,
     mine: mineIds ? mineIds.has(s.id) : false,
   };
@@ -156,6 +157,9 @@ Use "check" if ANY of these apply: a real person's face or body (a photo of a ch
     // Whisper Question: this month's question, what children answered,
     // and the last few closed questions with some of their answers.
     const question = db.whisperGetOpenPrompt('question');
+    // Mare's Mission: an off-screen task; children bring back a word and
+    // what it means, which grows in the forest like a Whisper Word.
+    const mission = db.whisperGetOpenPrompt('mission');
     const answers = question ? db.whisperGetAnswers(question.id, member ? 12 : 4).map(publicAnswer) : [];
     const pastQuestions = db.whisperGetClosedPrompts('question', 3).map(q => ({
       ...promptForLocale(q, locale),
@@ -173,6 +177,7 @@ Use "check" if ANY of these apply: a real person's face or body (a photo of a ch
     res.json({
       prompt: promptForLocale(prompt, locale),
       question: promptForLocale(question, locale),
+      mission: promptForLocale(mission, locale),
       makers: { theme: promptForLocale(makersTheme, locale), gallery: gallery.filter(g => g.imageUrl) },
       answers,
       pastQuestions,
@@ -380,6 +385,7 @@ Use "check" if ANY of these apply: a real person's face or body (a photo of a ch
     const prompt = db.whisperGetPrompt(req.params.id);
     if (!prompt) return res.status(404).json({ error: 'Not found' });
     if (prompt.kind !== 'word_month') return res.status(400).json({ error: 'Only a Whisper Word month has a winner.' });
+    // (Missions, questions and Makers' themes have no winner.)
     const { submissionId } = req.body || {};
     if (submissionId) {
       const s = db.whisperGetSubmission(submissionId);

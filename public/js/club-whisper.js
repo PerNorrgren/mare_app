@@ -124,6 +124,55 @@
     section.hidden = false;
   }
 
+  // ── Mare's Mission ──
+  function renderMission(data, me) {
+    const m = data.mission;
+    const section = document.getElementById('ms');
+    if (!m) { section.hidden = true; return; }
+    document.getElementById('ms-title').textContent = m.title;
+    document.getElementById('ms-body').textContent = m.body;
+    const form = document.getElementById('ms-form');
+    if (me.isParent && me.member && me.children.length) {
+      const sel = document.getElementById('ms-child');
+      sel.innerHTML = '';
+      me.children.forEach(c => {
+        const o = document.createElement('option');
+        o.value = c.id;
+        o.textContent = c.name;
+        sel.appendChild(o);
+      });
+      form.hidden = false;
+      form.onsubmit = async (e) => {
+        e.preventDefault();
+        const err = document.getElementById('ms-error');
+        err.hidden = true;
+        const btn = form.querySelector('button[type=submit]');
+        btn.disabled = true;
+        try {
+          const res = await fetch('/api/club/whisper/submit', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ promptId: m.id, childId: sel.value, word: document.getElementById('ms-word').value, reason: document.getElementById('ms-reason').value, locale: nl() ? 'nl' : 'en' }),
+          });
+          const out = await res.json().catch(() => ({}));
+          if (!res.ok) throw new Error(out.error || t('errorGeneric'));
+          form.reset();
+          document.getElementById('ms-thanks').hidden = false;
+          setTimeout(() => { document.getElementById('ms-thanks').hidden = true; }, 8000);
+          load();
+        } catch (ex) {
+          err.textContent = ex.message;
+          err.hidden = false;
+        } finally {
+          btn.disabled = false;
+        }
+      };
+    } else {
+      form.hidden = true;
+    }
+    section.hidden = false;
+  }
+
   // ── Makers' Corner ──
   let mkTimer = null;
   function openLightbox(g) {
@@ -305,6 +354,7 @@
     renderMine(me.mine || []);
     section.hidden = false;
     renderQuestion(data, me);
+    renderMission(data, me);
     renderMakers(data, me);
   }
 

@@ -30,6 +30,7 @@
     document.getElementById('forest-card-by').textContent =
       `— ${w.name}${w.ageBand ? `, ${ageText(w.ageBand)}` : ''}`;
     document.getElementById('forest-card-badge').hidden = !w.isWinner;
+    document.getElementById('forest-card-mission').hidden = !w.isMission;
     document.getElementById('forest-card').hidden = false;
   }
 
@@ -72,7 +73,7 @@
       const [x, y] = SLOTS[i];
       const b = document.createElement('button');
       b.type = 'button';
-      b.className = 'forest-word' + (w.isWinner ? ' forest-word-winner' : '') + (w.mine ? ' forest-word-mine' : '');
+      b.className = 'forest-word' + (w.isWinner ? ' forest-word-winner' : '') + (w.isMission ? ' forest-word-mission' : '') + (w.mine ? ' forest-word-mine' : '');
       b.style.left = `${x}%`;
       b.style.top = `${y}%`;
       b.style.animationDelay = `${(i % 7) * 0.35}s`;
@@ -81,6 +82,7 @@
       layer.appendChild(b);
     });
     if (words.some(w => w.mine)) document.getElementById('forest-legend-mine').hidden = false;
+    if (words.some(w => w.isMission)) document.getElementById('forest-legend-mission').hidden = false;
 
     // Signed out, or a parent who hasn't joined: a taste + the next step.
     if (!me.member) {

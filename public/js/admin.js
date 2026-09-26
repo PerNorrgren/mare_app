@@ -2034,7 +2034,7 @@
       card.className = 'whisper-p-row';
       card.innerHTML = `
         <div class="whisper-p-head">
-          <span class="whisper-p-kind">${escapeHtml(p.kind === 'question' ? t('adminWhisperKindQuestionShort') : p.kind === 'makers' ? t('adminWhisperKindMakersShort') : t('adminWhisperKindWordShort'))}</span>
+          <span class="whisper-p-kind">${escapeHtml(p.kind === 'question' ? t('adminWhisperKindQuestionShort') : p.kind === 'makers' ? t('adminWhisperKindMakersShort') : p.kind === 'mission' ? t('adminWhisperKindMissionShort') : t('adminWhisperKindWordShort'))}</span>
           <strong>${escapeHtml(whisperMonthLabel(p.month) || '—')}</strong>
           <span class="whisper-p-status whisper-p-status-${p.status}">${escapeHtml(p.status === 'open' ? t('adminWhisperOpen') : t('adminWhisperClosed'))}</span>
         </div>
@@ -2047,7 +2047,7 @@
         </div>
         <div class="wp-extra"></div>`;
       const extra = card.querySelector('.wp-extra');
-      if (p.kind === 'question' || p.kind === 'makers') {
+      if (p.kind === 'question' || p.kind === 'makers' || p.kind === 'mission') {
         // Answers and pictures have no winner or shortlist.
         card.querySelector('.wp-shortlist').hidden = true;
         card.querySelector('.wp-choose').hidden = true;

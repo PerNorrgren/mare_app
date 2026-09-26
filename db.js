@@ -1769,16 +1769,17 @@ function whisperSetWinner(promptId, submissionId) {
 // The forest: approved words, newest first; Whisper Words of the Month
 // always included so the tree keeps its winners as it fills up.
 function whisperGetForest(limit) {
-  const winners = all(`SELECT s.*, p.month AS prompt_month FROM whisper_submissions s LEFT JOIN whisper_prompts p ON p.id = s.prompt_id
+  const winners = all(`SELECT s.*, p.month AS prompt_month, COALESCE(p.kind, 'word_month') AS prompt_kind FROM whisper_submissions s LEFT JOIN whisper_prompts p ON p.id = s.prompt_id
                        WHERE s.status = 'approved' AND s.is_winner = 1 AND COALESCE(p.kind, 'word_month') = 'word_month' ORDER BY p.month DESC LIMIT 12`);
-  const others = all(`SELECT s.*, p.month AS prompt_month FROM whisper_submissions s LEFT JOIN whisper_prompts p ON p.id = s.prompt_id
-                      WHERE s.status = 'approved' AND s.is_winner = 0 AND COALESCE(p.kind, 'word_month') = 'word_month'
+  // Mission discoveries grow in the forest too (Mare App 4).
+  const others = all(`SELECT s.*, p.month AS prompt_month, COALESCE(p.kind, 'word_month') AS prompt_kind FROM whisper_submissions s LEFT JOIN whisper_prompts p ON p.id = s.prompt_id
+                      WHERE s.status = 'approved' AND s.is_winner = 0 AND COALESCE(p.kind, 'word_month') IN ('word_month', 'mission')
                       ORDER BY s.reviewed_at DESC, s.created_at DESC LIMIT ?`, [Math.max(0, limit - winners.length)]);
   return winners.concat(others);
 }
 function whisperCountApproved() {
   const r = get(`SELECT COUNT(*) AS n FROM whisper_submissions s LEFT JOIN whisper_prompts p ON p.id = s.prompt_id
-                 WHERE s.status = 'approved' AND COALESCE(p.kind, 'word_month') = 'word_month'`);
+                 WHERE s.status = 'approved' AND COALESCE(p.kind, 'word_month') IN ('word_month', 'mission')`);
   return r ? r.n : 0;
 }
 function whisperGetForParent(parentId) {

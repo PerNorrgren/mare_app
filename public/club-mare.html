@@ -134,6 +134,35 @@
     </div>
   </section>
 
+  <!-- ── Mare's Mission (Mare App 4) — an off-screen task; children bring
+       back a word and what it means, which grows in the forest. ── -->
+  <section class="whisper" id="ms" hidden>
+    <div class="whisper-card ms-card">
+      <span class="whisper-label" data-i18n="msLabel">Mare's Mission</span>
+      <h2 id="ms-title"></h2>
+      <p class="whisper-body" id="ms-body"></p>
+      <form class="whisper-form" id="ms-form" hidden>
+        <div class="field">
+          <label for="ms-child" data-i18n="msWho">Who went on the mission?</label>
+          <select id="ms-child"></select>
+        </div>
+        <div class="field">
+          <label for="ms-word" data-i18n="msWordLabel">The word you found or invented</label>
+          <input type="text" id="ms-word" maxlength="30" autocomplete="off">
+        </div>
+        <div class="field">
+          <label for="ms-reason" data-i18n="msReasonLabel">What does it mean, or where did you find it?</label>
+          <textarea id="ms-reason" rows="3" maxlength="280"></textarea>
+        </div>
+        <p class="whisper-privacy" data-i18n="whisperPrivacy">Only the first name and age group are shown with a word, and every word is read by a grown-up before it appears in the forest.</p>
+        <p class="form-error" id="ms-error" hidden></p>
+        <button type="submit" class="btn-primary" data-i18n="msSendBtn">Bring it back to Mare</button>
+      </form>
+      <p class="whisper-thanks" id="ms-thanks" hidden data-i18n="msThanks">Mission accomplished! Your word will grow in the forest once a grown-up has read it.</p>
+      <a class="btn-ghost whisper-forest-link" href="/forest.html" data-i18n="whisperVisitForest">Visit the Forest of Words →</a>
+    </div>
+  </section>
+
   <!-- ── Makers' Corner (Mare App 4) — children's drawings and crafts,
        approved before they appear, first name and age group only.
        Hidden data is stripped from every picture on upload. ── -->
