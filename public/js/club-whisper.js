@@ -15,6 +15,7 @@
   function statusText(m) {
     if (m.isWinner) return t('whisperStatusWinner');
     if (m.status === 'approved' && m.kind === 'question') return t('wqStatusShown');
+    if (m.status === 'approved' && m.kind === 'makers') return t('mkStatusShown');
     if (m.status === 'approved') return t('whisperStatusApproved');
     if (m.status === 'rejected') return t('whisperStatusRejected');
     return t('whisperStatusPending');
@@ -31,7 +32,7 @@
       // Whisper Question answers show a snippet of the answer instead of a word.
       w.textContent = m.kind === 'question'
         ? `“${m.answer.length > 40 ? m.answer.slice(0, 40) + '…' : m.answer}”`
-        : m.word;
+        : m.kind === 'makers' ? `🖼 ${m.word || t('mkUntitled')}` : m.word;
       const who = document.createElement('span');
       who.className = 'whisper-mine-who';
       who.textContent = ` — ${m.name}`;
@@ -123,6 +124,112 @@
     section.hidden = false;
   }
 
+  // ── Makers' Corner ──
+  let mkTimer = null;
+  function openLightbox(g) {
+    document.getElementById('mk-lightbox-img').src = g.imageUrl;
+    document.getElementById('mk-lightbox-title').textContent = g.title || '';
+    document.getElementById('mk-lightbox-about').textContent = g.about || '';
+    document.getElementById('mk-lightbox-by').textContent = `— ${g.name}${g.ageBand ? `, ${ageText(g.ageBand)}` : ''}`;
+    document.getElementById('mk-lightbox').hidden = false;
+  }
+  function renderMakers(data, me) {
+    const mk = data.makers || { gallery: [] };
+    const section = document.getElementById('mk');
+    const theme = mk.theme;
+    document.getElementById('mk-title').textContent = theme ? theme.title : t('mkDefaultTitle');
+    document.getElementById('mk-body').textContent = theme ? theme.body : t('mkDefaultBody');
+
+    const track = document.getElementById('mk-track');
+    track.innerHTML = '';
+    mk.gallery.forEach(g => {
+      const fig = document.createElement('button');
+      fig.type = 'button';
+      fig.className = 'mk-item';
+      const img = document.createElement('img');
+      img.src = g.imageUrl;
+      img.alt = g.title || '';
+      img.loading = 'lazy';
+      const cap = document.createElement('span');
+      cap.className = 'mk-cap';
+      cap.textContent = `${g.title ? g.title + ' — ' : ''}${g.name}${g.ageBand ? `, ${ageText(g.ageBand)}` : ''}`;
+      fig.append(img, cap);
+      fig.addEventListener('click', () => openLightbox(g));
+      track.appendChild(fig);
+    });
+    document.getElementById('mk-gallery').hidden = !mk.gallery.length;
+    document.getElementById('mk-empty').hidden = !!mk.gallery.length;
+    // Gently moves along every 5 seconds; stops while someone is looking.
+    clearInterval(mkTimer);
+    const step = (dir) => {
+      const w = track.clientWidth * 0.8;
+      const atEnd = track.scrollLeft + track.clientWidth >= track.scrollWidth - 4;
+      track.scrollTo({ left: dir > 0 && atEnd ? 0 : track.scrollLeft + dir * w, behavior: 'smooth' });
+    };
+    document.getElementById('mk-prev').onclick = () => step(-1);
+    document.getElementById('mk-next').onclick = () => step(1);
+    const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (mk.gallery.length > 2 && !reduce) {
+      mkTimer = setInterval(() => { if (!track.matches(':hover')) step(1); }, 5000);
+    }
+
+    const form = document.getElementById('mk-form');
+    if (me.isParent && me.member && me.children.length) {
+      const sel = document.getElementById('mk-child');
+      sel.innerHTML = '';
+      me.children.forEach(c => {
+        const o = document.createElement('option');
+        o.value = c.id;
+        o.textContent = c.name;
+        sel.appendChild(o);
+      });
+      const file = document.getElementById('mk-file');
+      file.onchange = () => {
+        const f = file.files[0];
+        const pv = document.getElementById('mk-preview');
+        if (f) { pv.src = URL.createObjectURL(f); pv.hidden = false; } else { pv.hidden = true; }
+      };
+      form.hidden = false;
+      form.onsubmit = async (e) => {
+        e.preventDefault();
+        const err = document.getElementById('mk-error');
+        err.hidden = true;
+        const f = file.files[0];
+        if (!f) { err.textContent = t('mkNeedFile'); err.hidden = false; return; }
+        if (!/^image\/(jpeg|png)$/.test(f.type)) { err.textContent = t('mkWrongType'); err.hidden = false; return; }
+        if (f.size > 8 * 1024 * 1024) { err.textContent = t('mkTooBig'); err.hidden = false; return; }
+        if (!document.getElementById('mk-consent').checked) { err.textContent = t('mkNeedConsent'); err.hidden = false; return; }
+        const btn = document.getElementById('mk-submit');
+        const label = btn.textContent;
+        btn.disabled = true;
+        btn.textContent = t('mkUploading');
+        try {
+          const q = new URLSearchParams({
+            childId: sel.value, title: document.getElementById('mk-name').value,
+            about: document.getElementById('mk-about').value, consent: '1', locale: nl() ? 'nl' : 'en',
+          });
+          const res = await fetch(`/api/club/makers/upload?${q}`, { method: 'POST', headers: { 'Content-Type': f.type }, body: f });
+          const out = await res.json().catch(() => ({}));
+          if (!res.ok) throw new Error(out.error || t('errorGeneric'));
+          form.reset();
+          document.getElementById('mk-preview').hidden = true;
+          document.getElementById('mk-thanks').hidden = false;
+          setTimeout(() => { document.getElementById('mk-thanks').hidden = true; }, 8000);
+          load();
+        } catch (ex) {
+          err.textContent = ex.message;
+          err.hidden = false;
+        } finally {
+          btn.disabled = false;
+          btn.textContent = label;
+        }
+      };
+    } else {
+      form.hidden = true;
+    }
+    section.hidden = false;
+  }
+
   async function load() {
     let data;
     try {
@@ -198,12 +305,14 @@
     renderMine(me.mine || []);
     section.hidden = false;
     renderQuestion(data, me);
+    renderMakers(data, me);
   }
 
   async function init() {
     await window.MareI18n.ready;
     load();
     // After "Join Club Mare" on this page, reload the box so the form appears.
+    document.getElementById('mk-lightbox-close').addEventListener('click', () => { document.getElementById('mk-lightbox').hidden = true; });
     const joinBtn = document.getElementById('cm-join-btn');
     if (joinBtn) joinBtn.addEventListener('click', () => setTimeout(load, 800));
   }

@@ -1946,6 +1946,7 @@
     try { data = await api('/api/admin/whisper'); } catch { return; }
     renderWhisperQueue(data.pending || []);
     renderWhisperPrompts(data.prompts || []);
+    loadWhisperApproved();
     const img = document.getElementById('whisper-image-preview');
     img.src = data.forestImageUrl || '';
     document.getElementById('whisper-image-reset').hidden = !data.forestImageKey;
@@ -1968,8 +1969,9 @@
         </div>
         ${s.ai_note ? `<p class="whisper-q-note">${escapeHtml(s.ai_note)}</p>` : ''}
         ${s.prompt_kind === 'question' ? `<p class="admin-empty-note">${escapeHtml(t('adminWhisperAnswerTo'))} ${escapeHtml(s.prompt_title || '')}</p>` : ''}
+        ${s.image_key ? `<a href="${escapeHtml(s.image_url || '#')}" target="_blank" rel="noopener"><img class="whisper-q-img" src="${escapeHtml(s.image_url || '')}" alt=""></a><p class="admin-empty-note">${escapeHtml(t('adminMakersQueueHint'))}</p>` : ''}
         <div class="admin-form-row" style="margin-bottom:8px;">
-          ${s.prompt_kind === 'question' ? '' : `<div class="field" style="max-width:220px;"><input type="text" class="wq-word" maxlength="30" value="${escapeHtml(s.word)}"></div>`}
+          ${s.prompt_kind === 'question' ? '' : `<div class="field" style="max-width:260px;"><input type="text" class="wq-word" maxlength="${s.image_key ? 60 : 30}" value="${escapeHtml(s.word)}" placeholder="${s.image_key ? escapeHtml(t('mkUntitled')) : ''}"></div>`}
           <div class="field"><textarea class="wq-reason" rows="2" maxlength="280">${escapeHtml(s.reason || '')}</textarea></div>
         </div>
         <div class="whisper-q-btns">
@@ -1995,6 +1997,29 @@
       box.appendChild(row);
     });
   }
+  async function loadWhisperApproved() {
+    const box = document.getElementById('whisper-approved');
+    let items = [];
+    try { items = (await api('/api/admin/whisper/approved-recent')).items || []; } catch { box.innerHTML = ''; return; }
+    if (!items.length) { box.innerHTML = `<p class="admin-empty-note">${escapeHtml(t('adminApprovedNone'))}</p>`; return; }
+    box.innerHTML = '';
+    items.forEach(s => {
+      const row = document.createElement('div');
+      row.className = 'whisper-pick';
+      const what = s.image_key
+        ? `<img class="whisper-q-thumb" src="${escapeHtml(s.image_url || '')}" alt=""> ${escapeHtml(s.word || t('mkUntitled'))}`
+        : s.prompt_kind === 'question' ? `“${escapeHtml((s.reason || '').slice(0, 80))}”` : `<strong>${escapeHtml(s.word)}</strong>`;
+      row.innerHTML = `<div>${what} <span class="admin-empty-note">— ${escapeHtml(s.child_name)}${s.age_band ? ', ' + escapeHtml(s.age_band) : ''}${s.is_winner ? ' · ★' : ''}</span></div>
+        <button type="button" class="btn-ghost btn-small">${escapeHtml(t('adminApprovedRemove'))}</button>`;
+      row.querySelector('button').addEventListener('click', async () => {
+        if (!window.confirm(t('adminApprovedRemoveConfirm'))) return;
+        await api(`/api/admin/whisper/submissions/${s.id}/review`, { method: 'POST', body: JSON.stringify({ decision: 'reject' }) });
+        loadWhisper();
+      });
+      box.appendChild(row);
+    });
+  }
+
   function renderWhisperPrompts(prompts) {
     const box = document.getElementById('whisper-prompts');
     box.innerHTML = '';
@@ -2007,12 +2032,12 @@
       card.className = 'whisper-p-row';
       card.innerHTML = `
         <div class="whisper-p-head">
-          <span class="whisper-p-kind">${escapeHtml(p.kind === 'question' ? t('adminWhisperKindQuestionShort') : t('adminWhisperKindWordShort'))}</span>
+          <span class="whisper-p-kind">${escapeHtml(p.kind === 'question' ? t('adminWhisperKindQuestionShort') : p.kind === 'makers' ? t('adminWhisperKindMakersShort') : t('adminWhisperKindWordShort'))}</span>
           <strong>${escapeHtml(whisperMonthLabel(p.month) || '—')}</strong>
           <span class="whisper-p-status whisper-p-status-${p.status}">${escapeHtml(p.status === 'open' ? t('adminWhisperOpen') : t('adminWhisperClosed'))}</span>
         </div>
         <p class="whisper-p-q">${escapeHtml(p.title_en)}${p.title_nl ? ` <span class="admin-empty-note">/ ${escapeHtml(p.title_nl)}</span>` : ''}</p>
-        <p class="admin-empty-note">${escapeHtml(t(p.kind === 'question' ? 'adminWhisperAnswersCount' : 'adminWhisperApprovedCount', { n: p.approvedCount }))}${p.winner ? ` · ${escapeHtml(t('adminWhisperWinnerIs'))} <strong>${escapeHtml(p.winner.word)}</strong> (${escapeHtml(p.winner.child_name)})` : ''}</p>
+        <p class="admin-empty-note">${escapeHtml(t(p.kind === 'question' ? 'adminWhisperAnswersCount' : p.kind === 'makers' ? 'adminMakersCount' : 'adminWhisperApprovedCount', { n: p.approvedCount }))}${p.winner ? ` · ${escapeHtml(t('adminWhisperWinnerIs'))} <strong>${escapeHtml(p.winner.word)}</strong> (${escapeHtml(p.winner.child_name)})` : ''}</p>
         <div class="whisper-q-btns">
           <button type="button" class="btn-ghost btn-small wp-shortlist">${escapeHtml(t('adminWhisperShortlist'))}</button>
           <button type="button" class="btn-ghost btn-small wp-choose">${escapeHtml(t('adminWhisperChoose'))}</button>
@@ -2020,8 +2045,8 @@
         </div>
         <div class="wp-extra"></div>`;
       const extra = card.querySelector('.wp-extra');
-      if (p.kind === 'question') {
-        // Answers have no winner or shortlist.
+      if (p.kind === 'question' || p.kind === 'makers') {
+        // Answers and pictures have no winner or shortlist.
         card.querySelector('.wp-shortlist').hidden = true;
         card.querySelector('.wp-choose').hidden = true;
       }

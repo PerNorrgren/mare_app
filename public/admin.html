@@ -694,6 +694,7 @@
             <select id="wp-kind">
               <option value="word_month" data-i18n="adminWhisperKindWord">Whisper Word (children plant one word)</option>
               <option value="question" data-i18n="adminWhisperKindQuestion">Whisper Question (children answer in a sentence)</option>
+              <option value="makers" data-i18n="adminWhisperKindMakers">Makers' Corner theme (children share a picture)</option>
             </select>
           </div>
           <div class="field" style="max-width:180px;"><label for="wp-month" data-i18n="adminWhisperMonth">Month</label><input type="month" id="wp-month"></div>
@@ -709,6 +710,13 @@
         <p class="form-error" id="wp-error" hidden></p>
         <button type="button" class="btn-primary" id="wp-add-btn" data-i18n="adminWhisperAdd">Add and open</button>
         <div id="whisper-prompts" style="margin-top:18px;"></div>
+      </div>
+
+      <!-- Recently approved, any kind — take anything down again -->
+      <div class="admin-card">
+        <h2 data-i18n="adminApprovedTitle">Recently approved</h2>
+        <p class="admin-card-sub" data-i18n="adminApprovedDesc">Words, answers and pictures approved lately. "Remove" takes one off the site straight away; a removed picture is deleted from storage.</p>
+        <div id="whisper-approved"><p class="admin-empty-note" data-i18n="adminLoading">Loading…</p></div>
       </div>
 
       <!-- Mare's monthly post (Mare App 4) -->

@@ -134,6 +134,59 @@
     </div>
   </section>
 
+  <!-- ── Makers' Corner (Mare App 4) — children's drawings and crafts,
+       approved before they appear, first name and age group only.
+       Hidden data is stripped from every picture on upload. ── -->
+  <section class="whisper" id="mk" hidden>
+    <div class="whisper-card mk-card">
+      <span class="whisper-label" data-i18n="mkLabel">Makers' Corner</span>
+      <h2 id="mk-title"></h2>
+      <p class="whisper-body" id="mk-body"></p>
+
+      <div class="mk-gallery" id="mk-gallery" hidden>
+        <button type="button" class="mk-nav mk-prev" id="mk-prev" aria-label="Previous">‹</button>
+        <div class="mk-track" id="mk-track"></div>
+        <button type="button" class="mk-nav mk-next" id="mk-next" aria-label="Next">›</button>
+      </div>
+      <p class="whisper-note" id="mk-empty" hidden data-i18n="mkEmpty">The first pictures are on their way — yours could be one of them.</p>
+
+      <form class="whisper-form" id="mk-form" hidden>
+        <div class="field">
+          <label for="mk-child" data-i18n="mkWho">Who made this?</label>
+          <select id="mk-child"></select>
+        </div>
+        <div class="field">
+          <label for="mk-file" data-i18n="mkFileLabel">A photo of the drawing or craft (JPEG or PNG)</label>
+          <input type="file" id="mk-file" accept="image/jpeg,image/png">
+          <img id="mk-preview" alt="" hidden class="mk-preview">
+        </div>
+        <div class="field">
+          <label for="mk-name" data-i18n="mkNameLabel">What is it called? (optional)</label>
+          <input type="text" id="mk-name" maxlength="60">
+        </div>
+        <div class="field">
+          <label for="mk-about" data-i18n="mkAboutLabel">Tell Mare about it (optional)</label>
+          <textarea id="mk-about" rows="2" maxlength="280"></textarea>
+        </div>
+        <label class="mk-consent"><input type="checkbox" id="mk-consent"> <span data-i18n="mkConsent">I'm the parent or carer: my child made this, and it may be shown in Club Mare with their first name and age group.</span></label>
+        <p class="whisper-privacy" data-i18n="mkPrivacy">Please don't include photos of faces, surnames or school names. Hidden photo data (like location) is removed automatically, and a grown-up looks at every picture before it's shown.</p>
+        <p class="form-error" id="mk-error" hidden></p>
+        <button type="submit" class="btn-primary" id="mk-submit" data-i18n="mkSendBtn">Share with Mare</button>
+      </form>
+      <p class="whisper-thanks" id="mk-thanks" hidden data-i18n="mkThanks">Thank you! Mare will hang it up in the Makers' Corner once a grown-up has looked at it.</p>
+    </div>
+  </section>
+
+  <div class="admin-modal-backdrop" id="mk-lightbox" hidden>
+    <div class="admin-modal-card mk-lightbox-card">
+      <img id="mk-lightbox-img" alt="">
+      <h3 id="mk-lightbox-title"></h3>
+      <p id="mk-lightbox-about"></p>
+      <p class="forest-card-by" id="mk-lightbox-by"></p>
+      <div class="admin-modal-btns"><button type="button" class="btn-primary" id="mk-lightbox-close" data-i18n="adminClose">Close</button></div>
+    </div>
+  </div>
+
   <!-- Signed out — now a real preview, not a dead end -->
   <section id="cm-preview-view" hidden>
     <div class="clubmare-posts" id="cm-preview-posts-list"></div>

@@ -468,6 +468,11 @@ function ensureSchema() {
   // The picture the Forest of Words grows on (R2 key); null = the
   // built-in cover image until a word-free version is uploaded.
   try { db.run(`ALTER TABLE app_config ADD COLUMN forest_image_key TEXT`); } catch {}
+  // Makers' Corner (Mare App 4): a submission can be a picture (R2 key,
+  // metadata stripped on upload). Pictures sent when no Makers' theme
+  // is open belong to this permanent 'anything you made' prompt.
+  try { db.run(`ALTER TABLE whisper_submissions ADD COLUMN image_key TEXT`); } catch {}
+  db.run(`INSERT OR IGNORE INTO whisper_prompts (id, kind, title_en, title_nl, status) VALUES ('makers-general', 'makers_general', 'Anything you made about Mare''s world', 'Alles wat je maakte over de wereld van Mare', 'closed')`);
   // Mare App 4 — the editable notice box at the top of the home page
   // (e.g. the MAREGIFT thank-you). JSON, both languages.
   try { db.run(`ALTER TABLE app_config ADD COLUMN home_notice_json TEXT`); } catch {}
@@ -1600,7 +1605,7 @@ function markOrderNotified(orderId) {
 }
 // ── Whisper Forest ──
 function whisperGetPrompts() {
-  return all(`SELECT * FROM whisper_prompts ORDER BY COALESCE(month, created_at) DESC, created_at DESC`);
+  return all(`SELECT * FROM whisper_prompts WHERE kind != 'makers_general' ORDER BY COALESCE(month, created_at) DESC, created_at DESC`);
 }
 function whisperGetPrompt(id) { return get(`SELECT * FROM whisper_prompts WHERE id = ?`, [id]); }
 function whisperGetOpenPrompt(kind) {
@@ -1625,10 +1630,10 @@ function whisperUpdatePrompt(id, fields) {
     id]);
   return true;
 }
-function whisperCreateSubmission({ promptId, parentId, childId, childName, ageBand, word, reason, locale }) {
+function whisperCreateSubmission({ promptId, parentId, childId, childName, ageBand, word, reason, locale, imageKey }) {
   const id = uuid();
-  run(`INSERT INTO whisper_submissions (id, prompt_id, parent_id, child_id, child_name, age_band, word, reason, locale) VALUES (?,?,?,?,?,?,?,?,?)`,
-    [id, promptId, parentId, childId, childName, ageBand || null, word, reason || null, locale || null]);
+  run(`INSERT INTO whisper_submissions (id, prompt_id, parent_id, child_id, child_name, age_band, word, reason, locale, image_key) VALUES (?,?,?,?,?,?,?,?,?,?)`,
+    [id, promptId, parentId, childId, childName, ageBand || null, word, reason || null, locale || null, imageKey || null]);
   return id;
 }
 function whisperGetSubmission(id) { return get(`SELECT * FROM whisper_submissions WHERE id = ?`, [id]); }
@@ -1674,7 +1679,7 @@ function whisperCountApproved() {
   return r ? r.n : 0;
 }
 function whisperGetForParent(parentId) {
-  return all(`SELECT s.id, s.word, s.reason, s.status, s.is_winner, s.child_name, s.created_at, COALESCE(p.kind, 'word_month') AS kind
+  return all(`SELECT s.id, s.word, s.reason, s.status, s.is_winner, s.child_name, s.created_at, s.image_key, COALESCE(p.kind, 'word_month') AS kind
               FROM whisper_submissions s LEFT JOIN whisper_prompts p ON p.id = s.prompt_id
               WHERE s.parent_id = ? ORDER BY s.created_at DESC LIMIT 30`, [parentId]);
 }
@@ -1770,6 +1775,25 @@ function marePostRecipients() {
   }));
 }
 function setParentEmailOptOut(parentId) { run(`UPDATE parents SET email_opt_in = 0 WHERE id = ?`, [parentId]); }
+
+// Makers' Corner: approved pictures, newest first; a child's pictures
+// this calendar month (the limit); recent approvals of every kind, so
+// staff can take anything down again.
+function makersGetGallery(limit) {
+  return all(`SELECT * FROM whisper_submissions WHERE status = 'approved' AND image_key IS NOT NULL
+              ORDER BY reviewed_at DESC, created_at DESC LIMIT ?`, [limit || 24]);
+}
+function makersCountForChildThisMonth(childId) {
+  const r = get(`SELECT COUNT(*) AS n FROM whisper_submissions WHERE child_id = ? AND image_key IS NOT NULL
+                 AND status != 'rejected' AND created_at >= date('now', 'start of month')`, [childId]);
+  return r ? r.n : 0;
+}
+function whisperGetRecentApproved(limit) {
+  return all(`SELECT s.*, p.title_en AS prompt_title, p.month AS prompt_month, COALESCE(p.kind, 'word_month') AS prompt_kind
+              FROM whisper_submissions s LEFT JOIN whisper_prompts p ON p.id = s.prompt_id
+              WHERE s.status = 'approved' ORDER BY s.reviewed_at DESC LIMIT ?`, [limit || 40]);
+}
+function whisperClearImage(id) { run(`UPDATE whisper_submissions SET image_key = NULL WHERE id = ?`, [id]); }
 
 function setForestImageKey(key) { run(`UPDATE app_config SET forest_image_key = ? WHERE id = 'default'`, [key || null]); }
 
@@ -2391,6 +2415,7 @@ module.exports = {
   whisperCreateSubmission, whisperGetSubmission, whisperSetScreening, whisperReview, whisperGetByStatus,
   whisperGetApprovedForPrompt, whisperCountForChild, whisperSetWinner, whisperGetForest, whisperCountApproved,
   whisperGetForParent, whisperGetAnswers, whisperGetClosedPrompts, setForestImageKey,
+  makersGetGallery, makersCountForChildThisMonth, whisperGetRecentApproved, whisperClearImage,
   marePostList, marePostGet, marePostCreate, marePostUpdate, marePostDelete, marePostClaim, marePostMarkSent,
   marePostRecipients, setParentEmailOptOut, setBroadcastOptOut,
   textGetOverrides, textGetAllOverrides, textGetOverride, textSet, textGetChanges, textGetChange, textMarkUndone, getHomeNotice, setHomeNotice,

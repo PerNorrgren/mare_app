@@ -21,7 +21,11 @@
 const WORD_MAX = 30;
 const REASON_MAX = 280;
 const ANSWER_MAX = 280;
-const KINDS = ['word_month', 'question'];
+const KINDS = ['word_month', 'question', 'makers'];
+const MAKERS_MAX_BYTES = 8 * 1024 * 1024;
+const MAKERS_PER_CHILD_PER_MONTH = 3;
+const TITLE_MAX = 60;
+const { cleanImage } = require('./image-clean');
 const PER_CHILD_PER_PROMPT = 3;
 const FOREST_MEMBER_LIMIT = 40;
 const FOREST_PREVIEW_LIMIT = 8;
@@ -97,6 +101,35 @@ The note is one short sentence for the moderator, in English. If distress is pos
     }
   }
 
+  // Pictures: the app looks at the image itself, only to sort the queue.
+  async function screenImage(sub, buffer, type) {
+    if (!anthropic) return db.whisperSetScreening(sub.id, 'check', 'Not screened (AI unavailable).');
+    if (buffer.length > 3.5 * 1024 * 1024) return db.whisperSetScreening(sub.id, 'check', 'Large picture — not pre-screened, please look closely.');
+    try {
+      const response = await anthropic.messages.create({
+        model,
+        max_tokens: 200,
+        system: `You pre-screen pictures that children aged about 8-12 upload to a children's book website ("Makers' Corner" - drawings and crafts), before a human moderator reviews them. Reply with JSON only: {"flag":"ok"|"check","note":"..."}.
+Use "check" if ANY of these apply: a real person's face or body (a photo of a child or adult, not a drawing); readable personal details (a surname or full name, school name or logo, address, phone, email, username); a school uniform or anything identifying a place; anything rude, sexual, violent, hateful or frightening; anything suggesting the child may be unsafe, hurt or in distress; not something a child made (a screenshot, a copied logo or character, an advert). A first name signed on a drawing is fine. Otherwise "ok". The note is one short sentence in English for the moderator.`,
+        messages: [{ role: 'user', content: [
+          { type: 'image', source: { type: 'base64', media_type: type, data: buffer.toString('base64') } },
+          { type: 'text', text: `Title: ${sub.word || '(none)'}\nAbout it: ${sub.reason || '(none)'}` },
+        ] }],
+      });
+      const text = (response.content || []).map(c => c.text || '').join('');
+      const out = parseJsonReply(text, '{', '}');
+      db.whisperSetScreening(sub.id, out.flag === 'ok' ? 'ok' : 'check', String(out.note || '').slice(0, 300));
+    } catch (e) {
+      console.error('[makers] screening failed:', e.message);
+      db.whisperSetScreening(sub.id, 'check', 'Not screened (AI error) — please check.');
+    }
+  }
+
+  async function signedImage(key) {
+    if (!key) return null;
+    try { return await media.getPlaybackUrl(key); } catch { return null; }
+  }
+
   async function forestImageUrl() {
     const config = db.getAppConfig();
     const key = config && config.forest_image_key;
@@ -128,12 +161,19 @@ The note is one short sentence for the moderator, in English. If distress is pos
       ...promptForLocale(q, locale),
       answers: db.whisperGetAnswers(q.id, 3).map(publicAnswer),
     })).filter(q => q.answers.length);
+    // Makers' Corner: the current theme (if any) and approved pictures.
+    const makersTheme = db.whisperGetOpenPrompt('makers');
+    const gallery = await Promise.all(db.makersGetGallery(member ? 24 : 6).map(async s => ({
+      id: s.id, title: s.word || '', about: s.reason || '', name: s.child_name, ageBand: s.age_band || null,
+      imageUrl: await signedImage(s.image_key),
+    })));
     // The most recent Whisper Word chosen, for the Club home.
     const lastWinner = forest.find(w => w.isWinner) || null;
 
     res.json({
       prompt: promptForLocale(prompt, locale),
       question: promptForLocale(question, locale),
+      makers: { theme: promptForLocale(makersTheme, locale), gallery: gallery.filter(g => g.imageUrl) },
       answers,
       pastQuestions,
       lastWinner,
@@ -146,7 +186,7 @@ The note is one short sentence for the moderator, in English. If distress is pos
         isParent,
         member,
         children: isParent ? db.getChildrenByParent(user.id).map(c => ({ id: c.id, name: firstName(c.name) })) : [],
-        mine: mine.map(m => ({ kind: m.kind, word: m.word, answer: m.kind === 'question' ? (m.reason || '') : '', status: m.status, isWinner: !!m.is_winner, name: m.child_name })),
+        mine: mine.map(m => ({ kind: (m.image_key || m.kind === 'makers' || m.kind === 'makers_general') ? 'makers' : m.kind, word: m.word, answer: m.kind === 'question' ? (m.reason || '') : '', status: m.status, isWinner: !!m.is_winner, name: m.child_name })),
       },
     });
   });
@@ -198,6 +238,45 @@ The note is one short sentence for the moderator, in English. If distress is pos
     res.json({ ok: true });
   });
 
+  // Makers' Corner upload: the picture is the raw request body; the
+  // other fields travel in the query string. Hidden data is stripped
+  // before anything is stored, and nothing shows until approved.
+  const express = require('express');
+  app.post('/api/club/makers/upload', auth.requireAuthApi(['parent']),
+    express.raw({ type: ['image/jpeg', 'image/png', 'image/jpg', 'application/octet-stream'], limit: MAKERS_MAX_BYTES }),
+    async (req, res) => {
+      const nl = req.query.locale === 'nl';
+      const membership = db.getClubMareMembership(req.user.id);
+      if (!membership || membership.tier < 1) return res.status(403).json({ error: nl ? 'Word eerst lid van Club Mare (gratis).' : 'Join Club Mare first (it’s free).' });
+      if (req.query.consent !== '1') return res.status(400).json({ error: nl ? 'Vink eerst het toestemmingsvakje aan.' : 'Please tick the permission box first.' });
+      const child = db.getChildrenByParent(req.user.id).find(c => c.id === req.query.childId);
+      if (!child) return res.status(400).json({ error: nl ? 'Kies wie dit gemaakt heeft.' : 'Choose who made this.' });
+      if (!Buffer.isBuffer(req.body) || !req.body.length) return res.status(400).json({ error: nl ? 'Kies eerst een afbeelding.' : 'Choose a picture first.' });
+      if (db.makersCountForChildThisMonth(child.id) >= MAKERS_PER_CHILD_PER_MONTH) {
+        return res.status(429).json({ error: nl ? `${firstName(child.name)} heeft deze maand al ${MAKERS_PER_CHILD_PER_MONTH} afbeeldingen gedeeld.` : `${firstName(child.name)} has already shared ${MAKERS_PER_CHILD_PER_MONTH} pictures this month.` });
+      }
+      let cleaned;
+      try { cleaned = cleanImage(req.body); }
+      catch { return res.status(400).json({ error: nl ? 'Alleen JPEG- of PNG-afbeeldingen (foto’s) kunnen worden geüpload.' : 'Only JPEG or PNG pictures (photos) can be uploaded.' }); }
+      const title = String(req.query.title || '').trim().slice(0, TITLE_MAX);
+      const about = String(req.query.about || '').trim().slice(0, REASON_MAX);
+      const theme = db.whisperGetOpenPrompt('makers');
+      const key = `makers/${require('crypto').randomUUID()}.${cleaned.ext}`;
+      try {
+        await media.putObject(key, cleaned.buffer, cleaned.type);
+      } catch (e) {
+        console.error('[makers] upload failed:', e.message);
+        return res.status(500).json({ error: nl ? 'Uploaden lukte niet, probeer het later nog eens.' : 'The upload didn’t work — please try again later.' });
+      }
+      const id = db.whisperCreateSubmission({
+        promptId: theme ? theme.id : 'makers-general', parentId: req.user.id, childId: child.id,
+        childName: firstName(child.name), ageBand: child.age_band,
+        word: title, reason: about, locale: nl ? 'nl' : 'en', imageKey: key,
+      });
+      screenImage(db.whisperGetSubmission(id), cleaned.buffer, cleaned.type); // background
+      res.json({ ok: true });
+    });
+
   // ── Admin ──
   const staff = auth.requireAuthApi(['admin', 'support']);
 
@@ -209,7 +288,7 @@ The note is one short sentence for the moderator, in English. If distress is pos
         approvedCount: db.whisperGetApprovedForPrompt(p.id).length,
         winner: p.winner_submission_id ? db.whisperGetSubmission(p.winner_submission_id) : null,
       })),
-      pending: db.whisperGetByStatus('pending'),
+      pending: await Promise.all(db.whisperGetByStatus('pending').map(async s => ({ ...s, image_url: await signedImage(s.image_key) }))),
       forestImageKey: (config && config.forest_image_key) || null,
       forestImageUrl: await forestImageUrl(),
     });
@@ -230,15 +309,18 @@ The note is one short sentence for the moderator, in English. If distress is pos
     res.json({ ok: true });
   });
 
-  app.post('/api/admin/whisper/submissions/:id/review', staff, (req, res) => {
+  app.post('/api/admin/whisper/submissions/:id/review', staff, async (req, res) => {
     const { decision } = req.body || {};
     if (decision !== 'approve' && decision !== 'reject') return res.status(400).json({ error: 'decision must be approve or reject' });
     const fields = { status: decision === 'approve' ? 'approved' : 'rejected' };
     // Staff may tidy a typo while approving.
     const existing = db.whisperGetSubmission(req.params.id);
     if (!existing) return res.status(404).json({ error: 'Not found' });
-    const isAnswer = !existing.word;
-    if (req.body.word !== undefined && !isAnswer) {
+    const isPicture = !!existing.image_key;
+    const isAnswer = !existing.word && !isPicture;
+    if (req.body.word !== undefined && isPicture) {
+      fields.word = String(req.body.word).trim().slice(0, TITLE_MAX); // a picture's title may be empty
+    } else if (req.body.word !== undefined && !isAnswer) {
       const w = String(req.body.word).trim();
       if (!w || w.length > WORD_MAX) return res.status(400).json({ error: `Word must be 1-${WORD_MAX} characters.` });
       fields.word = w;
@@ -248,7 +330,19 @@ The note is one short sentence for the moderator, in English. If distress is pos
       if (isAnswer && !fields.reason) return res.status(400).json({ error: 'The answer cannot be empty.' });
     }
     if (!db.whisperReview(req.params.id, fields)) return res.status(404).json({ error: 'Not found' });
+    // A picture that isn't shown is deleted from storage, not just hidden.
+    if (decision === 'reject' && isPicture) {
+      try { await media.deleteObject(existing.image_key); } catch (e) { console.error('[makers] delete failed:', e.message); }
+      db.whisperClearImage(existing.id);
+    }
     res.json({ ok: true });
+  });
+
+  // Everything approved lately, of every kind, so anything can be taken
+  // down again ('Remove' = reject; pictures are deleted from storage).
+  app.get('/api/admin/whisper/approved-recent', staff, async (req, res) => {
+    const rows = await Promise.all(db.whisperGetRecentApproved(40).map(async s => ({ ...s, image_url: await signedImage(s.image_key) })));
+    res.json({ items: rows });
   });
 
   app.get('/api/admin/whisper/prompts/:id/approved', staff, (req, res) => {
