@@ -41,6 +41,62 @@
     <p class="hero-sub" data-i18n="clubMareSub">New stories, just for members</p>
   </section>
 
+  <!-- ── Whisper Word of the Month (Mare App 4) — visible to everyone;
+       planting a word needs a Club Mare member (a parent account,
+       choosing one of their children). club-whisper.js fills it in. ── -->
+  <section class="whisper" id="whisper" hidden>
+    <div class="whisper-card">
+      <span class="whisper-label" data-i18n="whisperLabel">Whisper Word of the Month</span>
+      <h2 id="whisper-title"></h2>
+      <p class="whisper-body" id="whisper-body"></p>
+
+      <div class="whisper-last" id="whisper-last" hidden>
+        <span class="whisper-last-label" data-i18n="whisperLastWinner">Last Whisper Word</span>
+        <strong id="whisper-last-word"></strong>
+        <span class="whisper-last-by" id="whisper-last-by"></span>
+      </div>
+
+      <!-- Members: plant a word -->
+      <form class="whisper-form" id="whisper-form" hidden>
+        <div class="field">
+          <label for="whisper-child" data-i18n="whisperWho">Who is planting this word?</label>
+          <select id="whisper-child"></select>
+        </div>
+        <div class="field">
+          <label for="whisper-word" data-i18n="whisperWordLabel">Your word</label>
+          <input type="text" id="whisper-word" maxlength="30" autocomplete="off">
+        </div>
+        <div class="field">
+          <label for="whisper-reason" data-i18n="whisperReasonLabel">Why this word? (optional)</label>
+          <textarea id="whisper-reason" rows="3" maxlength="280"></textarea>
+        </div>
+        <p class="whisper-privacy" data-i18n="whisperPrivacy">Only the first name and age group are shown with a word, and every word is read by a grown-up before it appears in the forest.</p>
+        <p class="form-error" id="whisper-error" hidden></p>
+        <button type="submit" class="btn-primary" data-i18n="whisperPlantBtn">Plant my word</button>
+      </form>
+      <p class="whisper-thanks" id="whisper-thanks" hidden data-i18n="whisperThanks">Your word is planted! It will start growing in the forest once a grown-up has read it.</p>
+
+      <!-- Parent without a child profile -->
+      <p class="whisper-note" id="whisper-need-child" hidden>
+        <span data-i18n="whisperNeedChild">Add your child in your account first, so the word can carry their first name.</span>
+        <a href="/account.html" data-i18n="whisperGoToAccount">Go to my account</a>
+      </p>
+      <!-- Not signed in as a parent -->
+      <p class="whisper-note" id="whisper-signin" hidden>
+        <span data-i18n="whisperSignIn">Grown-ups: register or log in (it's free) so your child can plant a word.</span>
+        <a href="/login.html?mode=signup" data-i18n="showcaseRegister">Register</a>
+      </p>
+
+      <!-- This family's words -->
+      <div class="whisper-mine" id="whisper-mine" hidden>
+        <h3 data-i18n="whisperMineTitle">Your words</h3>
+        <ul id="whisper-mine-list"></ul>
+      </div>
+
+      <a class="btn-ghost whisper-forest-link" href="/forest.html" data-i18n="whisperVisitForest">Visit the Forest of Words →</a>
+    </div>
+  </section>
+
   <!-- Signed out — now a real preview, not a dead end -->
   <section id="cm-preview-view" hidden>
     <div class="clubmare-posts" id="cm-preview-posts-list"></div>
@@ -71,6 +127,7 @@
 <script src="/js/mare-helper-widget.js"></script>
 <script src="/js/bg-slideshow.js"></script>
 <script src="/js/club-mare.js"></script>
+<script src="/js/club-whisper.js"></script>
 <script>window.MareBgSlideshow.init('bg-slideshow', ['/images/mare-front-cover.jpg', '/images/mare-back-cover.jpg']);</script>
 </body>
 </html>

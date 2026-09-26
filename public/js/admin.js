@@ -146,6 +146,7 @@
     setupProductModal();
     setupShipping();
     setupHomeNotice();
+    setupWhisper();
     setupAdminSettings();
     loadOverview();
     loadResources();
@@ -160,6 +161,7 @@
     loadProducts();
     loadShipping();
     loadHomeNotice();
+    loadWhisper();
     loadMarketingStats();
     loadShowcaseContent();
     loadShowcaseTiles();
@@ -1922,6 +1924,160 @@
     document.getElementById('pr-video-status').textContent = prUploadedVideoKey ? t('adminVideoAttached') : '';
     renderImageChips();
     document.getElementById('product-modal').hidden = false;
+  }
+
+  // ── Whisper Forest (Mare App 4) — approval queue, monthly Whisper
+  // Words, forest picture. Server: whisper.js. ──
+  function whisperMonthLabel(m) {
+    if (!m) return '';
+    try {
+      const [y, mo] = m.split('-').map(Number);
+      return new Date(Date.UTC(y, mo - 1, 1)).toLocaleDateString(window.MareI18n.locale === 'nl' ? 'nl-NL' : 'en-GB', { month: 'long', year: 'numeric', timeZone: 'UTC' });
+    } catch { return m; }
+  }
+  async function loadWhisper() {
+    let data;
+    try { data = await api('/api/admin/whisper'); } catch { return; }
+    renderWhisperQueue(data.pending || []);
+    renderWhisperPrompts(data.prompts || []);
+    const img = document.getElementById('whisper-image-preview');
+    img.src = data.forestImageUrl || '';
+    document.getElementById('whisper-image-reset').hidden = !data.forestImageKey;
+  }
+  function renderWhisperQueue(pending) {
+    const box = document.getElementById('whisper-queue');
+    if (!pending.length) {
+      box.innerHTML = `<p class="admin-empty-note">${escapeHtml(t('adminWhisperQueueEmpty'))}</p>`;
+      return;
+    }
+    box.innerHTML = '';
+    pending.forEach(s => {
+      const row = document.createElement('div');
+      row.className = 'whisper-q-row';
+      const flag = s.ai_flag === 'ok' ? 'ok' : 'check';
+      row.innerHTML = `
+        <div class="whisper-q-meta">
+          <span class="whisper-q-flag whisper-q-flag-${flag}">${escapeHtml(flag === 'ok' ? t('adminWhisperFlagOk') : t('adminWhisperFlagCheck'))}</span>
+          <span>${escapeHtml(s.child_name)}${s.age_band ? ', ' + escapeHtml(s.age_band) : ''} · ${escapeHtml(whisperMonthLabel(s.prompt_month) || s.prompt_title || '')}</span>
+        </div>
+        ${s.ai_note ? `<p class="whisper-q-note">${escapeHtml(s.ai_note)}</p>` : ''}
+        <div class="admin-form-row" style="margin-bottom:8px;">
+          <div class="field" style="max-width:220px;"><input type="text" class="wq-word" maxlength="30" value="${escapeHtml(s.word)}"></div>
+          <div class="field"><textarea class="wq-reason" rows="2" maxlength="280">${escapeHtml(s.reason || '')}</textarea></div>
+        </div>
+        <div class="whisper-q-btns">
+          <button type="button" class="btn-primary btn-small wq-approve">${escapeHtml(t('adminWhisperApprove'))}</button>
+          <button type="button" class="btn-ghost btn-small wq-reject">${escapeHtml(t('adminWhisperReject'))}</button>
+        </div>`;
+      const act = async (decision) => {
+        row.querySelectorAll('button').forEach(b => { b.disabled = true; });
+        try {
+          await api(`/api/admin/whisper/submissions/${s.id}/review`, { method: 'POST', body: JSON.stringify({
+            decision, word: row.querySelector('.wq-word').value, reason: row.querySelector('.wq-reason').value,
+          }) });
+          loadWhisper();
+        } catch (err) {
+          alert(err.message || t('errorGeneric'));
+          row.querySelectorAll('button').forEach(b => { b.disabled = false; });
+        }
+      };
+      row.querySelector('.wq-approve').addEventListener('click', () => act('approve'));
+      row.querySelector('.wq-reject').addEventListener('click', () => act('reject'));
+      box.appendChild(row);
+    });
+  }
+  function renderWhisperPrompts(prompts) {
+    const box = document.getElementById('whisper-prompts');
+    box.innerHTML = '';
+    if (!prompts.length) {
+      box.innerHTML = `<p class="admin-empty-note">${escapeHtml(t('adminWhisperNoPrompts'))}</p>`;
+      return;
+    }
+    prompts.forEach(p => {
+      const card = document.createElement('div');
+      card.className = 'whisper-p-row';
+      card.innerHTML = `
+        <div class="whisper-p-head">
+          <strong>${escapeHtml(whisperMonthLabel(p.month) || '—')}</strong>
+          <span class="whisper-p-status whisper-p-status-${p.status}">${escapeHtml(p.status === 'open' ? t('adminWhisperOpen') : t('adminWhisperClosed'))}</span>
+        </div>
+        <p class="whisper-p-q">${escapeHtml(p.title_en)}${p.title_nl ? ` <span class="admin-empty-note">/ ${escapeHtml(p.title_nl)}</span>` : ''}</p>
+        <p class="admin-empty-note">${escapeHtml(t('adminWhisperApprovedCount', { n: p.approvedCount }))}${p.winner ? ` · ${escapeHtml(t('adminWhisperWinnerIs'))} <strong>${escapeHtml(p.winner.word)}</strong> (${escapeHtml(p.winner.child_name)})` : ''}</p>
+        <div class="whisper-q-btns">
+          <button type="button" class="btn-ghost btn-small wp-shortlist">${escapeHtml(t('adminWhisperShortlist'))}</button>
+          <button type="button" class="btn-ghost btn-small wp-choose">${escapeHtml(t('adminWhisperChoose'))}</button>
+          <button type="button" class="btn-ghost btn-small wp-toggle">${escapeHtml(p.status === 'open' ? t('adminWhisperClose') : t('adminWhisperReopen'))}</button>
+        </div>
+        <div class="wp-extra"></div>`;
+      const extra = card.querySelector('.wp-extra');
+      const choose = async (submissionId) => {
+        await api(`/api/admin/whisper/prompts/${p.id}/winner`, { method: 'POST', body: JSON.stringify({ submissionId }) });
+        loadWhisper();
+      };
+      const listWithChoose = (items, withWhy) => {
+        extra.innerHTML = '';
+        if (!items.length) { extra.innerHTML = `<p class="admin-empty-note">${escapeHtml(t('adminWhisperNoApproved'))}</p>`; return; }
+        items.forEach(it => {
+          const r = document.createElement('div');
+          r.className = 'whisper-pick';
+          r.innerHTML = `<div><strong>${escapeHtml(it.word)}</strong> — ${escapeHtml(it.name || it.child_name || '')}
+            ${it.reason ? `<br><span class="admin-empty-note">${escapeHtml(it.reason)}</span>` : ''}
+            ${withWhy && it.why ? `<br><em class="whisper-why">${escapeHtml(it.why)}</em>` : ''}</div>
+            <button type="button" class="btn-primary btn-small">${escapeHtml(t('adminWhisperMakeWinner'))}</button>`;
+          r.querySelector('button').addEventListener('click', () => choose(it.id));
+          extra.appendChild(r);
+        });
+      };
+      card.querySelector('.wp-shortlist').addEventListener('click', async (e) => {
+        e.target.disabled = true;
+        extra.innerHTML = `<p class="admin-empty-note">${escapeHtml(t('adminWhisperThinking'))}</p>`;
+        try { listWithChoose((await api(`/api/admin/whisper/prompts/${p.id}/shortlist`, { method: 'POST' })).suggestions || [], true); }
+        catch (err) { extra.innerHTML = `<p class="form-error">${escapeHtml(err.message || t('errorGeneric'))}</p>`; }
+        e.target.disabled = false;
+      });
+      card.querySelector('.wp-choose').addEventListener('click', async () => {
+        try { listWithChoose((await api(`/api/admin/whisper/prompts/${p.id}/approved`)).submissions || [], false); }
+        catch (err) { extra.innerHTML = `<p class="form-error">${escapeHtml(err.message || t('errorGeneric'))}</p>`; }
+      });
+      card.querySelector('.wp-toggle').addEventListener('click', async () => {
+        await api(`/api/admin/whisper/prompts/${p.id}`, { method: 'PATCH', body: JSON.stringify({ status: p.status === 'open' ? 'closed' : 'open' }) });
+        loadWhisper();
+      });
+      box.appendChild(card);
+    });
+  }
+  function setupWhisper() {
+    document.getElementById('wp-add-btn').addEventListener('click', async () => {
+      const err = document.getElementById('wp-error');
+      err.hidden = true;
+      const val = id => document.getElementById(id).value.trim();
+      try {
+        await api('/api/admin/whisper/prompts', { method: 'POST', body: JSON.stringify({
+          month: val('wp-month'), titleEn: val('wp-title-en'), titleNl: val('wp-title-nl'), bodyEn: val('wp-body-en'), bodyNl: val('wp-body-nl'),
+        }) });
+        ['wp-month', 'wp-title-en', 'wp-title-nl', 'wp-body-en', 'wp-body-nl'].forEach(id => { document.getElementById(id).value = ''; });
+        loadWhisper();
+      } catch (e) { err.textContent = e.message || t('errorGeneric'); err.hidden = false; }
+    });
+    document.getElementById('whisper-image-file').addEventListener('change', async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const status = document.getElementById('whisper-image-status');
+      status.textContent = t('adminUploading');
+      try {
+        const key = `whisper/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
+        const { url } = await api('/api/admin/upload-url', { method: 'POST', body: JSON.stringify({ key, contentType: file.type || 'image/jpeg' }) });
+        const putRes = await fetch(url, { method: 'PUT', headers: { 'Content-Type': file.type || 'image/jpeg' }, body: file });
+        if (!putRes.ok) throw new Error(t('adminErrorUploadFailed'));
+        await api('/api/admin/whisper/forest-image', { method: 'PUT', body: JSON.stringify({ key }) });
+        status.textContent = t('adminUploaded');
+        loadWhisper();
+      } catch (err) { status.textContent = err.message || t('errorGeneric'); }
+    });
+    document.getElementById('whisper-image-reset').addEventListener('click', async () => {
+      await api('/api/admin/whisper/forest-image', { method: 'PUT', body: JSON.stringify({ key: null }) });
+      loadWhisper();
+    });
   }
 
   // ── Home page notice (Mare App 4) ──

@@ -663,6 +663,45 @@
         </div>
       </div>
 
+      <!-- ── Whisper Forest (Mare App 4) ── -->
+      <div class="admin-card">
+        <div class="admin-card-header-row">
+          <div>
+            <h2 data-i18n="adminWhisperQueueTitle">Words waiting to be read</h2>
+            <p class="admin-card-sub" data-i18n="adminWhisperQueueDesc">Nothing a child writes appears in the forest until you approve it here. The app pre-reads each word: "check" means look closely (personal details, unkind words, or a child who might be upset). You can fix a typo before approving.</p>
+          </div>
+        </div>
+        <div id="whisper-queue"><p class="admin-empty-note" data-i18n="adminLoading">Loading…</p></div>
+      </div>
+
+      <div class="admin-card">
+        <h2 data-i18n="adminWhisperPromptsTitle">Whisper Word of the Month</h2>
+        <p class="admin-card-sub" data-i18n="adminWhisperPromptsDesc">Each month's question, shown on the Club Mare page. Children plant words for the open one. At the end of the month, ask for a shortlist, choose the Whisper Word, then close it and open the next.</p>
+        <div class="admin-form-row">
+          <div class="field" style="max-width:180px;"><label for="wp-month" data-i18n="adminWhisperMonth">Month</label><input type="month" id="wp-month"></div>
+        </div>
+        <div class="admin-form-row">
+          <div class="field"><label for="wp-title-en" data-i18n="adminWhisperQEn">Question (English)</label><input type="text" id="wp-title-en" maxlength="200" placeholder="Which word would you want to save forever?"></div>
+          <div class="field"><label for="wp-title-nl" data-i18n="adminWhisperQNl">Vraag (Nederlands)</label><input type="text" id="wp-title-nl" maxlength="200" placeholder="Welk woord zou je voor altijd willen bewaren?"></div>
+        </div>
+        <div class="admin-form-row">
+          <div class="field"><label for="wp-body-en" data-i18n="adminWhisperIntroEn">A few words from Mare (English, optional)</label><textarea id="wp-body-en" rows="3"></textarea></div>
+          <div class="field"><label for="wp-body-nl" data-i18n="adminWhisperIntroNl">Een paar woorden van Mare (Nederlands, optioneel)</label><textarea id="wp-body-nl" rows="3"></textarea></div>
+        </div>
+        <p class="form-error" id="wp-error" hidden></p>
+        <button type="button" class="btn-primary" id="wp-add-btn" data-i18n="adminWhisperAdd">Add and open</button>
+        <div id="whisper-prompts" style="margin-top:18px;"></div>
+      </div>
+
+      <div class="admin-card">
+        <h2 data-i18n="adminWhisperImageTitle">Forest picture</h2>
+        <p class="admin-card-sub" data-i18n="adminWhisperImageDesc">The picture the words grow on. Best: the book's forest illustration without any words on it, portrait, at least 1200 pixels tall. Until one is uploaded, the book cover is used.</p>
+        <img id="whisper-image-preview" alt="" style="max-width:160px;border-radius:10px;display:block;margin-bottom:10px;">
+        <div class="field"><input type="file" id="whisper-image-file" accept="image/*"></div>
+        <p class="admin-empty-note" id="whisper-image-status"></p>
+        <button type="button" class="btn-ghost btn-small" id="whisper-image-reset" data-i18n="adminWhisperImageReset">Use the book cover again</button>
+      </div>
+
       <div class="admin-card">
         <h2 data-i18n="adminClubMareMembersTitle">Members</h2>
         <p class="admin-card-sub" data-i18n="adminClubMareMembersDesc">Move someone between tiers by hand, or remove a membership — none of this touches Stripe; a real subscription still settles on its own.</p>
