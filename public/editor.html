@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mare — Edit the words on the site</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/style.css">
+<link rel="stylesheet" href="/css/day.css">
+</head>
+<body class="day editor-page">
+
+<header class="topbar">
+  <a href="/" class="brand" style="text-decoration:none;" target="_blank" rel="noopener">
+    <span class="brand-mark" aria-hidden="true">
+      <svg viewBox="0 0 40 40" width="28" height="28"><path d="M20 4c-7 0-13 6-13 14 0 9 8 15 13 18 5-3 13-9 13-18 0-8-6-14-13-14z" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="20" cy="17" r="3" fill="currentColor"/></svg>
+    </span>
+    <span class="brand-word" data-i18n="brand">Mare</span>
+  </a>
+  <nav class="topbar-actions">
+    <div class="lang-switch" id="lang-switch" aria-label="Language">
+      <button type="button" class="lang-btn" data-lang="en">EN</button>
+      <button type="button" class="lang-btn" data-lang="nl">NL</button>
+    </div>
+    <a href="/" class="btn-ghost" target="_blank" rel="noopener" data-i18n="editorViewSite">View the site</a>
+    <button type="button" class="btn-ghost" id="editor-signout" data-i18n="teacherSignOut">Sign out</button>
+  </nav>
+</header>
+
+<!-- Site text editor (Mare App 4) — for the 'editor' staff role (and
+     admins). editor.js; server rules in texts.js. -->
+<main class="editor-main">
+  <section class="editor-intro">
+    <h1 data-i18n="editorTitle">Edit the words on the site</h1>
+    <p data-i18n="editorIntro">Find a text, change it, and press Save — it's live on the site straight away. English and Dutch sit side by side. To go back to the original, press "Back to original" (or empty the box and save). Nothing can be lost: every change is kept and can be undone.</p>
+  </section>
+
+  <section class="editor-tools">
+    <input type="search" id="editor-search" data-i18n-placeholder="editorSearch" placeholder="Search for a word or sentence…">
+    <div class="editor-groups" id="editor-groups"></div>
+    <label class="editor-changed-only"><input type="checkbox" id="editor-changed-only"> <span data-i18n="editorChangedOnly">Only texts I've changed</span></label>
+  </section>
+
+  <p class="editor-count" id="editor-count"></p>
+  <div id="editor-list"></div>
+  <p style="text-align:center;"><button type="button" class="btn-ghost" id="editor-more" hidden data-i18n="editorShowMore">Show more</button></p>
+  <p class="editor-denied" id="editor-denied" hidden data-i18n="editorDenied">Please log in with an editor account.</p>
+</main>
+
+<script src="/js/i18n.js"></script>
+<script src="/js/editor.js"></script>
+</body>
+</html>

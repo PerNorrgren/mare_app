@@ -61,7 +61,11 @@ async function loginAdmin(email, password) {
   if (!admin) return null;
   const valid = await verifyPassword(password, admin.password_hash);
   if (!valid) return null;
-  return { role: admin.role === 'support' ? 'support' : 'admin', id: admin.id, name: admin.name, email: admin.email };
+  // Mare App 4 — 'editor' (site texts only) added. Every stored role is
+  // mapped explicitly: before this, anything that wasn't 'support'
+  // became 'admin', so a new role would have silently had full access.
+  const role = admin.role === 'admin' ? 'admin' : (admin.role === 'editor' ? 'editor' : 'support');
+  return { role, id: admin.id, name: admin.name, email: admin.email };
 }
 
 // ── Middleware: require auth (redirect, for page routes) ──

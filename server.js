@@ -57,6 +57,10 @@ app.get('/library.html', (req, res) => {
   res.redirect(301, '/' + (q >= 0 ? req.originalUrl.slice(q) : ''));
 });
 
+// Site texts with the editor's changes merged in — registered before the
+// static files so /i18n/*.json comes from here. (Mare App 4)
+require('./texts').register(app, { db, auth, email });
+
 app.use(express.static('public', {
   setHeaders: (res, filePath) => {
     if (/\.(css|js|html)$/.test(filePath)) {
@@ -1966,7 +1970,7 @@ app.post('/api/admin/staff', auth.requireAuthApi(['admin']), async (req, res) =>
     if (password.length < 8) return res.status(400).json({ error: 'Password must be at least 8 characters' });
     if (db.getAdminByEmail(email)) return res.status(409).json({ error: 'Email already registered' });
     const hash = await auth.hashPassword(password);
-    const id = db.createAdmin({ email, passwordHash: hash, name, role: role === 'support' ? 'support' : 'admin' });
+    const id = db.createAdmin({ email, passwordHash: hash, name, role: ['support', 'editor'].includes(role) ? role : 'admin' });
     res.json({ ok: true, id });
   } catch (e) {
     console.error('staff create failed', e);

@@ -1396,3 +1396,39 @@ html:has(#peek) { scroll-behavior: smooth; }
 .wq-past { margin-top: 14px; }
 .wq-past h4 { color: #F3ECD9; margin: 12px 0 6px; font-size: 0.95rem; }
 .whisper-p-kind { font-size: 0.72rem; font-weight: 700; padding: 2px 10px; border-radius: 999px; background: rgba(22,48,92,0.08); color: var(--navy); }
+
+/* ── Site text editor (Mare App 4) — calm, plain, readable ── */
+.editor-page { background: #F4F1E8; }
+.editor-main { max-width: 1040px; margin: 0 auto; padding: 24px clamp(14px, 3vw, 28px) 60px; color: #243049; }
+.editor-intro h1 { font-family: 'Fraunces', serif; color: #16305C; font-size: clamp(1.6rem, 4vw, 2.2rem); margin: 0 0 8px; }
+.editor-intro p { max-width: 760px; line-height: 1.6; margin: 0 0 20px; }
+.editor-tools { position: sticky; top: 0; z-index: 5; background: #F4F1E8; padding: 10px 0 12px; border-bottom: 1px solid rgba(22,48,92,0.1); }
+#editor-search { width: 100%; font-family: 'Quicksand', sans-serif; font-size: 1rem; padding: 12px 16px; border-radius: 12px; border: 1.5px solid rgba(22,48,92,0.25); background: #fff; color: #16305C; }
+.editor-groups { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0 6px; }
+.editor-chip { font-family: 'Quicksand', sans-serif; font-weight: 700; font-size: 0.85rem; padding: 6px 14px; border-radius: 999px; border: 1.5px solid rgba(22,48,92,0.2); background: #fff; color: #16305C; cursor: pointer; }
+.editor-chip.active { background: #16305C; color: #fff; border-color: #16305C; }
+.editor-changed-only { font-size: 0.9rem; font-weight: 600; }
+.editor-count { color: #6b7a99; font-size: 0.88rem; margin: 12px 0; }
+.editor-card { background: #fff; border-radius: 16px; padding: 14px 16px; margin-bottom: 12px; box-shadow: 0 2px 0 rgba(22,48,92,0.05), 0 6px 18px rgba(22,48,92,0.06); }
+.editor-where { display: inline-block; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #9A7A2E; margin-bottom: 8px; }
+.editor-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+@media (max-width: 720px) { .editor-cols { grid-template-columns: 1fr; } }
+.editor-box { border-radius: 12px; padding: 8px; border: 1.5px solid transparent; }
+.editor-box-changed { border-color: rgba(234,192,102,0.8); background: #FFFBF0; }
+.editor-lang { display: block; font-size: 0.75rem; font-weight: 700; color: #6b7a99; margin-bottom: 4px; }
+.editor-box textarea { width: 100%; resize: none; overflow: hidden; font-family: 'Quicksand', sans-serif; font-size: 0.98rem; line-height: 1.5; padding: 10px 12px; border-radius: 10px; border: 1.5px solid rgba(22,48,92,0.2); color: #16305C; background: #fff; }
+.editor-box textarea:focus { outline: none; border-color: #EAC066; }
+.editor-original { font-size: 0.82rem; color: #6b7a99; margin: 6px 0 0; white-space: pre-line; }
+.editor-original[hidden] { display: none; }
+.editor-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 8px; }
+.editor-actions .btn-primary:disabled { opacity: 0.4; cursor: default; }
+.editor-status { font-size: 0.85rem; font-weight: 600; }
+.editor-status-ok { color: #2E6B43; }
+.editor-status-err { color: #A33B3B; }
+.editor-denied { text-align: center; font-weight: 600; }
+.text-change-row { border-top: 1px solid rgba(22,48,92,0.08); padding: 10px 0; }
+.text-change-undone { opacity: 0.55; }
+.text-change-meta { font-size: 0.8rem; color: #6b7a99; margin-bottom: 4px; }
+.text-change-old { color: #8a5412; text-decoration: line-through; white-space: pre-line; font-size: 0.92rem; }
+.text-change-new { color: #16305C; white-space: pre-line; font-size: 0.92rem; margin-bottom: 6px; }
+#text-undo-today { margin-top: 10px; }

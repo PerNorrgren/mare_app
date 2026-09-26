@@ -502,6 +502,18 @@
     <!-- Showcase Page -->
     <div class="admin-panel" id="panel-showcase">
       <div class="admin-card">
+        <div class="admin-card-header-row">
+          <div>
+            <h2 data-i18n="adminTextsTitle">Site texts</h2>
+            <p class="admin-card-sub" data-i18n="adminTextsDesc">Every text on the site can be changed in the text editor (also by staff with the Editor role). Changes are live at once and listed here for 14 days; undo any one, or everything changed today. A summary is emailed to the notify address each evening.</p>
+          </div>
+          <a class="btn-primary" href="/editor.html" target="_blank" rel="noopener" data-i18n="adminTextsOpen">Open the text editor</a>
+        </div>
+        <div id="text-changes"><p class="admin-empty-note" data-i18n="adminLoading">Loading…</p></div>
+        <button type="button" class="btn-ghost btn-small" id="text-undo-today" data-i18n="adminTextsUndoToday">Undo all of today's changes</button>
+      </div>
+
+      <div class="admin-card">
         <h2 data-i18n="adminNoticeTitle">Home page notice</h2>
         <p class="admin-card-sub" data-i18n="adminNoticeDesc">A box at the top of the home page, for everyone (signed in or not). Leave the Dutch fields empty to show the English to Dutch visitors.</p>
         <label class="mkt-platform-check" style="margin-bottom:12px;"><input type="checkbox" id="hn-active"> <span data-i18n="adminNoticeShow">Show on the home page</span></label>
@@ -867,6 +879,7 @@
               <select id="s-role">
                 <option value="support" data-i18n="staffRoleSupport">Support</option>
                 <option value="admin" data-i18n="staffRoleAdmin">Admin</option>
+                <option value="editor" data-i18n="staffRoleEditor">Editor (site texts only)</option>
               </select>
             </div>
           </div>

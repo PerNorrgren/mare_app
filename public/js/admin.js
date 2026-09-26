@@ -100,6 +100,8 @@
       try {
         await api('/api/admin/login', { method: 'POST', body: JSON.stringify({ email, password }) });
         currentUser = await checkSession();
+        // Editors (site texts only) go straight to their own page.
+        if (currentUser && currentUser.role === 'editor') { window.location.href = '/editor.html'; return; }
         if (currentUser) enterDashboard(currentUser);
       } catch (err) {
         showError('form-error', t(SERVER_ERROR_MAP[err.message] || 'errorGeneric'));
@@ -125,7 +127,7 @@
     document.body.classList.remove('auth-atmosphere');
     const pill = document.getElementById('who-pill');
     pill.hidden = false;
-    pill.textContent = `${user.name} · ${t(user.role === 'admin' ? 'staffRoleAdmin' : 'staffRoleSupport')}`;
+    pill.textContent = `${user.name} · ${t(user.role === 'admin' ? 'staffRoleAdmin' : (user.role === 'editor' ? 'staffRoleEditor' : 'staffRoleSupport'))}`;
     pill.classList.toggle('admin', user.role === 'admin');
     document.getElementById('sign-out-btn').hidden = false;
 
@@ -147,6 +149,7 @@
     setupShipping();
     setupHomeNotice();
     setupWhisper();
+    setupTextChanges();
     setupAdminSettings();
     loadOverview();
     loadResources();
@@ -162,6 +165,7 @@
     loadShipping();
     loadHomeNotice();
     loadWhisper();
+    loadTextChanges();
     loadMarketingStats();
     loadShowcaseContent();
     loadShowcaseTiles();
@@ -1001,7 +1005,7 @@
         tr.innerHTML = `
           <td>${escapeHtml(s.name)}</td>
           <td>${escapeHtml(s.email)}</td>
-          <td><span class="role-pill ${s.role === 'admin' ? 'admin' : ''}">${escapeHtml(t(s.role === 'admin' ? 'staffRoleAdmin' : 'staffRoleSupport'))}</span></td>
+          <td><span class="role-pill ${s.role === 'admin' ? 'admin' : ''}">${escapeHtml(t(s.role === 'admin' ? 'staffRoleAdmin' : (s.role === 'editor' ? 'staffRoleEditor' : 'staffRoleSupport')))}</span></td>
           <td>${escapeHtml(s.created_at)}</td>
         `;
         tbody.appendChild(tr);
@@ -2090,6 +2094,46 @@
     });
   }
 
+  // ── Site text changes (Mare App 4) — log, undo, undo today ──
+  async function loadTextChanges() {
+    const box = document.getElementById('text-changes');
+    let changes = [];
+    try { changes = (await api('/api/admin/text-changes')).changes || []; }
+    catch { box.innerHTML = ''; document.getElementById('text-undo-today').hidden = true; return; }
+    const visible = changes.filter(c => !String(c.changed_by || '').endsWith('(undo)'));
+    if (!visible.length) {
+      box.innerHTML = `<p class="admin-empty-note">${escapeHtml(t('adminTextsNone'))}</p>`;
+      return;
+    }
+    box.innerHTML = '';
+    visible.slice(0, 50).forEach(c => {
+      const row = document.createElement('div');
+      row.className = 'text-change-row' + (c.undone ? ' text-change-undone' : '');
+      const when = new Date(c.changed_at.replace(' ', 'T') + 'Z').toLocaleString(window.MareI18n.locale === 'nl' ? 'nl-NL' : 'en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+      row.innerHTML = `
+        <div class="text-change-meta">${escapeHtml(when)} · ${escapeHtml(c.locale.toUpperCase())} · ${escapeHtml(c.changed_by || '')}${c.undone ? ` · <em>${escapeHtml(t('adminTextsUndone'))}</em>` : ''}</div>
+        <div class="text-change-old">${escapeHtml(c.old_text ?? c.originalText)}</div>
+        <div class="text-change-new">${escapeHtml(c.new_text ?? c.originalText)}</div>
+        ${c.undone ? '' : `<button type="button" class="btn-ghost btn-small">${escapeHtml(t('adminTextsUndo'))}</button>`}`;
+      const btn = row.querySelector('button');
+      if (btn) btn.addEventListener('click', async () => {
+        try { await api(`/api/admin/text-changes/${c.id}/undo`, { method: 'POST' }); loadTextChanges(); }
+        catch (err) { alert(err.message || t('errorGeneric')); }
+      });
+      box.appendChild(row);
+    });
+  }
+  function setupTextChanges() {
+    document.getElementById('text-undo-today').addEventListener('click', async () => {
+      if (!window.confirm(t('adminTextsUndoTodayConfirm'))) return;
+      try {
+        const out = await api('/api/admin/text-changes/undo-today', { method: 'POST' });
+        alert(t('adminTextsUndoTodayDone', { n: out.undone }));
+        loadTextChanges();
+      } catch (err) { alert(err.message || t('errorGeneric')); }
+    });
+  }
+
   // ── Home page notice (Mare App 4) ──
   const HN = { active: 'hn-active', titleEn: 'hn-title-en', titleNl: 'hn-title-nl', bodyEn: 'hn-body-en', bodyNl: 'hn-body-nl', code: 'hn-code', url: 'hn-url', buttonEn: 'hn-button-en', buttonNl: 'hn-button-nl' };
   async function loadHomeNotice() {
@@ -2252,6 +2296,7 @@
     setupStaffForm();
 
     const user = await checkSession();
+    if (user && user.role === 'editor') { window.location.href = '/editor.html'; return; }
     if (user && (user.role === 'admin' || user.role === 'support')) {
       currentUser = user;
       enterDashboard(user);

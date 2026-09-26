@@ -472,6 +472,29 @@ function ensureSchema() {
   // (e.g. the MAREGIFT thank-you). JSON, both languages.
   try { db.run(`ALTER TABLE app_config ADD COLUMN home_notice_json TEXT`); } catch {}
 
+  // ── Site text edits (Mare App 4) — the editor role's changes, layered
+  // over the built-in texts in public/i18n/*.json (which are never
+  // modified). One row per changed text per language; every change is
+  // also logged so it can be undone. ──
+  db.run(`CREATE TABLE IF NOT EXISTS text_overrides (
+    key TEXT NOT NULL,
+    locale TEXT NOT NULL,
+    text TEXT NOT NULL,
+    updated_at TEXT DEFAULT (datetime('now')),
+    updated_by TEXT,
+    PRIMARY KEY (key, locale)
+  )`);
+  db.run(`CREATE TABLE IF NOT EXISTS text_changes (
+    id TEXT PRIMARY KEY,
+    key TEXT NOT NULL,
+    locale TEXT NOT NULL,
+    old_text TEXT,              -- null = was the original
+    new_text TEXT,              -- null = back to the original
+    changed_by TEXT,
+    changed_at TEXT DEFAULT (datetime('now')),
+    undone INTEGER NOT NULL DEFAULT 0
+  )`);
+
   // ── Merchandise — real in-app Stripe checkout, not a link-out. ──
   db.run(`CREATE TABLE IF NOT EXISTS products (
     id TEXT PRIMARY KEY,
@@ -1098,7 +1121,7 @@ function getAdminById(id) {
 function createAdmin({ email, passwordHash, name, role }) {
   const id = uuid();
   run(`INSERT INTO admins (id, email, password_hash, name, role) VALUES (?,?,?,?,?)`,
-    [id, email.toLowerCase().trim(), passwordHash, name, role === 'support' ? 'support' : 'admin']);
+    [id, email.toLowerCase().trim(), passwordHash, name, ['support', 'editor'].includes(role) ? role : 'admin']);
   return id;
 }
 function updateAdminPasswordHash(adminId, passwordHash) {
@@ -1650,6 +1673,36 @@ function whisperGetClosedPrompts(kind, limit) {
   return all(`SELECT * FROM whisper_prompts WHERE kind = ? AND status = 'closed'
               ORDER BY COALESCE(month, created_at) DESC, created_at DESC LIMIT ?`, [kind, limit || 3]);
 }
+// ── Site text edits ──
+function textGetOverrides(locale) {
+  return all(`SELECT key, text FROM text_overrides WHERE locale = ?`, [locale]);
+}
+function textGetAllOverrides() {
+  return all(`SELECT key, locale, text, updated_at, updated_by FROM text_overrides`);
+}
+function textGetOverride(key, locale) {
+  const r = get(`SELECT text FROM text_overrides WHERE key = ? AND locale = ?`, [key, locale]);
+  return r ? r.text : null;
+}
+// Sets (text) or clears (null) one override and logs the change.
+function textSet(key, locale, text, by) {
+  const old = textGetOverride(key, locale);
+  if ((old || null) === (text || null)) return false;
+  if (text === null) run(`DELETE FROM text_overrides WHERE key = ? AND locale = ?`, [key, locale]);
+  else run(`INSERT INTO text_overrides (key, locale, text, updated_at, updated_by) VALUES (?,?,?,datetime('now'),?)
+            ON CONFLICT(key, locale) DO UPDATE SET text = excluded.text, updated_at = excluded.updated_at, updated_by = excluded.updated_by`,
+            [key, locale, text, by || null]);
+  run(`INSERT INTO text_changes (id, key, locale, old_text, new_text, changed_by) VALUES (?,?,?,?,?,?)`,
+    [uuid(), key, locale, old, text, by || null]);
+  return true;
+}
+function textGetChanges(sinceIso) {
+  // rowid breaks ties within the same second, so 'newest first' is exact.
+  return all(`SELECT * FROM text_changes WHERE changed_at >= ? ORDER BY changed_at DESC, rowid DESC`, [sinceIso]);
+}
+function textGetChange(id) { return get(`SELECT * FROM text_changes WHERE id = ?`, [id]); }
+function textMarkUndone(id) { run(`UPDATE text_changes SET undone = 1 WHERE id = ?`, [id]); }
+
 function setForestImageKey(key) { run(`UPDATE app_config SET forest_image_key = ? WHERE id = 'default'`, [key || null]); }
 
 function getShippingOptions() {
@@ -2263,7 +2316,8 @@ module.exports = {
   whisperGetPrompts, whisperGetPrompt, whisperGetOpenPrompt, whisperCreatePrompt, whisperUpdatePrompt,
   whisperCreateSubmission, whisperGetSubmission, whisperSetScreening, whisperReview, whisperGetByStatus,
   whisperGetApprovedForPrompt, whisperCountForChild, whisperSetWinner, whisperGetForest, whisperCountApproved,
-  whisperGetForParent, whisperGetAnswers, whisperGetClosedPrompts, setForestImageKey, getHomeNotice, setHomeNotice,
+  whisperGetForParent, whisperGetAnswers, whisperGetClosedPrompts, setForestImageKey,
+  textGetOverrides, textGetAllOverrides, textGetOverride, textSet, textGetChanges, textGetChange, textMarkUndone, getHomeNotice, setHomeNotice,
   getAdminByEmail, getAdminById, createAdmin, updateAdminPasswordHash, getAllStaff,
   getAllParentsDirectory, getAllTeachersDirectory, setParentStatus, setTeacherStatus,
   createPasswordResetToken, getValidPasswordResetToken, getPasswordResetTokenAnyState,
