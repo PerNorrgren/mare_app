@@ -543,6 +543,8 @@ function getOptionalUser(req) {
 
 // Whisper Forest — Club Mare's participation engine (Mare App 4).
 require('./whisper').register(app, { db, auth, media, anthropic, model: TALK_MODEL, getOptionalUser });
+// Riddles from the Whispering Forest — Club Mare step 6 (Mare App 4).
+require('./riddles').register(app, { db, auth, getOptionalUser });
 // Mare's monthly post — Club Mare step 4 (Mare App 4). Links in the
 // letters use APP_URL, or the live domain if it isn't set.
 require('./marepost').register(app, { db, auth, email, anthropic, model: TALK_MODEL,

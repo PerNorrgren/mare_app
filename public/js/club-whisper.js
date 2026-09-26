@@ -308,9 +308,19 @@
     renderMakers(data, me);
   }
 
+  async function loadRiddleTeaser() {
+    try {
+      const data = await (await fetch(`/api/club/riddle?lang=${nl() ? 'nl' : 'en'}`)).json();
+      if (!data.riddle) return;
+      document.getElementById('rd-teaser-title').textContent = data.riddle.title;
+      document.getElementById('rd-teaser').hidden = false;
+    } catch { /* no teaser */ }
+  }
+
   async function init() {
     await window.MareI18n.ready;
     load();
+    loadRiddleTeaser();
     // After "Join Club Mare" on this page, reload the box so the form appears.
     document.getElementById('mk-lightbox-close').addEventListener('click', () => { document.getElementById('mk-lightbox').hidden = true; });
     const joinBtn = document.getElementById('cm-join-btn');

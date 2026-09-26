@@ -518,6 +518,109 @@ function ensureSchema() {
     sent_at TEXT
   )`);
 
+  // ── Riddles from the Whispering Forest (Mare App 4) — Club Mare step 6.
+  // A monthly book treasure hunt: clues that need the physical book,
+  // a secret code checked on the server, a reward (text + promo code)
+  // shown only after the right code, and a Sparkle collected per family.
+  // Riddle 1 ('The Missing Ten', from Patricia) is loaded as a draft. ──
+  db.run(`CREATE TABLE IF NOT EXISTS riddles (
+    id TEXT PRIMARY KEY,
+    month TEXT,
+    status TEXT NOT NULL DEFAULT 'draft',   -- 'draft' | 'open' | 'closed'
+    title_en TEXT NOT NULL DEFAULT '', title_nl TEXT NOT NULL DEFAULT '',
+    intro_en TEXT NOT NULL DEFAULT '', intro_nl TEXT NOT NULL DEFAULT '',
+    steps_json TEXT NOT NULL DEFAULT '[]',  -- [{headingEn,headingNl,textEn,textNl,questionEn,questionNl,answers,afterEn,afterNl}]
+    code_label_en TEXT NOT NULL DEFAULT '', code_label_nl TEXT NOT NULL DEFAULT '',
+    code_answers TEXT NOT NULL DEFAULT '',  -- accepted codes, comma-separated
+    reward_en TEXT NOT NULL DEFAULT '', reward_nl TEXT NOT NULL DEFAULT '',
+    promo_code TEXT,
+    created_at TEXT DEFAULT (datetime('now'))
+  )`);
+  db.run(`CREATE TABLE IF NOT EXISTS riddle_solves (
+    riddle_id TEXT NOT NULL,
+    parent_id TEXT NOT NULL,
+    solved_at TEXT DEFAULT (datetime('now')),
+    PRIMARY KEY (riddle_id, parent_id)
+  )`);
+  // Steps are passed as a parameter (JSON.stringify), so line breaks
+  // inside clue texts survive intact.
+  const RIDDLE_1_STEPS = [
+    {
+      "headingEn": "🔎 Clue 1",
+      "headingNl": "🔎 Aanwijzing 1",
+      "textEn": "It is dark. Mare is lying in bed, listening to the church clock.\n\n1 – 2 – 3 – 4 – 5 – 6 – 7 – 8 – 9 – ? – 11",
+      "textNl": "Het is donker. Mare ligt in bed en luistert naar de kerkklok.\n\n1 – 2 – 3 – 4 – 5 – 6 – 7 – 8 – 9 – ? – 11",
+      "questionEn": "Which number seems to have disappeared?",
+      "questionNl": "Welk getal lijkt even verdwenen?",
+      "answers": "10, ten, tien",
+      "afterEn": "",
+      "afterNl": ""
+    },
+    {
+      "headingEn": "🔎 Clue 2",
+      "headingNl": "🔎 Aanwijzing 2",
+      "textEn": "The same number is hiding a few more times at the beginning of Mare’s story. Look in the book:",
+      "textNl": "Datzelfde getal verstopt zich nóg een paar keer aan het begin van Mares verhaal. Zoek in het boek:",
+      "questionEn": "How old has Mare just turned?",
+      "questionNl": "Hoe oud is Mare geworden?",
+      "answers": "10, ten, tien",
+      "afterEn": "",
+      "afterNl": ""
+    },
+    {
+      "headingEn": "",
+      "headingNl": "",
+      "textEn": "",
+      "textNl": "",
+      "questionEn": "How many friends was she allowed to invite?",
+      "questionNl": "Hoeveel vriendjes en vriendinnetjes mocht ze uitnodigen?",
+      "answers": "10, ten, tien",
+      "afterEn": "Did you find the same answer three times?\nThen you’ve discovered the first secret of the Whispering Forest. ✨",
+      "afterNl": "Heb je drie keer hetzelfde antwoord gevonden?\nDan heb je het eerste geheim van het Fluisterbos ontdekt. ✨"
+    },
+    {
+      "headingEn": "",
+      "headingNl": "",
+      "textEn": "But a true detective looks one more time...\n\nJust before Mare does something that feels really scary, she does something to help herself feel calmer.",
+      "textNl": "Maar een echte detective kijkt nog één keer goed...\n\nVlak voordat Mare iets doet wat ze heel spannend vindt, doet ze iets om zichzelf rustiger te maken.",
+      "questionEn": "How many times does Mare take a deep breath before walking over to Lisa?",
+      "questionNl": "Hoeveel keer haalt Mare diep adem voordat ze naar Lisa toe loopt?",
+      "answers": "3, three, drie",
+      "afterEn": "",
+      "afterNl": ""
+    }
+  ];
+  db.run(`INSERT OR IGNORE INTO riddles (id, month, status, title_en, title_nl, intro_en, intro_nl, code_label_en, code_label_nl, code_answers, reward_en, reward_nl, steps_json)
+          VALUES ('riddle-001', NULL, 'draft', 'Challenge 1: The Missing Ten', 'Opdracht 1: De verdwenen tien', 'Something has disappeared in the Whispering Forest...
+
+Mare has left a secret message for you. But to discover it, you’ll need the book.
+
+Are you as good a detective as Mare? 🔎
+
+Find your copy of Mare and the Whispering Forest of Words and open Chapter 1: The Birthday Party.', 'Er is iets verdwenen in het Fluisterbos...
+
+Mare heeft een geheim bericht voor je achtergelaten. Maar om het te kunnen lezen, heb je het boek nodig.
+
+Ben jij net zo’n goede speurneus als Mare? 🔎
+
+Pak Mare en het fluisterbos van woorden erbij en zoek Hoofdstuk 1: Het verjaardagsfeestje.', '🔐 Now enter your secret code
+[ missing number ] – [ number of breaths ]', '🔐 Vul nu je geheime code in
+[ verdwenen getal ] – [ aantal ademhalingen ]', '10-3, ten-three, tien-drie', '✨ You solved the first riddle of the Whispering Forest! ✨
+Mare knew you could do it.
+You searched carefully, read carefully, and discovered something Mare does to help herself when something feels scary.
+So Mare has left a little reward for you:
+🎁 10% off in Mare’s Shop
+Your secret PROMO code: [PROMOCODE]
+And keep your detective skills sharp...
+A new riddle from the Whispering Forest will appear next month. 🌲🔎', '✨ Je hebt het eerste raadsel van het Fluisterbos opgelost! ✨
+Mare wist dat je het kon.
+Je hebt goed gezocht, goed gelezen én ontdekt hoe Mare zichzelf helpt wanneer iets spannend voelt.
+Daarom heeft Mare iets voor je achtergelaten:
+🎁 10% korting in Mares winkel
+Jouw geheime PROMO-code: [PROMOCODE]
+En bewaar je speurneus...
+Volgende maand verschijnt er een nieuw raadsel uit het Fluisterbos. 🌲🔎', ?)`, [JSON.stringify(RIDDLE_1_STEPS)]);
+
   // ── Merchandise — real in-app Stripe checkout, not a link-out. ──
   db.run(`CREATE TABLE IF NOT EXISTS products (
     id TEXT PRIMARY KEY,
@@ -1795,6 +1898,39 @@ function whisperGetRecentApproved(limit) {
 }
 function whisperClearImage(id) { run(`UPDATE whisper_submissions SET image_key = NULL WHERE id = ?`, [id]); }
 
+// ── Riddles ──
+function riddleList() { return all(`SELECT * FROM riddles ORDER BY COALESCE(month, '9999') DESC, created_at DESC`); }
+function riddleGet(id) { return get(`SELECT * FROM riddles WHERE id = ?`, [id]); }
+function riddleGetOpen() { return get(`SELECT * FROM riddles WHERE status = 'open' ORDER BY COALESCE(month, created_at) DESC LIMIT 1`); }
+function riddleCreate() {
+  const id = uuid();
+  run(`INSERT INTO riddles (id, title_en, title_nl) VALUES (?, 'New riddle', 'Nieuw raadsel')`, [id]);
+  return id;
+}
+const RIDDLE_FIELDS = ['month', 'status', 'title_en', 'title_nl', 'intro_en', 'intro_nl', 'steps_json', 'code_label_en', 'code_label_nl', 'code_answers', 'reward_en', 'reward_nl', 'promo_code'];
+function riddleUpdate(id, fields) {
+  const r = riddleGet(id);
+  if (!r) return false;
+  const vals = RIDDLE_FIELDS.map(f => (fields[f] !== undefined ? fields[f] : r[f]));
+  run(`UPDATE riddles SET ${RIDDLE_FIELDS.map(f => `${f} = ?`).join(', ')} WHERE id = ?`, [...vals, id]);
+  return true;
+}
+function riddleDelete(id) { run(`DELETE FROM riddles WHERE id = ? AND status = 'draft'`, [id]); }
+function riddleMarkSolved(riddleId, parentId) {
+  run(`INSERT OR IGNORE INTO riddle_solves (riddle_id, parent_id) VALUES (?, ?)`, [riddleId, parentId]);
+}
+function riddleSolvedBy(riddleId, parentId) {
+  return !!get(`SELECT 1 AS x FROM riddle_solves WHERE riddle_id = ? AND parent_id = ?`, [riddleId, parentId]);
+}
+function riddleSparkles(parentId) {
+  const r = get(`SELECT COUNT(*) AS n FROM riddle_solves WHERE parent_id = ?`, [parentId]);
+  return r ? r.n : 0;
+}
+function riddleSolveCount(riddleId) {
+  const r = get(`SELECT COUNT(*) AS n FROM riddle_solves WHERE riddle_id = ?`, [riddleId]);
+  return r ? r.n : 0;
+}
+
 function setForestImageKey(key) { run(`UPDATE app_config SET forest_image_key = ? WHERE id = 'default'`, [key || null]); }
 
 function getShippingOptions() {
@@ -2416,6 +2552,8 @@ module.exports = {
   whisperGetApprovedForPrompt, whisperCountForChild, whisperSetWinner, whisperGetForest, whisperCountApproved,
   whisperGetForParent, whisperGetAnswers, whisperGetClosedPrompts, setForestImageKey,
   makersGetGallery, makersCountForChildThisMonth, whisperGetRecentApproved, whisperClearImage,
+  riddleList, riddleGet, riddleGetOpen, riddleCreate, riddleUpdate, riddleDelete,
+  riddleMarkSolved, riddleSolvedBy, riddleSparkles, riddleSolveCount,
   marePostList, marePostGet, marePostCreate, marePostUpdate, marePostDelete, marePostClaim, marePostMarkSent,
   marePostRecipients, setParentEmailOptOut, setBroadcastOptOut,
   textGetOverrides, textGetAllOverrides, textGetOverride, textSet, textGetChanges, textGetChange, textMarkUndone, getHomeNotice, setHomeNotice,

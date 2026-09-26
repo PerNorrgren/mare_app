@@ -151,6 +151,7 @@
     setupWhisper();
     setupTextChanges();
     setupMarePosts();
+    setupRiddles();
     setupAdminSettings();
     loadOverview();
     loadResources();
@@ -168,6 +169,7 @@
     loadWhisper();
     loadTextChanges();
     loadMarePosts();
+    loadRiddles();
     loadMarketingStats();
     loadShowcaseContent();
     loadShowcaseTiles();
@@ -2118,6 +2120,106 @@
     document.getElementById('whisper-image-reset').addEventListener('click', async () => {
       await api('/api/admin/whisper/forest-image', { method: 'PUT', body: JSON.stringify({ key: null }) });
       loadWhisper();
+    });
+  }
+
+  // ── Riddles (Mare App 4) ──
+  const RD_STEP_KEYS = [['headingEn', 'adminRdHeadingEn', 1], ['headingNl', 'adminRdHeadingNl', 1], ['textEn', 'adminRdTextEn', 3], ['textNl', 'adminRdTextNl', 3],
+    ['questionEn', 'adminRdQuestionEn', 1], ['questionNl', 'adminRdQuestionNl', 1], ['answers', 'adminRdAnswers', 1], ['afterEn', 'adminRdAfterEn', 2], ['afterNl', 'adminRdAfterNl', 2]];
+  async function loadRiddles() {
+    const box = document.getElementById('rd-list');
+    let riddles = [];
+    try { riddles = (await api('/api/admin/riddles')).riddles || []; } catch { box.innerHTML = ''; return; }
+    box.innerHTML = '';
+    riddles.forEach(r => box.appendChild(riddleCard(r)));
+  }
+  function fieldHtml(label, cls, value, rows) {
+    return rows > 1
+      ? `<div class="field"><label>${escapeHtml(label)}</label><textarea class="${cls}" rows="${rows}">${escapeHtml(value || '')}</textarea></div>`
+      : `<div class="field"><label>${escapeHtml(label)}</label><input type="text" class="${cls}" value="${escapeHtml(value || '')}"></div>`;
+  }
+  function riddleStepHtml(s, i) {
+    const pairs = [];
+    for (let k = 0; k < RD_STEP_KEYS.length; k++) {
+      const [key, label, rows] = RD_STEP_KEYS[k];
+      if (key === 'answers') { pairs.push(`<div class="admin-form-row">${fieldHtml(t(label), 'rd-s-' + key, s[key], 1)}</div>`); continue; }
+      if (key.endsWith('En')) {
+        const nlKey = key.replace(/En$/, 'Nl');
+        const nlLabel = RD_STEP_KEYS.find(x => x[0] === nlKey)[1];
+        pairs.push(`<div class="admin-form-row">${fieldHtml(t(label), 'rd-s-' + key, s[key], rows)}${fieldHtml(t(nlLabel), 'rd-s-' + nlKey, s[nlKey], rows)}</div>`);
+      }
+    }
+    return `<div class="rd-step" data-i="${i}"><div class="whisper-p-head"><strong>${escapeHtml(t('adminRdStep', { n: i + 1 }))}</strong>
+      <button type="button" class="btn-ghost btn-small rd-step-remove">${escapeHtml(t('adminRdRemoveStep'))}</button></div>${pairs.join('')}</div>`;
+  }
+  function riddleCard(r) {
+    const card = document.createElement('div');
+    card.className = 'whisper-p-row';
+    card.innerHTML = `
+      <div class="whisper-p-head">
+        <span class="whisper-p-status ${r.status === 'open' ? 'whisper-p-status-open' : ''}">${escapeHtml(t('adminRdStatus_' + r.status))}</span>
+        <strong>${escapeHtml(r.title_en)}</strong>
+        <span class="admin-empty-note">${escapeHtml(t('adminRdSolved', { n: r.solvedCount }))}</span>
+      </div>
+      <div class="whisper-q-btns"><button type="button" class="btn-ghost btn-small rd-edit">${escapeHtml(t('adminRdEdit'))}</button>
+        <a class="btn-ghost btn-small" href="/riddle.html" target="_blank" rel="noopener">${escapeHtml(t('adminRdViewPage'))}</a></div>
+      <div class="rd-form" hidden>
+        <div class="admin-form-row">
+          <div class="field" style="max-width:180px;"><label>${escapeHtml(t('adminWhisperMonth'))}</label><input type="month" class="rd-month" value="${escapeHtml(r.month || '')}"></div>
+          <div class="field" style="max-width:220px;"><label>${escapeHtml(t('adminRdStatusLabel'))}</label><select class="rd-status">
+            ${['draft', 'open', 'closed'].map(st => `<option value="${st}" ${r.status === st ? 'selected' : ''}>${escapeHtml(t('adminRdStatus_' + st))}</option>`).join('')}</select></div>
+          <div class="field" style="max-width:220px;"><label>${escapeHtml(t('adminRdPromo'))}</label><input type="text" class="rd-promo" value="${escapeHtml(r.promo_code || '')}" placeholder="RIDDLE10"></div>
+        </div>
+        <div class="admin-form-row">${fieldHtml(t('adminRdTitleEn'), 'rd-title-en', r.title_en, 1)}${fieldHtml(t('adminRdTitleNl'), 'rd-title-nl', r.title_nl, 1)}</div>
+        <div class="admin-form-row">${fieldHtml(t('adminRdIntroEn'), 'rd-intro-en', r.intro_en, 6)}${fieldHtml(t('adminRdIntroNl'), 'rd-intro-nl', r.intro_nl, 6)}</div>
+        <div class="rd-steps">${r.steps.map(riddleStepHtml).join('')}</div>
+        <button type="button" class="btn-ghost btn-small rd-add-step">${escapeHtml(t('adminRdAddStep'))}</button>
+        <div class="admin-form-row" style="margin-top:14px;">${fieldHtml(t('adminRdCodeLabelEn'), 'rd-code-label-en', r.code_label_en, 2)}${fieldHtml(t('adminRdCodeLabelNl'), 'rd-code-label-nl', r.code_label_nl, 2)}</div>
+        <div class="admin-form-row">${fieldHtml(t('adminRdCodes'), 'rd-codes', r.code_answers, 1)}</div>
+        <div class="admin-form-row">${fieldHtml(t('adminRdRewardEn'), 'rd-reward-en', r.reward_en, 8)}${fieldHtml(t('adminRdRewardNl'), 'rd-reward-nl', r.reward_nl, 8)}</div>
+        <p class="form-success rd-ok" hidden></p><p class="form-error rd-err" hidden></p>
+        <div class="whisper-q-btns">
+          <button type="button" class="btn-primary btn-small rd-save">${escapeHtml(t('adminSaveChanges'))}</button>
+          ${r.status === 'draft' ? `<button type="button" class="btn-ghost btn-small rd-delete">${escapeHtml(t('adminPostDelete'))}</button>` : ''}
+        </div>
+      </div>`;
+    const q = s => card.querySelector(s);
+    q('.rd-edit').addEventListener('click', () => { q('.rd-form').hidden = !q('.rd-form').hidden; });
+    const wireStep = (el) => el.querySelector('.rd-step-remove').addEventListener('click', () => el.remove());
+    card.querySelectorAll('.rd-step').forEach(wireStep);
+    q('.rd-add-step').addEventListener('click', () => {
+      const wrap = document.createElement('div');
+      wrap.innerHTML = riddleStepHtml({}, card.querySelectorAll('.rd-step').length);
+      const el = wrap.firstElementChild;
+      q('.rd-steps').appendChild(el);
+      wireStep(el);
+    });
+    q('.rd-save').addEventListener('click', async () => {
+      const steps = [...card.querySelectorAll('.rd-step')].map(el => Object.fromEntries(RD_STEP_KEYS.map(([k]) => [k, el.querySelector('.rd-s-' + k).value])));
+      const body = {
+        month: q('.rd-month').value, status: q('.rd-status').value, promo_code: q('.rd-promo').value,
+        title_en: q('.rd-title-en').value, title_nl: q('.rd-title-nl').value, intro_en: q('.rd-intro-en').value, intro_nl: q('.rd-intro-nl').value,
+        steps, code_label_en: q('.rd-code-label-en').value, code_label_nl: q('.rd-code-label-nl').value, code_answers: q('.rd-codes').value,
+        reward_en: q('.rd-reward-en').value, reward_nl: q('.rd-reward-nl').value,
+      };
+      try {
+        await api(`/api/admin/riddles/${r.id}`, { method: 'PATCH', body: JSON.stringify(body) });
+        q('.rd-err').hidden = true; q('.rd-ok').textContent = t('adminSaved'); q('.rd-ok').hidden = false;
+        setTimeout(loadRiddles, 900);
+      } catch (e) { q('.rd-ok').hidden = true; q('.rd-err').textContent = e.message || t('errorGeneric'); q('.rd-err').hidden = false; }
+    });
+    const del = q('.rd-delete');
+    if (del) del.addEventListener('click', async () => {
+      if (!window.confirm(t('adminRdDeleteConfirm'))) return;
+      await api(`/api/admin/riddles/${r.id}`, { method: 'DELETE' });
+      loadRiddles();
+    });
+    return card;
+  }
+  function setupRiddles() {
+    document.getElementById('rd-new-btn').addEventListener('click', async () => {
+      await api('/api/admin/riddles', { method: 'POST' });
+      loadRiddles();
     });
   }
 

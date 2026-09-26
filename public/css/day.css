@@ -1470,3 +1470,36 @@ html:has(#peek) { scroll-behavior: smooth; }
 .mk-lightbox-card p { white-space: pre-line; color: #243049; }
 .whisper-q-img { max-width: 220px; max-height: 180px; border-radius: 10px; display: block; margin: 6px 0; object-fit: contain; background: #f1ece0; }
 .whisper-q-thumb { width: 44px; height: 44px; object-fit: cover; border-radius: 8px; vertical-align: middle; margin-right: 6px; }
+
+/* ── Riddles from the Whispering Forest (Mare App 4) ── */
+.riddle-main { max-width: 760px; margin: 0 auto; padding: 0 clamp(12px, 3vw, 20px); }
+.riddle-card { background: #FFFDF6; border: 1.5px solid rgba(234,192,102,0.8); border-radius: 22px; padding: clamp(20px, 4vw, 34px); color: #243049; box-shadow: 0 20px 60px rgba(0,0,0,0.4); }
+.riddle-card h2 { font-family: 'Fraunces', serif; color: #16305C; font-size: clamp(1.4rem, 3.6vw, 1.9rem); margin: 0 0 12px; }
+.riddle-intro, .riddle-step-text, .riddle-after, .riddle-code-label, #riddle-reward-text { white-space: pre-line; line-height: 1.6; }
+.riddle-step { border-top: 1px dashed rgba(22,48,92,0.2); padding: 16px 0; }
+.riddle-step-heading { font-weight: 700; color: #9A7A2E; margin: 0 0 6px; }
+.riddle-step-question { font-weight: 700; color: #16305C; margin: 8px 0; }
+.riddle-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.riddle-row input { flex: 1; min-width: 140px; font-family: 'Quicksand', sans-serif; font-size: 1.05rem; padding: 10px 14px; border-radius: 12px; border: 1.5px solid rgba(22,48,92,0.25); background: #fff; color: #16305C; }
+.riddle-row input:focus { outline: none; border-color: #EAC066; }
+.auth-atmosphere .riddle-card .btn-ghost { color: #16305C; border-color: rgba(22,48,92,0.3); }
+.riddle-feedback { font-weight: 700; margin: 8px 0 0; }
+.riddle-feedback[hidden], .riddle-after[hidden] { display: none; }
+.riddle-ok { color: #2E6B43; }
+.riddle-no { color: #A33B3B; }
+.riddle-after { background: rgba(234,192,102,0.18); border-radius: 12px; padding: 10px 14px; margin-top: 10px; font-weight: 600; color: #16305C; }
+.riddle-step-done input { border-color: #2E6B43; background: #F3FAF4; }
+.riddle-code { margin-top: 18px; padding: 16px; border-radius: 16px; background: #16305C; color: #F3ECD9; }
+.riddle-code-label { font-weight: 700; margin: 0 0 10px; }
+.riddle-code .riddle-ok { color: #9FE3B3; } .riddle-code .riddle-no { color: #FFB4B4; }
+.riddle-reward { margin-top: 18px; padding: 18px; border-radius: 16px; background: #FFF6DC; border: 1.5px solid #EAC066; text-align: center; color: #16305C; }
+.riddle-reward[hidden], .riddle-join[hidden], .riddle-sparkles[hidden], .riddle-none[hidden] { display: none; }
+.riddle-reward .home-notice-code { border-color: #9A7A2E; }
+.riddle-reward .home-notice-code-text { color: #16305C; }
+.riddle-reward .btn-primary { display: inline-block; margin-top: 14px; text-decoration: none; }
+.riddle-join { margin-top: 18px; text-align: center; padding: 16px; border-radius: 16px; background: rgba(22,48,92,0.06); }
+.riddle-sparkles { text-align: center; color: var(--gold); font-weight: 700; margin: 0 0 14px; }
+.riddle-none { text-align: center; color: #F3ECD9; font-weight: 600; }
+.rd-card { border-color: rgba(160,220,255,0.45); }
+.rd-card .btn-primary { display: inline-block; text-decoration: none; }
+.rd-step { border: 1px dashed rgba(22,48,92,0.2); border-radius: 12px; padding: 10px 12px; margin: 10px 0; }
