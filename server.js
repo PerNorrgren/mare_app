@@ -2525,20 +2525,9 @@ app.get('/api/admin/backup/daily/:filename', auth.requireAuthApi(['admin']), asy
 
 function startCron() {
   cron.schedule('0 * * * *', () => {
-    const now = new Date();
-    const hour = now.getUTCHours();
-    const dateStr = now.toISOString().slice(0, 10);
-    const isMonday = now.getUTCDay() === 1;
-
-    const daily = hour === 8 ? db.getEmailOptInParents('daily') : [];
-    const weekly = (hour === 8 && isMonday) ? db.getEmailOptInParents('weekly') : [];
-
-    [...daily, ...weekly].forEach(parent => {
-      if (db.hasSentMareMessageToday(parent.id, dateStr)) return;
-      // TODO: actually send via Scaleway once "message from Mare" content is written
-      console.log(`[mare-message] would send to ${parent.email}`);
-      db.logMareMessageSent(parent.id, dateStr);
-    });
+    // (Mare App 4) The old daily/weekly "Messages from Mare" placeholder
+    // lived here - it never sent anything, only logged "would send".
+    // Mare's monthly letter (marepost.js) replaced it.
 
     // Scheduled broadcasts — checked every hour tick, same cadence as
     // everything else in this cron. sendBroadcastNow is the exact same
