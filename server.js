@@ -31,6 +31,8 @@ const auth = require('./auth');
 const media = require('./media');
 const prompts = require('./prompts');
 const email = require('./email');
+// Mare App 5 — the one public address for every link the app sends.
+const PUBLIC_URL = email.PUBLIC_URL;
 
 const app = express();
 // The Stripe webhook must receive the untouched raw body to verify
@@ -245,7 +247,7 @@ app.post('/api/auth/forgot-password', async (req, res) => {
   const account = getAccountByRoleAndEmail(validRole, rawEmail);
   if (account) {
     const token = db.createPasswordResetToken(validRole, account.id);
-    const resetUrl = `${(process.env.APP_URL || 'https://mareapp-production.up.railway.app')}/reset-password.html?token=${token}&role=${validRole}`;
+    const resetUrl = `${PUBLIC_URL}/reset-password.html?token=${token}&role=${validRole}`;
     email.sendPasswordResetEmail(account.email, account.name, resetUrl)
       .catch(e => console.error('password reset email failed:', e.message));
   }
@@ -284,7 +286,7 @@ app.post('/api/auth/reset-password', async (req, res) => {
       // password" shouldn't trigger a fresh email every single time.
       if (account && !db.hasRecentPasswordResetToken(deadRecord.role, deadRecord.user_id, 2)) {
         const newToken = db.createPasswordResetToken(deadRecord.role, deadRecord.user_id);
-        const resetUrl = `${process.env.APP_URL || 'https://mareapp-production.up.railway.app'}/reset-password.html?token=${newToken}&role=${deadRecord.role}`;
+        const resetUrl = `${PUBLIC_URL}/reset-password.html?token=${newToken}&role=${deadRecord.role}`;
         email.sendPasswordResetEmail(account.email, account.name, resetUrl)
           .catch(e => console.error('auto-resend password reset email failed:', e.message));
       }
@@ -554,9 +556,9 @@ require('./whisper').register(app, { db, auth, media, anthropic, model: TALK_MOD
 // Riddles from the Whispering Forest — Club Mare step 6 (Mare App 4).
 require('./riddles').register(app, { db, auth, getOptionalUser });
 // Mare's monthly post — Club Mare step 4 (Mare App 4). Links in the
-// letters use APP_URL, or the live domain if it isn't set.
+// letters use PUBLIC_URL (the live site; see email.js).
 require('./marepost').register(app, { db, auth, email, anthropic, model: TALK_MODEL,
-  appUrl: process.env.APP_URL || 'https://mare.deepermindfulness.org' });
+  appUrl: PUBLIC_URL });
 
 app.get('/api/books/:slug', (req, res) => {
   const book = db.getBookBySlug(req.params.slug);
@@ -1197,10 +1199,10 @@ app.get('/api/products', (req, res) => res.json({ products: db.getActiveProducts
 // orders as a guest. Stripe's own checkout page collects the name,
 // email and delivery address, restricted to the country chosen in the
 // cart, and adds that country's postage from the admin setting.
-function appBaseUrl(req) {
-  if (process.env.APP_URL) return process.env.APP_URL.replace(/\/$/, '');
-  const proto = (req.headers['x-forwarded-proto'] || req.protocol || 'https').split(',')[0].trim();
-  return `${proto}://${req.get('host')}`;
+// Mare App 5 — always the live site (see PUBLIC_URL), so Stripe sends
+// buyers back to mare.deepermindfulness.org, never a Railway address.
+function appBaseUrl() {
+  return PUBLIC_URL;
 }
 
 app.get('/api/shop/shipping', (req, res) => {
@@ -1455,7 +1457,7 @@ app.post('/api/admin/marketing/generate', auth.requireAuthApi(['admin', 'support
 
     // Substitute the real signup link server-side — the model only ever
     // wrote the literal token, never an actual URL.
-    const signupUrl = `${process.env.APP_URL || ''}/`;
+    const signupUrl = `${PUBLIC_URL}/`;
     for (const platform of Object.keys(results)) {
       if (typeof results[platform] === 'string') {
         results[platform] = results[platform].split('{{SIGNUP_LINK}}').join(signupUrl);
@@ -1671,7 +1673,7 @@ async function sendBroadcastNow(broadcast) {
   db.markBroadcastSending(broadcast.id);
   const recipients = db.getBroadcastAudienceEmails(broadcast.audience);
   let sentCount = 0, failedCount = 0;
-  const base = (process.env.APP_URL || 'https://mare.deepermindfulness.org').replace(/\/$/, '');
+  const base = PUBLIC_URL;
   for (const r of recipients) {
     // Every broadcast carries a personal 'Stop these emails' link (Mare App 4).
     const html = broadcast.body_html + require('./marepost').newsFooter(r.kind, r.id, r.preferred_locale, base);
@@ -1923,7 +1925,7 @@ app.post('/api/admin/bulk-import', auth.requireAuthApi(['admin', 'support']), as
         const hash = await auth.hashPassword(crypto.randomBytes(24).toString('hex'));
         const teacherId = db.createTeacher({ email: row.email, passwordHash: hash, name: row.name, school: row.extra || schoolName });
         const token = db.createPasswordResetToken('teacher', teacherId);
-        const resetUrl = `${process.env.APP_URL || 'https://mareapp-production.up.railway.app'}/reset-password.html?token=${token}&role=teacher`;
+        const resetUrl = `${PUBLIC_URL}/reset-password.html?token=${token}&role=teacher`;
         email.sendPasswordResetEmail(row.email, row.name, resetUrl).catch(e => console.error('bulk welcome email failed:', e.message));
         db.markBulkImportRowResult(rowId, { status: 'created', createdUserId: teacherId });
         createdCount++;
@@ -1934,7 +1936,7 @@ app.post('/api/admin/bulk-import', auth.requireAuthApi(['admin', 'support']), as
         const parentId = db.createParent({ email: row.email, passwordHash: hash, name: row.name });
         parentEmailToId[row.email.toLowerCase()] = parentId;
         const token = db.createPasswordResetToken('parent', parentId);
-        const resetUrl = `${process.env.APP_URL || 'https://mareapp-production.up.railway.app'}/reset-password.html?token=${token}&role=parent`;
+        const resetUrl = `${PUBLIC_URL}/reset-password.html?token=${token}&role=parent`;
         email.sendPasswordResetEmail(row.email, row.name, resetUrl).catch(e => console.error('bulk welcome email failed:', e.message));
         db.markBulkImportRowResult(rowId, { status: 'created', createdUserId: parentId });
         createdCount++;
@@ -2094,7 +2096,7 @@ app.post('/api/admin/teachers', auth.requireAuthApi(['admin', 'support']), async
   const hash = await auth.hashPassword(crypto.randomBytes(24).toString('hex'));
   const teacherId = db.createTeacher({ email: rawEmail, passwordHash: hash, name, school });
   const token = db.createPasswordResetToken('teacher', teacherId);
-  const resetUrl = `${process.env.APP_URL || 'https://mareapp-production.up.railway.app'}/reset-password.html?token=${token}&role=teacher`;
+  const resetUrl = `${PUBLIC_URL}/reset-password.html?token=${token}&role=teacher`;
   email.sendPasswordResetEmail(rawEmail, name, resetUrl).catch(e => console.error('teacher welcome email failed:', e.message));
   res.json({ ok: true, id: teacherId });
 });
@@ -2106,7 +2108,7 @@ app.post('/api/admin/teachers/:id/resend-invite', auth.requireAuthApi(['admin', 
   const teacher = db.getTeacherById(req.params.id);
   if (!teacher) return res.status(404).json({ error: 'Teacher not found' });
   const token = db.createPasswordResetToken('teacher', teacher.id);
-  const resetUrl = `${process.env.APP_URL || 'https://mareapp-production.up.railway.app'}/reset-password.html?token=${token}&role=teacher`;
+  const resetUrl = `${PUBLIC_URL}/reset-password.html?token=${token}&role=teacher`;
   email.sendPasswordResetEmail(teacher.email, teacher.name, resetUrl).catch(e => console.error('teacher resend email failed:', e.message));
   res.json({ ok: true });
 });

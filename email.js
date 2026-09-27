@@ -18,7 +18,15 @@ const SCW_PROJECT_ID = process.env.SCW_PROJECT_ID;
 const SCW_TEM_REGION = process.env.SCW_TEM_REGION || 'fr-par';
 const EMAIL_FROM = process.env.EMAIL_FROM || 'per@deepermindfulness.org';
 const EMAIL_FROM_NAME = process.env.EMAIL_FROM_NAME || 'Mare';
-const APP_URL = process.env.APP_URL || 'https://mareapp-production.up.railway.app';
+// Mare App 5 — every link in every email points at the live site. APP_URL
+// wins only if it is a real public address: a Railway dev/production
+// address (…up.railway.app) is ignored, so no email ever sends a family
+// or a teacher to the wrong place, whatever the variable is set to.
+const LIVE_URL = 'https://mare.deepermindfulness.org';
+const APP_URL = (() => {
+  const v = String(process.env.APP_URL || '').trim().replace(/\/+$/, '');
+  return v && !/\.railway\.app$/i.test(v.replace(/^https?:\/\//, '').split('/')[0]) ? v : LIVE_URL;
+})();
 
 // Rough plain-text fallback derived from the HTML body — same approach
 // as per_bot's htmlToText(), kept simple rather than pulled in as a
@@ -287,6 +295,7 @@ function sendOrderNotification(to, { order, items, currency }) {
 }
 
 module.exports = {
+  PUBLIC_URL: APP_URL,
   sendOrderNotification,
   sendEmail,
   sendWelcomeParentEmail,
