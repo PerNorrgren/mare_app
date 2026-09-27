@@ -222,25 +222,108 @@
     const grid = document.getElementById('stat-grid');
     try {
       const stats = await api('/api/admin/report/overview');
+      const isAdmin = currentUser && currentUser.role === 'admin';
       const items = [
-        { label: t('adminStatParents'), value: stats.parents, sub: stats.suspendedParents ? t('adminStatSuspended', { count: stats.suspendedParents }) : null },
-        { label: t('adminStatChildren'), value: stats.children },
-        { label: t('adminStatTeachers'), value: stats.teachers, sub: stats.suspendedTeachers ? t('adminStatSuspended', { count: stats.suspendedTeachers }) : null },
-        { label: t('adminStatTalkSessions7d'), value: stats.talkSessions7d, sub: t('adminStatTalkSessionsTotal', { count: stats.talkSessionsTotal }) },
-        { label: t('adminStatOrders'), value: stats.ordersPaid, sub: t('adminStatOrdersTotal', { count: stats.ordersTotal }) },
-        { label: t('adminStatClubMembers'), value: stats.clubMembers },
-        { label: t('adminStatEmailSent'), value: stats.email.sent, sub: stats.email.failed ? t('adminStatEmailFailed', { count: stats.email.failed }) : null },
+        { kind: 'parents', label: t('adminStatParents'), value: stats.parents, sub: stats.suspendedParents ? t('adminStatSuspended', { count: stats.suspendedParents }) : null },
+        { kind: 'children', label: t('adminStatChildren'), value: stats.children },
+        { kind: 'teachers', label: t('adminStatTeachers'), value: stats.teachers, sub: stats.suspendedTeachers ? t('adminStatSuspended', { count: stats.suspendedTeachers }) : null },
+        { kind: 'talk', label: t('adminStatTalkSessions7d'), value: stats.talkSessions7d, sub: t('adminStatTalkSessionsTotal', { count: stats.talkSessionsTotal }) },
+        { kind: isAdmin ? 'orders' : null, label: t('adminStatOrders'), value: stats.ordersPaid, sub: t('adminStatOrdersTotal', { count: stats.ordersTotal }) },
+        { kind: 'club', label: t('adminStatClubMembers'), value: stats.clubMembers },
+        { kind: isAdmin ? 'emails' : null, label: t('adminStatEmailSent'), value: stats.email.sent, sub: stats.email.failed ? t('adminStatEmailFailed', { count: stats.email.failed }) : null },
       ];
+      // Mare App 5 — each box is a button that opens the list behind it.
       grid.innerHTML = items.map(item => `
-        <div class="stat-item">
+        <${item.kind ? `button type="button" data-kind="${item.kind}"` : 'div'} class="stat-item${item.kind ? ' stat-item-link' : ''}${statDetailKind && statDetailKind === item.kind ? ' active' : ''}">
           <div class="stat-value">${escapeHtml(String(item.value))}</div>
           <div class="stat-label">${escapeHtml(item.label)}</div>
           ${item.sub ? `<div class="stat-sub">${escapeHtml(item.sub)}</div>` : ''}
-        </div>
+        </${item.kind ? 'button' : 'div'}>
       `).join('');
+      grid.querySelectorAll('[data-kind]').forEach(b => b.addEventListener('click', () => openStatDetail(b.getAttribute('data-kind'))));
     } catch {
       grid.innerHTML = `<p class="admin-empty-note">${escapeHtml(t('adminCouldNotLoadStats'))}</p>`;
     }
+  }
+
+  // ── Mare App 5 — "At a glance" detail lists ──
+  let statDetailKind = null;
+  function goToTab(tab) {
+    const btn = document.querySelector(`#admin-tabs .admin-tab[data-tab="${tab}"]`);
+    if (btn && !btn.hidden) { btn.click(); window.scrollTo({ top: 0, behavior: 'smooth' }); }
+  }
+  function fmtDate(v) {
+    if (!v) return '';
+    const d = new Date(String(v).replace(' ', 'T') + (String(v).includes('Z') ? '' : 'Z'));
+    if (isNaN(d)) return String(v);
+    return d.toLocaleString(window.MareI18n.locale === 'nl' ? 'nl-NL' : 'en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+  }
+  function fmtMoney(cents, cur) {
+    const sym = { gbp: '£', eur: '€', usd: '$' }[String(cur || 'gbp').toLowerCase()] || '';
+    return `${sym}${((cents || 0) / 100).toFixed(2)}`;
+  }
+  const yes = (v) => (v ? t('adminYes') : '—');
+  const STAT_COLUMNS = {
+    parents: { title: 'adminStatParents', tab: 'directory', cols: [
+      ['adminFieldName', r => r.name], ['adminFieldEmail', r => r.email], ['adminStatColChildren', r => r.children || '—'],
+      ['adminStatColClub', r => r.club_tier ? t(r.club_tier > 1 ? 'adminStatClubPaid' : 'adminStatClubFree') : '—'],
+      ['adminStatColLetter', r => yes(r.letter_on)], ['adminFieldStatus', r => t(r.status === 'suspended' ? 'adminStatusSuspended' : 'adminStatusActive')],
+      ['adminStatColJoined', r => fmtDate(r.created_at)]] },
+    children: { title: 'adminStatChildren', tab: 'directory', cols: [
+      ['adminStatColFirstName', r => r.name], ['adminStatColAge', r => r.age_band ? String(r.age_band).replace('-', '–') : '—'],
+      ['adminStatColParent', r => r.parent_name ? `${r.parent_name} (${r.parent_email})` : '—'], ['adminStatColJoined', r => fmtDate(r.created_at)]] },
+    teachers: { title: 'adminStatTeachers', tab: 'directory', cols: [
+      ['adminFieldName', r => r.name], ['adminFieldEmail', r => r.email], ['adminStatColSchool', r => r.school || '—'],
+      ['adminFieldStatus', r => t(r.status === 'suspended' ? 'adminStatusSuspended' : 'adminStatusActive')], ['adminStatColJoined', r => fmtDate(r.created_at)]] },
+    talk: { title: 'adminStatTalkTitle', cols: [
+      ['adminStatColStarted', r => fmtDate(r.started_at)], ['adminStatColChild', r => r.child_name || '—'], ['adminStatColParent', r => r.parent_name || '—'],
+      ['adminStatColTurns', r => String(r.turn_count || 0)], ['adminStatColLang', r => String(r.locale || '').toUpperCase()], ['adminStatColLast', r => fmtDate(r.last_activity_at)]] },
+    orders: { title: 'adminStatOrdersTitle', cols: [
+      ['adminStatColDate', r => fmtDate(r.created_at)], ['adminFieldStatus', r => t('adminOrderStatus_' + (r.status || 'pending'))],
+      ['adminFieldName', r => r.name || '—'], ['adminFieldEmail', r => r.email || '—'], ['adminStatColItems', r => r.items || '—'],
+      ['adminStatColTotal', r => fmtMoney(r.total_cents, r.currency) + (r.shipping_cents ? ` (${t('adminStatInclPostage', { amount: fmtMoney(r.shipping_cents, r.currency) })})` : '')],
+      ['adminStatColCountry', r => r.shipping_country || '—']] },
+    club: { title: 'adminStatClubMembers', cols: [
+      ['adminFieldName', r => r.name || '—'], ['adminFieldEmail', r => r.email || '—'], ['adminStatColChildren', r => r.children || '—'],
+      ['adminStatColClub', r => t(r.tier > 1 ? 'adminStatClubPaid' : 'adminStatClubFree')], ['adminStatColLetter', r => yes(r.letter_on)],
+      ['adminStatColJoined', r => fmtDate(r.joined_at)]] },
+  };
+  async function openStatDetail(kind) {
+    const box = document.getElementById('stat-detail');
+    if (kind === 'emails') { goToTab('emaillog'); return; }
+    if (statDetailKind === kind && !box.hidden) { closeStatDetail(); return; }
+    const def = STAT_COLUMNS[kind];
+    if (!def) return;
+    statDetailKind = kind;
+    document.querySelectorAll('#stat-grid [data-kind]').forEach(b => b.classList.toggle('active', b.getAttribute('data-kind') === kind));
+    document.getElementById('stat-detail-title').textContent = t(def.title);
+    const openBtn = document.getElementById('stat-detail-open');
+    openBtn.hidden = !def.tab;
+    if (def.tab) { openBtn.textContent = t('adminStatOpenDirectory'); openBtn.onclick = () => goToTab(def.tab); }
+    const body = document.getElementById('stat-detail-body');
+    body.innerHTML = `<p class="admin-empty-note">${escapeHtml(t('adminLoading'))}</p>`;
+    box.hidden = false;
+    box.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    try {
+      const data = await api(`/api/admin/report/detail/${kind}`);
+      if (statDetailKind !== kind) return; // another box was clicked meanwhile
+      const rows = data.rows || [];
+      if (!rows.length) { body.innerHTML = `<p class="admin-empty-note">${escapeHtml(t('adminStatNothingYet'))}</p>`; return; }
+      body.innerHTML = `<div class="stat-detail-scroll"><table class="admin-table"><thead><tr>${def.cols.map(c => `<th>${escapeHtml(t(c[0]))}</th>`).join('')}</tr></thead>
+        <tbody>${rows.map(r => `<tr>${def.cols.map(c => `<td>${escapeHtml(String(c[1](r) ?? ''))}</td>`).join('')}</tr>`).join('')}</tbody></table></div>
+        ${rows.length >= 200 ? `<p class="admin-empty-note">${escapeHtml(t('adminStatNewest200'))}</p>` : ''}`;
+    } catch (err) {
+      body.innerHTML = `<p class="form-error">${escapeHtml(err.message || t('errorGeneric'))}</p>`;
+    }
+  }
+  function closeStatDetail() {
+    statDetailKind = null;
+    document.getElementById('stat-detail').hidden = true;
+    document.querySelectorAll('#stat-grid [data-kind]').forEach(b => b.classList.remove('active'));
+  }
+  { // admin.js runs at the end of <body>, so the panel already exists
+    const c = document.getElementById('stat-detail-close');
+    if (c) c.addEventListener('click', closeStatDetail);
   }
 
   // ── Teacher resources ──

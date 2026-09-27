@@ -2207,6 +2207,15 @@ app.post('/api/teacher/ask-question', auth.requireAuthApi(['teacher']), (req, re
 app.get('/api/admin/report/overview', auth.requireAuthApi(['admin', 'support']), (req, res) => {
   res.json(db.getAdminOverviewStats());
 });
+// Mare App 5 — the list behind an "At a glance" box. Orders are
+// admin-only (support never sees payments).
+app.get('/api/admin/report/detail/:kind', auth.requireAuthApi(['admin', 'support']), (req, res) => {
+  const kind = req.params.kind;
+  if (kind === 'orders' && req.user.role !== 'admin') return res.status(403).json({ error: 'Admins only' });
+  const rows = db.getAdminOverviewDetail(kind);
+  if (!rows) return res.status(404).json({ error: 'Not found' });
+  res.json({ kind, rows });
+});
 app.get('/api/admin/email-log', auth.requireAuthApi(['admin']), (req, res) => {
   res.json({ log: db.getRecentEmailLog(100) });
 });

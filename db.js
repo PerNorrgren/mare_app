@@ -2465,6 +2465,41 @@ function getEmailStats() {
 // are small) rather than a maintained summary table, matching sql.js's
 // whole-file-in-memory model where a full scan of these tables costs
 // nothing. ──
+// Mare App 5 — what's behind each "At a glance" box (newest first,
+// capped). Password hashes are never selected.
+function getAdminOverviewDetail(kind, limit = 200) {
+  if (kind === 'parents') {
+    return all(`SELECT p.id, p.name, p.email, p.status, p.created_at, p.email_opt_in AS letter_on,
+        (SELECT group_concat(c.name, ', ') FROM children c WHERE c.parent_id = p.id) AS children,
+        (SELECT m.tier FROM club_mare_members m WHERE m.parent_id = p.id) AS club_tier
+      FROM parents p ORDER BY p.created_at DESC LIMIT ?`, [limit]);
+  }
+  if (kind === 'children') {
+    return all(`SELECT c.id, c.name, c.age_band, c.created_at, p.name AS parent_name, p.email AS parent_email
+      FROM children c LEFT JOIN parents p ON p.id = c.parent_id ORDER BY c.created_at DESC LIMIT ?`, [limit]);
+  }
+  if (kind === 'teachers') {
+    return all(`SELECT id, name, email, school, status, created_at FROM teachers ORDER BY created_at DESC LIMIT ?`, [limit]);
+  }
+  if (kind === 'talk') {
+    return all(`SELECT s.id, s.started_at, s.last_activity_at, s.turn_count, s.locale, c.name AS child_name, p.name AS parent_name
+      FROM talk_sessions s LEFT JOIN children c ON c.id = s.child_id LEFT JOIN parents p ON p.id = s.parent_id
+      ORDER BY s.started_at DESC LIMIT ?`, [limit]);
+  }
+  if (kind === 'orders') {
+    return all(`SELECT o.id, o.created_at, o.status, o.total_cents, o.currency, o.shipping_cents, o.shipping_country,
+        o.customer_name, o.customer_email, o.shipping_address,
+        COALESCE(o.customer_name, p.name) AS name, COALESCE(o.customer_email, p.email) AS email,
+        (SELECT group_concat(COALESCE(pr.name, '(removed product)') || ' × ' || i.qty, ', ') FROM order_items i LEFT JOIN products pr ON pr.id = i.product_id WHERE i.order_id = o.id) AS items
+      FROM orders o LEFT JOIN parents p ON p.id = o.parent_id ORDER BY o.created_at DESC LIMIT ?`, [limit]);
+  }
+  if (kind === 'club') {
+    return all(`SELECT m.id, m.tier, m.joined_at, p.name, p.email, p.email_opt_in AS letter_on,
+        (SELECT group_concat(c.name, ', ') FROM children c WHERE c.parent_id = p.id) AS children
+      FROM club_mare_members m LEFT JOIN parents p ON p.id = m.parent_id ORDER BY m.joined_at DESC LIMIT ?`, [limit]);
+  }
+  return null;
+}
 function getAdminOverviewStats() {
   const parents = get(`SELECT COUNT(*) as c FROM parents`).c;
   const suspendedParents = get(`SELECT COUNT(*) as c FROM parents WHERE status = 'suspended'`).c;
@@ -2650,6 +2685,7 @@ function getAllBulkImports() {
 }
 
 module.exports = {
+  getAdminOverviewDetail,
   getDb, save, uuid, run, get, all,
   exportDbBytes, restoreFromBuffer,
   getParentByEmail, getParentById, createParent, setParentEmailPrefs, updateParentProfile,

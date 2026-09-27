@@ -91,8 +91,20 @@
     <div class="admin-panel active" id="panel-overview">
       <div class="admin-card">
         <h2 data-i18n="adminOverviewStatsTitle">At a glance</h2>
+        <p class="admin-card-sub" data-i18n="adminStatClickHint">Click a box to see what's behind it.</p>
         <div class="stat-grid" id="stat-grid">
           <p class="admin-empty-note" data-i18n="adminLoading">Loading…</p>
+        </div>
+        <!-- Mare App 5 — the list behind the box that was clicked. -->
+        <div class="stat-detail" id="stat-detail" hidden>
+          <div class="stat-detail-head">
+            <h3 id="stat-detail-title"></h3>
+            <span class="stat-detail-actions">
+              <button type="button" class="btn-ghost btn-small" id="stat-detail-open" hidden></button>
+              <button type="button" class="btn-ghost btn-small" id="stat-detail-close" data-i18n="adminClose">Close</button>
+            </span>
+          </div>
+          <div id="stat-detail-body"></div>
         </div>
       </div>
       <div class="admin-card">

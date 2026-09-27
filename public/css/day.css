@@ -1594,3 +1594,17 @@ button.is-failed { box-shadow: 0 0 0 2px rgba(192,57,43,0.45); }
 }
 #busy-toast.show { opacity: 1; transform: translate(-50%, 0); }
 #busy-toast.fail { background: #A33B3B; }
+
+/* Mare App 5 — "At a glance" boxes open the list behind them. */
+button.stat-item { display: flex; flex-direction: column; justify-content: flex-start; align-items: stretch; font: inherit; text-align: left; border: 2px solid transparent; cursor: pointer; width: 100%; color: inherit; transition: border-color 0.15s ease, transform 0.1s ease, box-shadow 0.15s ease; }
+button.stat-item:hover, button.stat-item:focus-visible { border-color: var(--gold); outline: none; box-shadow: 0 4px 14px rgba(22,48,92,0.12); }
+button.stat-item.active { border-color: var(--gold); background: #FFF6DF; }
+button.stat-item .stat-label::after { content: ' →'; opacity: 0.5; }
+button.stat-item.is-busy::after, button.stat-item.is-done::after, button.stat-item.is-failed::after { display: none; }
+.stat-detail { margin-top: 18px; border-top: 1px solid rgba(22,48,92,0.12); padding-top: 14px; }
+.stat-detail[hidden] { display: none; }
+.stat-detail-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
+.stat-detail-head h3 { margin: 0; font-family: 'Fraunces', serif; color: var(--navy); }
+.stat-detail-actions { display: flex; gap: 8px; }
+.stat-detail-scroll { overflow-x: auto; max-height: 520px; overflow-y: auto; }
+.stat-detail-scroll th { position: sticky; top: 0; background: #fff; }
