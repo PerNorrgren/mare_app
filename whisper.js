@@ -191,9 +191,25 @@ Use "check" if ANY of these apply: a real person's face or body (a photo of a ch
         isParent,
         member,
         children: isParent ? db.getChildrenByParent(user.id).map(c => ({ id: c.id, name: firstName(c.name) })) : [],
+        // Mare's Secret Post (the monthly letter) — is it switched on?
+        letterOn: isParent ? !!(db.getParentById(user.id) || {}).email_opt_in : false,
         mine: mine.map(m => ({ kind: (m.image_key || m.kind === 'makers' || m.kind === 'makers_general') ? 'makers' : m.kind, word: m.word, answer: m.kind === 'question' ? (m.reason || '') : '', status: m.status, isWinner: !!m.is_winner, name: m.child_name })),
       },
     });
+  });
+
+  // Mare App 5 — switch Mare's Secret Post (the monthly letter) on or off
+  // from the Club Mare page. Same setting as on the account page; the
+  // letter only goes to Club Mare members, so switching on also joins.
+  app.post('/api/club/letter', auth.requireAuthApi(['parent']), (req, res) => {
+    const on = !!(req.body && req.body.on);
+    const parent = db.getParentById(req.user.id);
+    if (on) {
+      const m = db.getClubMareMembership(req.user.id);
+      if (!m || m.tier < 1) db.joinClubMareFree(req.user.id);
+    }
+    db.setParentEmailPrefs(req.user.id, on, (parent && parent.email_frequency) || 'weekly');
+    res.json({ ok: true, on });
   });
 
   app.post('/api/club/whisper/submit', auth.requireAuthApi(['parent']), async (req, res) => {

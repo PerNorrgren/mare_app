@@ -21,6 +21,70 @@
     return t('whisperStatusPending');
   }
 
+  // Mare App 5 — every activity card shows even between rounds. When one
+  // is open but this visitor can't take part yet, say what the next step
+  // is (register / join / add a child) instead of showing nothing.
+  function setLocked(prefix, me, isOpen) {
+    const note = document.getElementById(prefix + '-locked');
+    if (!note) return;
+    const text = note.querySelector('.club-locked-text');
+    const link = note.querySelector('.club-locked-link');
+    let msg = '', href = '', linkKey = '';
+    if (!isOpen) msg = '';
+    else if (!me.signedIn) { msg = t('clubLockedSignIn'); href = '/login.html?mode=signup'; linkKey = 'showcaseRegister'; }
+    else if (!me.isParent) msg = t('clubLockedParentsOnly');
+    else if (!me.member) msg = t('clubLockedJoin');
+    else if (!me.children.length) { msg = t('clubNeedChild'); href = '/account.html'; linkKey = 'whisperGoToAccount'; }
+    text.textContent = msg;
+    link.hidden = !href;
+    if (href) { link.href = href; link.textContent = t(linkKey); }
+    note.hidden = !msg;
+  }
+  function markStrip(key, isOpen) {
+    const a = document.querySelector(`.cm-strip [data-cm="${key}"]`);
+    if (a) a.classList.toggle('is-open', !!isOpen);
+  }
+
+  // Mare's Secret Post — the monthly letter, switched on/off right here.
+  function renderPost(me) {
+    const section = document.getElementById('mp');
+    const state = document.getElementById('mp-state');
+    const btn = document.getElementById('mp-btn');
+    const reg = document.getElementById('mp-register');
+    btn.hidden = true; reg.hidden = true;
+    if (!me.signedIn) {
+      state.textContent = t('mpSignedOut');
+      reg.hidden = false;
+    } else if (!me.isParent) {
+      state.textContent = t('mpParentsOnly');
+    } else {
+      state.textContent = me.letterOn ? t('mpOn') : t('mpOff');
+      btn.textContent = me.letterOn ? t('mpTurnOff') : t('mpTurnOn');
+      btn.className = me.letterOn ? 'btn-ghost' : 'btn-primary';
+      btn.hidden = false;
+      btn.onclick = async () => {
+        btn.disabled = true;
+        try {
+          const res = await fetch('/api/club/letter', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ on: !me.letterOn }),
+          });
+          if (!res.ok) throw new Error();
+          me.letterOn = !me.letterOn;
+          // Switching the letter on also joins Club Mare; reload so the
+          // forms appear if this family has only just joined.
+          if (me.letterOn && !me.member) { window.location.reload(); return; }
+          renderPost(me);
+        } catch {
+          state.textContent = t('errorGeneric');
+        } finally {
+          btn.disabled = false;
+        }
+      };
+    }
+    section.hidden = false;
+  }
+
   function renderMine(mine) {
     const box = document.getElementById('whisper-mine');
     const list = document.getElementById('whisper-mine-list');
@@ -63,9 +127,11 @@
     const q = data.question;
     const past = data.pastQuestions || [];
     const section = document.getElementById('wq');
-    if (!q && !past.length) { section.hidden = true; return; }
-    document.getElementById('wq-title').textContent = q ? q.title : t('wqNoQuestion');
-    document.getElementById('wq-body').textContent = q ? q.body : '';
+    markStrip('question', !!q);
+    setLocked('wq', me, !!q);
+    document.getElementById('wq-title').textContent = q ? q.title : (past.length ? t('wqNoQuestion') : t('wqNoneTitle'));
+    document.getElementById('wq-body').textContent = q ? q.body : t('wqNoneBody');
+    section.hidden = false;
 
     const list = document.getElementById('wq-answers-list');
     list.innerHTML = '';
@@ -128,10 +194,12 @@
   function renderMission(data, me) {
     const m = data.mission;
     const section = document.getElementById('ms');
-    if (!m) { section.hidden = true; return; }
-    document.getElementById('ms-title').textContent = m.title;
-    document.getElementById('ms-body').textContent = m.body;
+    markStrip('mission', !!m);
+    setLocked('ms', me, !!m);
+    document.getElementById('ms-title').textContent = m ? m.title : t('msNoneTitle');
+    document.getElementById('ms-body').textContent = m ? m.body : t('msNoneBody');
     const form = document.getElementById('ms-form');
+    if (!m) { form.hidden = true; section.hidden = false; return; }
     if (me.isParent && me.member && me.children.length) {
       const sel = document.getElementById('ms-child');
       sel.innerHTML = '';
@@ -188,6 +256,8 @@
     const theme = mk.theme;
     document.getElementById('mk-title').textContent = theme ? theme.title : t('mkDefaultTitle');
     document.getElementById('mk-body').textContent = theme ? theme.body : t('mkDefaultBody');
+    markStrip('makers', true);
+    setLocked('mk', me, true);
 
     const track = document.getElementById('mk-track');
     track.innerHTML = '';
@@ -352,7 +422,9 @@
       };
     }
     renderMine(me.mine || []);
+    markStrip('word', !!prompt);
     section.hidden = false;
+    renderPost(me);
     renderQuestion(data, me);
     renderMission(data, me);
     renderMakers(data, me);
@@ -361,8 +433,13 @@
   async function loadRiddleTeaser() {
     try {
       const data = await (await fetch(`/api/club/riddle?lang=${nl() ? 'nl' : 'en'}`)).json();
-      if (!data.riddle) return;
-      document.getElementById('rd-teaser-title').textContent = data.riddle.title;
+      const r = data.riddle;
+      // Mare App 5 — between riddles the card stays, saying one is coming.
+      document.getElementById('rd-teaser-title').textContent = r ? r.title : t('rdWaitTitle');
+      document.getElementById('rd-teaser-body').hidden = !r;
+      document.getElementById('rd-teaser-wait').hidden = !!r;
+      document.getElementById('rd-teaser-btn').hidden = !r;
+      markStrip('riddle', !!r);
       document.getElementById('rd-teaser').hidden = false;
     } catch { /* no teaser */ }
   }

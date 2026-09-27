@@ -1545,3 +1545,27 @@ html:has(#peek) { scroll-behavior: smooth; }
 .staff-done { color: #2E7D4F; font-size: 0.9rem; font-weight: 600; }
 .staff-done.warn { color: #A33B3B; }
 .staff-done[hidden] { display: none; }
+
+/* Mare App 5 — Club Mare: "This month in the Whispering Forest" strip,
+   Mare's Secret Post card, the join box at the top. */
+.cm-strip { max-width: 720px; margin: 0 auto 28px; padding: 0 clamp(12px, 3vw, 20px); text-align: center; }
+.cm-strip-title { color: var(--gold); font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; font-size: 0.78rem; margin: 0 0 10px; }
+.cm-strip-links { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
+.cm-strip-links a {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 7px 14px; border-radius: 999px; text-decoration: none;
+  font-size: 0.86rem; font-weight: 600; color: #F3ECD9;
+  background: rgba(10,20,16,0.72); border: 1px solid rgba(243,236,217,0.25);
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.cm-strip-links a:hover, .cm-strip-links a:focus-visible { border-color: var(--gold); background: rgba(10,20,16,0.9); outline: none; }
+.cm-strip-links a.is-open::before {
+  content: ''; width: 7px; height: 7px; border-radius: 50%;
+  background: var(--gold); box-shadow: 0 0 6px rgba(226,190,110,0.8);
+}
+.whisper { scroll-margin-top: 20px; }
+.mp-card { border-color: rgba(226,190,110,0.55); }
+.mp-card .btn-primary, .mp-card .btn-ghost { display: inline-block; text-decoration: none; margin-top: 4px; }
+.cm-join-top { max-width: 720px; margin: 18px auto 8px; padding: 0 clamp(12px, 3vw, 20px); }
+.whisper-card [hidden] { display: none !important; }
+.cm-strip { margin-top: 18px; }

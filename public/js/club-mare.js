@@ -20,10 +20,9 @@
   // post card markup either way, just a different target container and
   // a different (or no) "you're a member" note around it.
   function renderPosts(posts, listEl, emptyMessage) {
-    if (!posts.length) {
-      listEl.innerHTML = `<p class="admin-empty-note">${escapeHtml(emptyMessage)}</p>`;
-      return;
-    }
+    // Mare App 5 — no stories yet: show nothing. The activity cards above
+    // are the club now; an empty "check back soon" line only looked broken.
+    if (!posts.length) { listEl.innerHTML = ''; return; }
     listEl.innerHTML = posts.map(post => `
       <div class="showcase-tile" style="cursor:default; text-align:left; align-items:flex-start;">
         ${post.image_key ? `<img class="clubmare-post-image" data-image-key="${escapeHtml(post.image_key)}" alt="" style="width:100%;border-radius:10px;margin-bottom:10px;">` : ''}
@@ -51,8 +50,10 @@
       const res = await fetch('/api/club-mare/posts');
       const data = await res.json();
       renderPosts(data.posts || [], listEl, t('clubMareNoPosts', 'Nothing here yet — check back soon.'));
+      // Mare App 5 — no stories: hide the block, "You're a free member" too.
+      if (!(data.posts || []).length) document.getElementById('cm-member-view').hidden = true;
     } catch {
-      listEl.innerHTML = `<p class="admin-empty-note">${escapeHtml(t('clubMareCouldNotLoad', "Couldn't load Club Mare posts right now."))}</p>`;
+      document.getElementById('cm-member-view').hidden = true;
     }
   }
 
@@ -65,8 +66,11 @@
       const res = await fetch('/api/club-mare/posts');
       const data = await res.json();
       renderPosts(data.posts || [], listEl, t('clubMareNoPosts', 'Nothing here yet — check back soon.'));
+      // Mare App 5 — the "see every story" box only makes sense when there
+      // are stories; the activity cards carry their own Register links.
+      if (!(data.posts || []).length) document.getElementById('cm-preview-view').hidden = true;
     } catch {
-      listEl.innerHTML = `<p class="admin-empty-note">${escapeHtml(t('clubMareCouldNotLoad', "Couldn't load Club Mare posts right now."))}</p>`;
+      document.getElementById('cm-preview-view').hidden = true;
     }
   }
 

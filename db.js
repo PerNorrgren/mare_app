@@ -481,6 +481,33 @@ function ensureSchema() {
   // is open belong to this permanent 'anything you made' prompt.
   try { db.run(`ALTER TABLE whisper_submissions ADD COLUMN image_key TEXT`); } catch {}
   db.run(`INSERT OR IGNORE INTO whisper_prompts (id, kind, title_en, title_nl, status) VALUES ('makers-general', 'makers_general', 'Anything you made about Mare''s world', 'Alles wat je maakte over de wereld van Mare', 'closed')`);
+  // Mare App 5 — starter Whisper Word, Whisper Question and Mission, so
+  // Club Mare isn't empty on day one. Fixed ids + INSERT OR IGNORE: each
+  // is added at most once, ever, and only if nothing of that kind is open
+  // yet. Close or edit them in Admin → Club Mare like any other.
+  const STARTERS = [
+    ['starter-word-1', 'word_month', '2026-10',
+      'Which word should grow in the forest next?',
+      'Welk woord moet er als volgende in het bos groeien?',
+      'This month Mare found the word petrichor: the smell of rain on dry earth. It was hiding under a pile of autumn leaves. Now it is your turn. Plant a word you would never want to lose: a funny word, an old word, a made-up word, or a word from another language. Tell Mare why you chose it. At the end of the month, one word becomes the Whisper Word of the Month.',
+      'Deze maand vond Mare het woord petrichor: de geur van regen op droge aarde. Het lag verstopt onder een stapel herfstbladeren. Nu ben jij aan de beurt. Plant een woord dat je nooit kwijt wilt raken: een grappig woord, een oud woord, een verzonnen woord of een woord uit een andere taal. Vertel Mare waarom je het koos. Aan het eind van de maand wordt één woord het Fluisterwoord van de maand.'],
+    ['starter-question-1', 'question', null,
+      'If a tree could talk, what would it know about you?',
+      'Als een boom kon praten, wat zou hij dan over jou weten?',
+      'Trees stand still and watch the world go by. Maybe there is a tree near your school, in your street or in your garden. What has it seen you do? Write Mare a sentence or two.',
+      'Bomen staan stil en kijken hoe de wereld voorbijgaat. Misschien staat er een boom bij je school, in je straat of in je tuin. Wat heeft hij jou zien doen? Schrijf Mare een zin of twee.'],
+    ['starter-mission-1', 'mission', null,
+      'The Word Keeper',
+      'De Woordbewaarder',
+      'In the Whispering Forest, words that nobody uses slowly fade away. Your mission: ask someone over sixty (a grandparent, a neighbour, someone at the library) for a word they used when they were your age, that children hardly use any more. Ask them what it means. Then bring it back here with its meaning and plant it, so it can never disappear.',
+      'In het Fluisterbos vervagen woorden die niemand meer gebruikt. Jouw missie: vraag iemand van boven de zestig (een opa of oma, een buurman, iemand in de bibliotheek) naar een woord dat zij gebruikten toen ze zo oud waren als jij, en dat kinderen nu bijna niet meer zeggen. Vraag wat het betekent. Breng het hier terug met de betekenis en plant het, zodat het nooit kan verdwijnen.'],
+  ];
+  for (const [id, kind, month, tEn, tNl, bEn, bNl] of STARTERS) {
+    const open = db.exec(`SELECT 1 FROM whisper_prompts WHERE kind = '${kind}' AND status = 'open' LIMIT 1`);
+    if (open.length && open[0].values.length) continue;
+    db.run(`INSERT OR IGNORE INTO whisper_prompts (id, kind, month, title_en, title_nl, body_en, body_nl, status) VALUES (?,?,?,?,?,?,?,'open')`,
+      [id, kind, month, tEn, tNl, bEn, bNl]);
+  }
   // Mare App 4 — the editable notice box at the top of the home page
   // (e.g. the MAREGIFT thank-you). JSON, both languages.
   try { db.run(`ALTER TABLE app_config ADD COLUMN home_notice_json TEXT`); } catch {}

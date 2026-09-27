@@ -41,6 +41,29 @@
     <p class="hero-sub" data-i18n="clubMareSub">New stories, just for members</p>
   </section>
 
+  <!-- Not yet a member -->
+  <section id="cm-join-view" class="cm-join-top" hidden>
+    <div class="showcase-tile" style="max-width:360px;margin:0 auto;cursor:default;">
+      <p style="color:var(--parchment);margin-bottom:14px;" data-i18n="clubMareJoinPrompt">Free to join: plant words in the forest, answer Mare's questions, go on missions and get Mare's letter.</p>
+      <button type="button" class="btn-primary btn-full" id="cm-join-btn" data-i18n="clubMareJoinButton">Join Club Mare — it's free</button>
+    </div>
+  </section>
+
+  <!-- Mare App 5 — "This month in the Whispering Forest": one strip linking
+       to every Club Mare activity; a dot marks the ones open right now. -->
+  <nav class="cm-strip" id="cm-strip" aria-labelledby="cm-strip-title">
+    <p class="cm-strip-title" id="cm-strip-title" data-i18n="cmStripTitle">This month in the Whispering Forest</p>
+    <div class="cm-strip-links">
+      <a href="#whisper" data-cm="word"><span data-i18n="whisperLabel">Whisper Word of the Month</span></a>
+      <a href="#wq" data-cm="question"><span data-i18n="wqLabel">Mare's Whisper Question</span></a>
+      <a href="#ms" data-cm="mission"><span data-i18n="msLabel">Mare's Mission</span></a>
+      <a href="#mk" data-cm="makers"><span data-i18n="mkLabel">Makers' Corner</span></a>
+      <a href="#rd-teaser" data-cm="riddle"><span data-i18n="riddleHeroTitle">Riddles from the Whispering Forest</span></a>
+      <a href="#mp" data-cm="post"><span data-i18n="mpLabel">Mare's Secret Post</span></a>
+      <a href="/forest.html" data-cm="forest"><span data-i18n="cmStripForest">The Forest of Words</span></a>
+    </div>
+  </nav>
+
   <!-- ── Whisper Word of the Month (Mare App 4) — visible to everyone;
        planting a word needs a Club Mare member (a parent account,
        choosing one of their children). club-whisper.js fills it in. ── -->
@@ -120,6 +143,10 @@
         <p class="form-error" id="wq-error" hidden></p>
         <button type="submit" class="btn-primary" data-i18n="wqSendBtn">Whisper it to Mare</button>
       </form>
+      <p class="whisper-note club-locked" id="wq-locked" hidden>
+        <span class="club-locked-text"></span>
+        <a href="/login.html?mode=signup" class="club-locked-link" data-i18n="showcaseRegister">Register</a>
+      </p>
       <p class="whisper-thanks" id="wq-thanks" hidden data-i18n="wqThanks">Mare has your answer! Once a grown-up has read it, it may appear here for everyone.</p>
 
       <div class="wq-answers" id="wq-answers" hidden>
@@ -158,6 +185,10 @@
         <p class="form-error" id="ms-error" hidden></p>
         <button type="submit" class="btn-primary" data-i18n="msSendBtn">Bring it back to Mare</button>
       </form>
+      <p class="whisper-note club-locked" id="ms-locked" hidden>
+        <span class="club-locked-text"></span>
+        <a href="/login.html?mode=signup" class="club-locked-link" data-i18n="showcaseRegister">Register</a>
+      </p>
       <p class="whisper-thanks" id="ms-thanks" hidden data-i18n="msThanks">Mission accomplished! Your word will grow in the forest once a grown-up has read it.</p>
       <a class="btn-ghost whisper-forest-link" href="/forest.html" data-i18n="whisperVisitForest">Visit the Forest of Words →</a>
     </div>
@@ -202,6 +233,10 @@
         <p class="form-error" id="mk-error" hidden></p>
         <button type="submit" class="btn-primary" id="mk-submit" data-i18n="mkSendBtn">Share with Mare</button>
       </form>
+      <p class="whisper-note club-locked" id="mk-locked" hidden>
+        <span class="club-locked-text"></span>
+        <a href="/login.html?mode=signup" class="club-locked-link" data-i18n="showcaseRegister">Register</a>
+      </p>
       <p class="whisper-thanks" id="mk-thanks" hidden data-i18n="mkThanks">Thank you! Mare will hang it up in the Makers' Corner once a grown-up has looked at it.</p>
     </div>
   </section>
@@ -211,8 +246,22 @@
     <div class="whisper-card rd-card">
       <span class="whisper-label" data-i18n="riddleHeroTitle">Riddles from the Whispering Forest</span>
       <h2 id="rd-teaser-title"></h2>
-      <p class="whisper-body" data-i18n="riddleTeaserBody">Mare has hidden a secret in the book. Grab your copy, follow the clues, and crack the code.</p>
-      <a class="btn-primary" href="/riddle.html" data-i18n="riddleTeaserBtn">Solve the riddle →</a>
+      <p class="whisper-body" id="rd-teaser-body" data-i18n="riddleTeaserBody">Mare has hidden a secret in the book. Grab your copy, follow the clues, and crack the code.</p>
+      <p class="whisper-body" id="rd-teaser-wait" hidden data-i18n="rdWaitBody">Mare is hiding the next secret in the book. Keep your copy close: the first clue appears here soon.</p>
+      <a class="btn-primary" href="/riddle.html" id="rd-teaser-btn" data-i18n="riddleTeaserBtn">Solve the riddle →</a>
+    </div>
+  </section>
+
+  <!-- Mare App 5 — Mare's Secret Post: the monthly letter (marepost.js),
+       which goes to a grown-up's email. Members switch it on here. -->
+  <section class="whisper" id="mp" hidden>
+    <div class="whisper-card mp-card">
+      <span class="whisper-label" data-i18n="mpLabel">Mare's Secret Post</span>
+      <h2 data-i18n="mpTitle">A letter from Mare, once a month</h2>
+      <p class="whisper-body" data-i18n="mpBody">Once a month Mare writes to Club Mare: a little story from the forest, a secret or a riddle. The letter goes to a grown-up's email, so you can read it together.</p>
+      <p class="whisper-note" id="mp-state"></p>
+      <button type="button" class="btn-primary" id="mp-btn" hidden></button>
+      <a href="/login.html?mode=signup" class="btn-primary" id="mp-register" hidden data-i18n="showcaseRegister">Register</a>
     </div>
   </section>
 
@@ -233,14 +282,6 @@
       <p style="color:var(--parchment);margin-bottom:14px;" data-i18n="clubMarePreviewPrompt">Register (it's free) to see every Club Mare story, not just this one.</p>
       <a href="/login.html?mode=signup" class="btn-primary btn-full" data-i18n="showcaseRegister">Register</a>
       <a href="/login.html" class="btn-ghost btn-full" style="margin-top:8px;" data-i18n="showcaseLogin">Log in</a>
-    </div>
-  </section>
-
-  <!-- Not yet a member -->
-  <section id="cm-join-view" hidden>
-    <div class="showcase-tile" style="max-width:360px;margin:0 auto;cursor:default;">
-      <p style="color:var(--parchment);margin-bottom:14px;" data-i18n="clubMareJoinPrompt">Free to join — new stories and updates from the wood.</p>
-      <button type="button" class="btn-primary btn-full" id="cm-join-btn" data-i18n="clubMareJoinButton">Join Club Mare — it's free</button>
     </div>
   </section>
 
