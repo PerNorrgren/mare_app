@@ -508,6 +508,7 @@ function ensureSchema() {
     db.run(`INSERT OR IGNORE INTO whisper_prompts (id, kind, month, title_en, title_nl, body_en, body_nl, status) VALUES (?,?,?,?,?,?,?,'open')`,
       [id, kind, month, tEn, tNl, bEn, bNl]);
   }
+
   // Mare App 4 — the editable notice box at the top of the home page
   // (e.g. the MAREGIFT thank-you). JSON, both languages.
   try { db.run(`ALTER TABLE app_config ADD COLUMN home_notice_json TEXT`); } catch {}
@@ -959,8 +960,8 @@ Volgende maand verschijnt er een nieuw raadsel uit het Fluisterbos. 🌲🔎', ?
   // later doesn't require touching this function's logic each time. ──
   if (!get(`SELECT id FROM books WHERE slug = 'mare'`)) {
     run(`INSERT INTO books (id, title, slug, group_slug, locale, description, sort_order) VALUES (?,?,?,?,?,?,0)`,
-      [uuid(), 'Mare and the Whispering Woods of Words', 'mare', 'mare', 'en',
-       'Mare finds a path into a wood where the trees remember every word ever spoken.']);
+      [uuid(), 'Mare and the Whispering Forest of Words', 'mare', 'mare', 'en',
+       'Mare finds a path into a forest where the trees remember every word ever spoken.']);
   }
   if (!get(`SELECT id FROM books WHERE slug = 'mare-nl'`)) {
     run(`INSERT INTO books (id, title, slug, group_slug, locale, description, sort_order) VALUES (?,?,?,?,?,?,0)`,
@@ -968,6 +969,64 @@ Volgende maand verschijnt er een nieuw raadsel uit het Fluisterbos. 🌲🔎', ?
        'Mare vindt een pad naar een bos waar de bomen elk woord onthouden dat ooit is gezegd.']);
   }
 
+
+  // Mare App 5 — the English title is "the Whispering Forest", not Woods.
+  // English content already in the database follows (English fields
+  // only; Dutch "Fluisterbos" is untouched). Safe to run every boot.
+  const W = (col) => `${col} = REPLACE(${col}, 'Whispering Woods', 'Whispering Forest')`;
+  db.run(`UPDATE books SET ${W('title')}, description = REPLACE(description, 'into a wood where', 'into a forest where') WHERE locale = 'en'`);
+  db.run(`UPDATE text_overrides SET ${W('text')} WHERE locale = 'en'`);
+  db.run(`UPDATE products SET ${W('name')}, ${W('description')}`);
+  db.run(`UPDATE whisper_prompts SET ${W('title_en')}, ${W('body_en')}`);
+  db.run(`UPDATE riddles SET ${W('title_en')}, ${W('intro_en')}, ${W('reward_en')}, ${W('code_label_en')}, ${W('steps_json')}`);
+  db.run(`UPDATE mare_posts SET ${W('subject_en')}, ${W('body_en')} WHERE status = 'draft'`);
+
+  // Mare App 5 — no oil product: the scented product is a dried-lavender
+  // pouch. Any product still described as an oil gets the pouch's name and
+  // text (English + Dutch). Price, photos and stock are left as they are.
+  {
+    const res = db.exec(`SELECT id, name, description, name_nl, description_nl FROM products`);
+    const rows = res.length ? res[0].values : [];
+    for (const [pid, n, d, nNl, dNl] of rows) {
+      if (!/\boils?\b/i.test(`${n} ${d}`) && !/\bolie\b|\boliën\b/i.test(`${nNl || ''} ${dNl || ''}`)) continue;
+      db.run(`UPDATE products SET name = ?, description = ?, name_nl = ?, description_nl = ? WHERE id = ?`, [
+        "Mare's Lavender Pouch",
+        'A small cotton pouch filled with dried lavender. Hold it in your hand, breathe in slowly and notice the scent, just like Mare notices the small things around her. Keep it under your pillow, in your school bag or on your desk, and give it a gentle squeeze to wake the scent up again. Dried lavender only: not for eating, and not a toy for children under 3.',
+        'Mares lavendelzakje',
+        'Een klein katoenen zakje vol gedroogde lavendel. Houd het in je hand, adem rustig in en merk de geur op, zoals Mare de kleine dingen om zich heen opmerkt. Leg het onder je kussen, in je schooltas of op je bureau, en knijp er zachtjes in om de geur weer wakker te maken. Alleen gedroogde lavendel: niet om te eten, en geen speelgoed voor kinderen onder de 3 jaar.',
+        pid]);
+    }
+  }
+
+  // Mare App 5 — Mare's October 2026 letter, ready as a draft in Admin →
+  // Club Mare → Mare's monthly post: test it, then send. Added once.
+  db.run(`INSERT OR IGNORE INTO mare_posts (id, month, subject_en, subject_nl, body_en, body_nl, status) VALUES (?,?,?,?,?,?,'draft')`, [
+    'letter-2026-10', '2026-10',
+    'A word I found under the leaves',
+    'Een woord onder de bladeren',
+    `Dear {names},
+
+This morning the Whispering Forest smelled of rain. Not the rain itself, but the smell that comes just before and just after, when the earth is dry and the first drops land. I stood very still, pressed my feet into the path and breathed it in. It has a name: petrichor. My shoulders went soft when I found it, as if the word had been waiting for me.
+
+A little word game for you: which small word is hiding inside "forest"? Look closely. It is what you need after a long walk.
+
+This month the forest needs your help. Plant a word you would never want to lose, tell me what a tree might know about you, or become a Word Keeper and rescue an old word from someone over sixty. And if your copy of the book is nearby, a riddle is waiting for you too.
+
+The trees are listening.
+
+— Mare`,
+    `Lieve {names},
+
+Vanochtend rook het Fluisterbos naar regen. Niet naar de regen zelf, maar naar de geur die er vlak voor en vlak na hangt, als de aarde droog is en de eerste druppels vallen. Ik stond heel stil, drukte mijn voeten in het pad en ademde het in. Die geur heeft een naam: petrichor. Mijn schouders werden zacht toen ik het woord vond, alsof het op me had gewacht.
+
+Een klein woordspelletje voor jou: welk woord verstopt zich in "Fluisterbos"? Kijk goed. Het is iets wat de bomen de hele dag doen.
+
+Deze maand heeft het bos jouw hulp nodig. Plant een woord dat je nooit kwijt wilt raken, vertel me wat een boom over jou zou weten, of word een Woordbewaarder en red een oud woord van iemand boven de zestig. En als je boek in de buurt ligt: er wacht ook een raadsel op je.
+
+De bomen luisteren.
+
+— Mare`,
+  ]);
 }
 
 function save() {

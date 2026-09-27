@@ -42,7 +42,7 @@
   async function loadPosts(tier) {
     const noteEl = document.getElementById('cm-tier-note');
     noteEl.textContent = tier === 2
-      ? t('clubMarePaidNote', "You're a paid member — thank you for supporting the wood.")
+      ? t('clubMarePaidNote', "You're a paid member — thank you for supporting the forest.")
       : t('clubMareFreeNote', "You're a free member.");
 
     const listEl = document.getElementById('cm-posts-list');

@@ -1,7 +1,7 @@
 {
   "name": "mare-app",
   "version": "0.1.0",
-  "description": "Mare and the Whispering Woods of Words — companion reading app (splash, read-along, Mare, Club Mare, merchandise)",
+  "description": "Mare and the Whispering Forest of Words — companion reading app (splash, read-along, Mare, Club Mare, merchandise)",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"

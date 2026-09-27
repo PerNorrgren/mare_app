@@ -2234,6 +2234,8 @@
         <strong>${escapeHtml(r.title_en)}</strong>
         <span class="admin-empty-note">${escapeHtml(t('adminRdSolved', { n: r.solvedCount }))}</span>
       </div>
+      ${r.promoStatus && r.promoStatus !== 'ok' ? `<p class="rd-promo-warn">${escapeHtml(t('adminRdPromo_' + r.promoStatus, { code: r.promo_code }))}</p>` : ''}
+      ${r.promoStatus === 'ok' ? `<p class="admin-empty-note">${escapeHtml(t('adminRdPromo_ok', { code: r.promo_code }))}</p>` : ''}
       <div class="whisper-q-btns"><button type="button" class="btn-ghost btn-small rd-edit">${escapeHtml(t('adminRdEdit'))}</button>
         <a class="btn-ghost btn-small" href="/riddle.html" target="_blank" rel="noopener">${escapeHtml(t('adminRdViewPage'))}</a></div>
       <div class="rd-form" hidden>
@@ -2332,6 +2334,7 @@
         <button type="button" class="btn-ghost btn-small mp-save">${escapeHtml(t('adminSaveChanges'))}</button>
         <button type="button" class="btn-ghost btn-small mp-test-en">${escapeHtml(t('adminPostTestEn'))}</button>
         <button type="button" class="btn-ghost btn-small mp-test-nl">${escapeHtml(t('adminPostTestNl'))}</button>
+        <button type="button" class="btn-ghost btn-small mp-test-team">${escapeHtml(t('adminPostTestTeam'))}</button>
         <button type="button" class="btn-primary btn-small mp-send">${escapeHtml(t('adminPostSend', { n: mpRecipients }))}</button>
         <button type="button" class="btn-ghost btn-small mp-delete">${escapeHtml(t('adminPostDelete'))}</button>
       </div>`;
@@ -2360,6 +2363,15 @@
         e.target.disabled = false;
       });
     }
+    q('.mp-test-team').addEventListener('click', async (e) => {
+      e.target.disabled = true;
+      try {
+        await save();
+        const out = await api(`/api/admin/mare-posts/${p.id}/test-team`, { method: 'POST' });
+        say(true, t('adminPostTestTeamSent', { names: (out.sentTo || []).join(', ') }) + (out.failed && out.failed.length ? ' ' + t('adminPostTestTeamFailed', { names: out.failed.join(', ') }) : ''));
+      } catch (err) { say(false, err.message || t('errorGeneric')); }
+      e.target.disabled = false;
+    });
     q('.mp-send').addEventListener('click', async (e) => {
       if (!window.confirm(t('adminPostSendConfirm', { n: mpRecipients }))) return;
       e.target.disabled = true;

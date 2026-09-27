@@ -111,7 +111,16 @@ function register(app, { db, auth, getOptionalUser }) {
   // ── Admin ──
   const staff = auth.requireAuthApi(['admin', 'support']);
   app.get('/api/admin/riddles', staff, (req, res) => {
-    res.json({ riddles: db.riddleList().map(r => ({ ...r, steps: parseSteps(r.steps_json), solvedCount: db.riddleSolveCount(r.id) })) });
+    // Mare App 5 — does the promo code exist as a working Offer?
+    const promoStatus = (code) => {
+      if (!code) return null;
+      const o = db.getOfferByCode(code);
+      if (!o) return 'missing';
+      if (!o.active) return 'inactive';
+      if (o.expires_at && new Date(o.expires_at) < new Date()) return 'expired';
+      return 'ok';
+    };
+    res.json({ riddles: db.riddleList().map(r => ({ ...r, steps: parseSteps(r.steps_json), solvedCount: db.riddleSolveCount(r.id), promoStatus: promoStatus(r.promo_code) })) });
   });
   app.post('/api/admin/riddles', staff, (req, res) => res.json({ ok: true, id: db.riddleCreate() }));
   app.patch('/api/admin/riddles/:id', staff, (req, res) => {

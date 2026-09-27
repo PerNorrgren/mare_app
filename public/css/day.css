@@ -1569,3 +1569,4 @@ html:has(#peek) { scroll-behavior: smooth; }
 .cm-join-top { max-width: 720px; margin: 18px auto 8px; padding: 0 clamp(12px, 3vw, 20px); }
 .whisper-card [hidden] { display: none !important; }
 .cm-strip { margin-top: 18px; }
+.rd-promo-warn { margin: 6px 0 4px; padding: 8px 12px; border-radius: 8px; background: #FFF4E0; color: #8A4B00; font-size: 0.86rem; font-weight: 600; }

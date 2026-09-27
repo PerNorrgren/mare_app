@@ -64,7 +64,7 @@
       out.addEventListener('click', async () => { await fetch('/api/logout', { method: 'POST' }); window.location.href = '/'; });
     }
 
-    document.getElementById('forest-bg').src = data.forestImageUrl || '/images/mare-front-cover.jpg';
+    document.getElementById('forest-bg').src = data.forestImageUrl || '/images/mare-forest-no-words.jpg';
 
     const layer = document.getElementById('forest-words');
     const words = data.forest || [];
