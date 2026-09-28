@@ -1688,3 +1688,14 @@ button.stat-item.is-busy::after, button.stat-item.is-done::after, button.stat-it
 .pe-dialog-card label { display: flex; flex-direction: column; gap: 4px; font-size: 0.82rem; font-weight: 700; }
 .pe-dialog-card input, .pe-dialog-card select { font: inherit; font-weight: 500; padding: 8px 10px; border-radius: 8px; border: 1.5px solid rgba(22,48,92,0.2); }
 .pe-dialog-btns { display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px; }
+
+/* Mare App 5 — one editor everywhere: greyed-out buttons, sizes */
+.pe-toolbar .pe-off, .pe-toolbar button.pe-off, .pe-toolbar .ql-picker.pe-off { opacity: 0.32; cursor: not-allowed !important; filter: grayscale(1); }
+.pe-toolbar .ql-picker:has(select.pe-off), .pe-toolbar select.pe-off + .ql-picker { opacity: 0.32; pointer-events: none; filter: grayscale(1); }
+.pe-toolbar button.pe-off:hover .ql-stroke { stroke: #444 !important; }
+.pe-host { margin-top: 2px; }
+.pe-host .pe-editor, .pe-host .pe-editor .ql-editor { min-height: 110px; }
+.pe-host.pe-short .pe-editor, .pe-host.pe-short .pe-editor .ql-editor { min-height: 64px; }
+.pe-plain .ql-editor p { margin: 0; }
+.pe-toolbar { padding: 4px 6px !important; }
+.pe-toolbar .pe-btn { font-size: 0.74rem !important; }

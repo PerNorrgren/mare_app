@@ -1052,5 +1052,7 @@
   "pePageRiddle": "Het raadsel",
   "pePageTalk": "Praat met Mare",
   "pePageShop": "De winkel",
-  "pePageHome": "Startpagina"
+  "pePageHome": "Startpagina",
+  "peOffPlain": "Niet beschikbaar hier: deze tekst wordt als gewone tekst getoond.",
+  "peOffEmail": "Niet beschikbaar in e-mails."
 }

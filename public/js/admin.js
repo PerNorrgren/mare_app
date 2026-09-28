@@ -1214,7 +1214,7 @@
   }
 
   // ── Messaging: broadcasts ──
-  let bcEditor = null; // current MessageEditor instance, mounted per compose-modal open
+  let bcEditor = null; // the shared editor (post-editor.js, email mode), mounted per compose-modal open
   let bcEditingId = null; // id of the broadcast being edited, or null for a fresh compose
 
   function fmtDate(str) {
@@ -1288,7 +1288,9 @@
     document.getElementById('bc-audience').value = audience;
 
     if (bcEditor) bcEditor.destroy();
-    bcEditor = window.MessageEditor.mountRichEditor('bc-editor-mount', bodyHtml, { placeholder: t('adminMessagePlaceholder') });
+    // Mare App 5 — the one shared editor, in email mode (no video/sound).
+    bcEditor = window.MarePostEditor.mount('bc-editor-mount', { mode: 'email', placeholder: t('adminMessagePlaceholder') });
+    if (bcEditor) bcEditor.setHtml(bodyHtml || '');
 
     document.getElementById('broadcast-modal').hidden = false;
   }
@@ -2381,7 +2383,7 @@
   }
   function fieldHtml(label, cls, value, rows) {
     return rows > 1
-      ? `<div class="field"><label>${escapeHtml(label)}</label><textarea class="${cls}" rows="${rows}">${escapeHtml(value || '')}</textarea></div>`
+      ? `<div class="field"><label>${escapeHtml(label)}</label><textarea data-editor="plain" class="${cls}" rows="${rows}">${escapeHtml(value || '')}</textarea></div>`
       : `<div class="field"><label>${escapeHtml(label)}</label><input type="text" class="${cls}" value="${escapeHtml(value || '')}"></div>`;
   }
   function riddleStepHtml(s, i) {
@@ -2498,8 +2500,8 @@
         <div class="field"><label>${escapeHtml(t('adminPostSubjectNl'))}</label><input type="text" class="mp-subject-nl" maxlength="200"></div>
       </div>
       <div class="admin-form-row">
-        <div class="field"><label>${escapeHtml(t('adminPostBodyEn'))}</label><textarea class="mp-body-en" rows="12" maxlength="4000"></textarea></div>
-        <div class="field"><label>${escapeHtml(t('adminPostBodyNl'))}</label><textarea class="mp-body-nl" rows="12" maxlength="4000"></textarea></div>
+        <div class="field"><label>${escapeHtml(t('adminPostBodyEn'))}</label><textarea data-editor="plain" class="mp-body-en" rows="12" maxlength="4000"></textarea></div>
+        <div class="field"><label>${escapeHtml(t('adminPostBodyNl'))}</label><textarea data-editor="plain" class="mp-body-nl" rows="12" maxlength="4000"></textarea></div>
       </div>
       <p class="admin-empty-note">${escapeHtml(t('adminPostNamesHint'))}</p>
       <p class="form-success mp-ok" hidden></p><p class="form-error mp-err" hidden></p>

@@ -1755,7 +1755,7 @@ async function sendBroadcastNow(broadcast) {
   const base = PUBLIC_URL;
   for (const r of recipients) {
     // Every broadcast carries a personal 'Stop these emails' link (Mare App 4).
-    const html = broadcast.body_html + require('./marepost').newsFooter(r.kind, r.id, r.preferred_locale, base);
+    const html = htmlClean.toEmailHtml(broadcast.body_html, base) + require('./marepost').newsFooter(r.kind, r.id, r.preferred_locale, base);
     const result = await email.sendBroadcastEmail(r.email, broadcast.subject, html, r.id);
     if (result.ok) sentCount++; else failedCount++;
   }
@@ -1789,7 +1789,7 @@ app.delete('/api/admin/broadcasts/:id', auth.requireAuthApi(['admin', 'support']
 app.post('/api/admin/broadcasts/:id/send-test', auth.requireAuthApi(['admin', 'support']), async (req, res) => {
   const b = db.getBroadcast(req.params.id);
   if (!b) return res.status(404).json({ error: 'Not found' });
-  const result = await email.sendBroadcastEmail(req.user.email, `[TEST] ${b.subject}`, b.body_html + require('./marepost').newsFooter('parent', null, 'en', ''), req.user.id);
+  const result = await email.sendBroadcastEmail(req.user.email, `[TEST] ${b.subject}`, htmlClean.toEmailHtml(b.body_html, PUBLIC_URL) + require('./marepost').newsFooter('parent', null, 'en', ''), req.user.id);
   if (!result.ok) return res.status(502).json({ error: result.error || 'Test send failed' });
   res.json({ ok: true });
 });

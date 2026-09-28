@@ -142,4 +142,18 @@ function textToHtml(s) {
   return String(s || '').split(/\n{2,}/).map(par => `<p>${esc(par).replace(/\n/g, '<br>')}</p>`).join('');
 }
 
-module.exports = { cleanHtml, looksLikeHtml, textToHtml };
+// Mare App 5 — editor HTML made ready for email: links and pictures get
+// the full site address, Mare buttons become inline-styled buttons that
+// email programs show, and anything email can't play is dropped.
+function toEmailHtml(html, base) {
+  const b = String(base || '').replace(/\/+$/, '');
+  let out = cleanHtml(html);
+  out = out.replace(/<(video|audio|iframe)\b[\s\S]*?<\/\1>/gi, '');
+  out = out.replace(/<div class="mare-btn"><a class="mare-btn-link" href="([^"]*)">([\s\S]*?)<\/a><\/div>/g,
+    (m, href, text) => `<p style="margin:18px 0;"><a href="${href}" style="display:inline-block;background:#E2BE6E;color:#16305C;font-weight:700;text-decoration:none;padding:12px 22px;border-radius:999px;">${text} &rarr;</a></p>`);
+  out = out.replace(/(href|src)="\/(?!\/)/g, `$1="${b}/`);
+  out = out.replace(/<img /g, '<img style="max-width:100%;height:auto;border-radius:10px;" ');
+  return out;
+}
+
+module.exports = { cleanHtml, looksLikeHtml, textToHtml, toEmailHtml };

@@ -1,4 +1,20 @@
-// ── post-editor.js (Mare App 5) — the full editor for Club Mare posts.
+// ── post-editor.js (Mare App 5) — THE text editor for the whole admin.
+//
+// One editor everywhere. Each place says what its text can hold, and
+// the buttons that make no sense there are greyed out and do nothing:
+//   mode 'post'  — Club Mare posts: everything below.
+//   mode 'email' — news emails: formatting, links, pictures, app links,
+//                  buttons (no video/sound — email can't play them).
+//   mode 'plain' — texts shown as plain text (shop descriptions, notices,
+//                  prompts, riddles, Mare's letter, social posts…):
+//                  every formatting button is grey; typing, paste and
+//                  line breaks work as normal. Pasted formatting is
+//                  dropped, so what you see is what gets shown.
+// Plain <textarea data-editor="plain|email|post"> fields are upgraded
+// automatically (upgradeTextarea): the page's own code keeps reading and
+// setting textarea.value exactly as before.
+//
+// Club Mare posts can hold:
 //
 // Rich text (headings, bold/italic/underline, lists, links) plus:
 //   Image  — upload a picture into the text
@@ -14,6 +30,12 @@
 // ──────────────────────────────────────────────────────────────────────
 (function () {
   const t = (k, v) => (window.MareI18n ? window.MareI18n.t(k, v) : k);
+  // Labels on editors made before the language file has loaded: English
+  // now, and data-i18n so the page's translation pass fills them in.
+  const FALLBACK = { peImage: 'Picture', peVideo: 'Video', peAudio: 'Sound', peAppLink: 'Link to app', peButton: 'Button',
+    peOffPlain: 'Not available here: this text is shown as plain text.', peOffEmail: 'Not available in emails.' };
+  const tt = (k) => { const v = t(k); return v && v !== k ? v : (FALLBACK[k] || k); };
+  const lbl = (k) => `<span data-i18n="${k}">${tt(k)}</span>`;
 
   // Pages a link or button can point to (label keys are in en/nl.json).
   const APP_PAGES = [
@@ -29,6 +51,16 @@
     ['/merchandise.html', 'pePageShop'],
     ['/', 'pePageHome'],
   ];
+
+  const MODES = {
+    post: ['format', 'link', 'image', 'video', 'audio', 'applink', 'button'],
+    email: ['format', 'link', 'image', 'applink', 'button'],
+    plain: [],
+  };
+  const FORMATS = {
+    format: ['header', 'bold', 'italic', 'underline', 'list'],
+    link: ['link'], applink: ['link'], image: ['image'], video: ['video', 'mareVideo'], audio: ['mareAudio'], button: ['mareButton'],
+  };
 
   let registered = false;
   function registerBlots() {
@@ -139,11 +171,14 @@
     return null;
   }
 
-  function mount(containerId, opts) {
+  function mount(containerOrId, opts) {
     opts = opts || {};
     registerBlots();
-    const container = document.getElementById(containerId);
+    const container = typeof containerOrId === 'string' ? document.getElementById(containerOrId) : containerOrId;
     if (!container) return null;
+    const mode = MODES[opts.mode] ? opts.mode : 'post';
+    const on = new Set(MODES[mode]);
+    const plain = mode === 'plain';
     if (!window.Quill) {
       // The editor library didn't load (blocked or offline): a plain text
       // box keeps the form usable. Blank lines become paragraphs.
@@ -155,8 +190,12 @@
       return {
         getHtml: () => ta.value.trim() ? ta.value.trim().split(/\n{2,}/).map(par => `<p>${esc(par).replace(/\n/g, '<br>')}</p>`).join('') : '',
         setHtml: (html) => { ta.value = toText(html); },
+        getText: () => ta.value,
+        setText: (v) => { ta.value = v || ''; },
         appendButton: (text) => { ta.value = (ta.value.trim() + '\n\n' + text).trim(); },
         focus: () => ta.focus(),
+        destroy: () => { container.innerHTML = ''; },
+        onChange: (fn) => ta.addEventListener('input', fn),
       };
     }
     container.classList.add('pe-wrap');
@@ -173,11 +212,11 @@
           <button type="button" class="ql-link"></button>
         </span>
         <span class="ql-formats pe-media">
-          <button type="button" class="pe-btn" data-pe="image" data-no-busy>🖼 ${t('peImage')}</button>
-          <button type="button" class="pe-btn" data-pe="video" data-no-busy>🎬 ${t('peVideo')}</button>
-          <button type="button" class="pe-btn" data-pe="audio" data-no-busy>🔊 ${t('peAudio')}</button>
-          <button type="button" class="pe-btn" data-pe="applink" data-no-busy>🔗 ${t('peAppLink')}</button>
-          <button type="button" class="pe-btn" data-pe="button" data-no-busy>⬛ ${t('peButton')}</button>
+          <button type="button" class="pe-btn" data-pe="image" data-no-busy>🖼 ${lbl('peImage')}</button>
+          <button type="button" class="pe-btn" data-pe="video" data-no-busy>🎬 ${lbl('peVideo')}</button>
+          <button type="button" class="pe-btn" data-pe="audio" data-no-busy>🔊 ${lbl('peAudio')}</button>
+          <button type="button" class="pe-btn" data-pe="applink" data-no-busy>🔗 ${lbl('peAppLink')}</button>
+          <button type="button" class="pe-btn" data-pe="button" data-no-busy>⬛ ${lbl('peButton')}</button>
         </span>
         <span class="ql-formats"><button type="button" class="ql-clean"></button></span>
       </div>
@@ -187,11 +226,37 @@
     const toolbar = container.querySelector('.pe-toolbar');
     const status = container.querySelector('.pe-status');
     const dialog = container.querySelector('.pe-dialog');
+    // Grey out what this place can't hold (and keep it switched off).
+    const offKey = plain ? 'peOffPlain' : 'peOffEmail';
+    const offTitle = tt(offKey);
+    const featureOf = (el) => {
+      if (el.matches('[data-pe]')) return el.getAttribute('data-pe');
+      if (el.matches('.ql-link')) return 'link';
+      if (el.matches('.ql-clean')) return 'format';
+      return 'format';
+    };
+    toolbar.querySelectorAll('button, select').forEach(el => {
+      if (on.has(featureOf(el))) return;
+      el.disabled = true;
+      el.classList.add('pe-off');
+      el.setAttribute('title', offTitle);
+      el.setAttribute('aria-disabled', 'true');
+    });
+    toolbar.addEventListener('mouseover', (e) => {
+      const off = e.target.closest && e.target.closest('.pe-off');
+      if (off) off.setAttribute('title', tt(offKey));
+    });
+    if (plain) container.classList.add('pe-plain');
+    const allowed = [];
+    on.forEach(f => (FORMATS[f] || []).forEach(x => { if (!allowed.includes(x)) allowed.push(x); }));
     const quill = new window.Quill(container.querySelector('.pe-editor'), {
       theme: 'snow',
       placeholder: opts.placeholder || '',
+      formats: allowed,
       modules: { toolbar: { container: toolbar } },
     });
+    // Quill swaps the heading <select> for its own picker: grey that too.
+    if (!on.has('format')) toolbar.querySelectorAll('.ql-picker').forEach(pk => { pk.classList.add('pe-off'); pk.setAttribute('title', offTitle); pk.style.pointerEvents = 'none'; });
     const scrollEl = findScrollAncestor(container);
     toolbar.addEventListener('mousedown', () => guardScroll(scrollEl), true);
     quill.root.addEventListener('paste', () => guardScroll(scrollEl), true);
@@ -282,6 +347,7 @@
     };
     toolbar.querySelectorAll('[data-pe]').forEach(b => b.addEventListener('click', (e) => {
       e.preventDefault();
+      if (b.disabled) return;
       actions[b.getAttribute('data-pe')]();
     }));
 
@@ -295,13 +361,68 @@
         if (html) quill.clipboard.dangerouslyPasteHTML(0, html, 'silent');
       },
       appendButton: (text, href) => {
+        if (!on.has('button')) return;
         quill.insertEmbed(quill.getLength() - 1, 'mareButton', { text, href }, 'user');
       },
+      // Plain text in and out, line breaks kept exactly.
+      getText: () => quill.getText().replace(/\n$/, ''),
+      setText: (v) => { quill.setText(String(v || ''), 'silent'); },
       focus: () => quill.focus(),
+      destroy: () => { container.innerHTML = ''; container.classList.remove('pe-wrap', 'pe-plain'); },
+      onChange: (fn) => quill.on('text-change', fn),
       quill,
     };
     return api;
   }
 
-  window.MarePostEditor = { mount, APP_PAGES };
+  // Swap a <textarea data-editor="…"> for the editor, keeping the page's
+  // own code working: reading/setting textarea.value, form reset, the
+  // form data sent — all still go through the textarea (kept in sync).
+  const nativeValue = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value');
+  function upgradeTextarea(ta) {
+    if (!ta || ta._peUpgraded || !window.Quill) return;
+    ta._peUpgraded = true;
+    const mode = MODES[ta.getAttribute('data-editor')] ? ta.getAttribute('data-editor') : 'plain';
+    const holder = document.createElement('div');
+    holder.className = 'pe-host' + (Number(ta.getAttribute('rows') || 4) <= 3 ? ' pe-short' : '');
+    ta.insertAdjacentElement('afterend', holder);
+    ta.style.display = 'none';
+    ta.removeAttribute('required');
+    const ed = mount(holder, { mode, placeholder: ta.getAttribute('placeholder') || '' });
+    if (!ed) { ta.style.display = ''; return; }
+    const html = mode !== 'plain';
+    const read = () => (html ? ed.getHtml() : ed.getText());
+    const write = (v) => { if (html) ed.setHtml(v); else ed.setText(v); };
+    write(nativeValue.get.call(ta));
+    let quiet = false;
+    ed.onChange(() => {
+      if (quiet) return;
+      nativeValue.set.call(ta, read());
+      ta.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    Object.defineProperty(ta, 'value', {
+      configurable: true,
+      get() { return read(); },
+      set(v) { quiet = true; nativeValue.set.call(ta, v); write(v); quiet = false; },
+    });
+    if (ta.form) ta.form.addEventListener('reset', () => setTimeout(() => { quiet = true; write(nativeValue.get.call(ta)); quiet = false; }));
+    ta._peEditor = ed;
+  }
+  function upgradeAll(root) {
+    (root || document).querySelectorAll('textarea[data-editor]').forEach(upgradeTextarea);
+  }
+  // Fields added later (riddle cards, letters…) are upgraded as they appear.
+  function watch() {
+    upgradeAll(document);
+    new MutationObserver((muts) => {
+      for (const m of muts) m.addedNodes.forEach(n => {
+        if (n.nodeType !== 1) return;
+        if (n.matches && n.matches('textarea[data-editor]')) upgradeTextarea(n);
+        else if (n.querySelectorAll) upgradeAll(n);
+      });
+    }).observe(document.body, { childList: true, subtree: true });
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', watch); else watch();
+
+  window.MarePostEditor = { mount, upgradeTextarea, APP_PAGES, MODES };
 })();

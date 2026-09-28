@@ -1052,5 +1052,7 @@
   "pePageRiddle": "The riddle",
   "pePageTalk": "Talk with Mare",
   "pePageShop": "The shop",
-  "pePageHome": "Home page"
+  "pePageHome": "Home page",
+  "peOffPlain": "Not available here: this text is shown as plain text.",
+  "peOffEmail": "Not available in emails."
 }
