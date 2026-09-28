@@ -437,6 +437,10 @@ function ensureSchema() {
     published_at TEXT DEFAULT (datetime('now')),
     active INTEGER NOT NULL DEFAULT 1
   )`);
+  // Mare App 5 — posts are rich HTML (cleaned by html-clean.js) and
+  // bilingual: title/body are English, title_nl/body_nl Dutch.
+  try { db.run(`ALTER TABLE club_mare_posts ADD COLUMN title_nl TEXT`); } catch {}
+  try { db.run(`ALTER TABLE club_mare_posts ADD COLUMN body_nl TEXT`); } catch {}
 
   // ── Whisper Forest (Mare App 4) — Club Mare's participation engine.
   // Mare asks (a prompt: the Whisper Word of the Month now; questions,
@@ -499,7 +503,7 @@ function ensureSchema() {
     ['starter-mission-1', 'mission', null,
       'The Word Keeper',
       'De Woordbewaarder',
-      'In the Whispering Forest, words that nobody uses slowly fade away. Your mission: ask someone over sixty (a grandparent, a neighbour, someone at the library) for a word they used when they were your age, that children hardly use any more. Ask them what it means. Then bring it back here with its meaning and plant it, so it can never disappear.',
+      'In the Whispering Woods, words that nobody uses slowly fade away. Your mission: ask someone over sixty (a grandparent, a neighbour, someone at the library) for a word they used when they were your age, that children hardly use any more. Ask them what it means. Then bring it back here with its meaning and plant it, so it can never disappear.',
       'In het Fluisterbos vervagen woorden die niemand meer gebruikt. Jouw missie: vraag iemand van boven de zestig (een opa of oma, een buurman, iemand in de bibliotheek) naar een woord dat zij gebruikten toen ze zo oud waren als jij, en dat kinderen nu bijna niet meer zeggen. Vraag wat het betekent. Breng het hier terug met de betekenis en plant het, zodat het nooit kan verdwijnen.'],
   ];
   for (const [id, kind, month, tEn, tNl, bEn, bNl] of STARTERS) {
@@ -554,7 +558,7 @@ function ensureSchema() {
     sent_at TEXT
   )`);
 
-  // ── Riddles from the Whispering Forest (Mare App 4) — Club Mare step 6.
+  // ── Riddles from the Whispering Woods (Mare App 4) — Club Mare step 6.
   // A monthly book treasure hunt: clues that need the physical book,
   // a secret code checked on the server, a reward (text + promo code)
   // shown only after the right code, and a Sparkle collected per family.
@@ -611,7 +615,7 @@ function ensureSchema() {
       "questionEn": "How many friends was she allowed to invite?",
       "questionNl": "Hoeveel vriendjes en vriendinnetjes mocht ze uitnodigen?",
       "answers": "10, ten, tien",
-      "afterEn": "Did you find the same answer three times?\nThen you’ve discovered the first secret of the Whispering Forest. ✨",
+      "afterEn": "Did you find the same answer three times?\nThen you’ve discovered the first secret of the Whispering Woods. ✨",
       "afterNl": "Heb je drie keer hetzelfde antwoord gevonden?\nDan heb je het eerste geheim van het Fluisterbos ontdekt. ✨"
     },
     {
@@ -627,13 +631,13 @@ function ensureSchema() {
     }
   ];
   db.run(`INSERT OR IGNORE INTO riddles (id, month, status, title_en, title_nl, intro_en, intro_nl, code_label_en, code_label_nl, code_answers, reward_en, reward_nl, steps_json)
-          VALUES ('riddle-001', NULL, 'draft', 'Challenge 1: The Missing Ten', 'Opdracht 1: De verdwenen tien', 'Something has disappeared in the Whispering Forest...
+          VALUES ('riddle-001', NULL, 'draft', 'Challenge 1: The Missing Ten', 'Opdracht 1: De verdwenen tien', 'Something has disappeared in the Whispering Woods...
 
 Mare has left a secret message for you. But to discover it, you’ll need the book.
 
 Are you as good a detective as Mare? 🔎
 
-Find your copy of Mare and the Whispering Forest of Words and open Chapter 1: The Birthday Party.', 'Er is iets verdwenen in het Fluisterbos...
+Find your copy of Mare and the Whispering Woods of Words and open Chapter 1: The Birthday Party.', 'Er is iets verdwenen in het Fluisterbos...
 
 Mare heeft een geheim bericht voor je achtergelaten. Maar om het te kunnen lezen, heb je het boek nodig.
 
@@ -641,14 +645,14 @@ Ben jij net zo’n goede speurneus als Mare? 🔎
 
 Pak Mare en het fluisterbos van woorden erbij en zoek Hoofdstuk 1: Het verjaardagsfeestje.', '🔐 Now enter your secret code
 [ missing number ] – [ number of breaths ]', '🔐 Vul nu je geheime code in
-[ verdwenen getal ] – [ aantal ademhalingen ]', '10-3, ten-three, tien-drie', '✨ You solved the first riddle of the Whispering Forest! ✨
+[ verdwenen getal ] – [ aantal ademhalingen ]', '10-3, ten-three, tien-drie', '✨ You solved the first riddle of the Whispering Woods! ✨
 Mare knew you could do it.
 You searched carefully, read carefully, and discovered something Mare does to help herself when something feels scary.
 So Mare has left a little reward for you:
 🎁 10% off in Mare’s Shop
 Your secret PROMO code: [PROMOCODE]
 And keep your detective skills sharp...
-A new riddle from the Whispering Forest will appear next month. 🌲🔎', '✨ Je hebt het eerste raadsel van het Fluisterbos opgelost! ✨
+A new riddle from the Whispering Woods will appear next month. 🌲🔎', '✨ Je hebt het eerste raadsel van het Fluisterbos opgelost! ✨
 Mare wist dat je het kon.
 Je hebt goed gezocht, goed gelezen én ontdekt hoe Mare zichzelf helpt wanneer iets spannend voelt.
 Daarom heeft Mare iets voor je achtergelaten:
@@ -960,7 +964,7 @@ Volgende maand verschijnt er een nieuw raadsel uit het Fluisterbos. 🌲🔎', ?
   // later doesn't require touching this function's logic each time. ──
   if (!get(`SELECT id FROM books WHERE slug = 'mare'`)) {
     run(`INSERT INTO books (id, title, slug, group_slug, locale, description, sort_order) VALUES (?,?,?,?,?,?,0)`,
-      [uuid(), 'Mare and the Whispering Forest of Words', 'mare', 'mare', 'en',
+      [uuid(), 'Mare and the Whispering Woods of Words', 'mare', 'mare', 'en',
        'Mare finds a path into a forest where the trees remember every word ever spoken.']);
   }
   if (!get(`SELECT id FROM books WHERE slug = 'mare-nl'`)) {
@@ -970,11 +974,13 @@ Volgende maand verschijnt er een nieuw raadsel uit het Fluisterbos. 🌲🔎', ?
   }
 
 
-  // Mare App 5 — the English title is "the Whispering Forest", not Woods.
-  // English content already in the database follows (English fields
-  // only; Dutch "Fluisterbos" is untouched). Safe to run every boot.
-  const W = (col) => `${col} = REPLACE(${col}, 'Whispering Woods', 'Whispering Forest')`;
-  db.run(`UPDATE books SET ${W('title')}, description = REPLACE(description, 'into a wood where', 'into a forest where') WHERE locale = 'en'`);
+  // Mare App 5 — the English name is "the Whispering Woods", as printed on
+  // the book ("Mare and the Whispering Woods of Words"). v52 briefly
+  // switched English content to "Forest"; this puts every English field
+  // back (and turns any other English "Whispering Forest" into Woods).
+  // Dutch "Fluisterbos" is untouched. Safe to run every boot.
+  const W = (col) => `${col} = REPLACE(${col}, 'Whispering Forest', 'Whispering Woods')`;
+  db.run(`UPDATE books SET ${W('title')}, description = REPLACE(description, 'into a forest where', 'into a wood where') WHERE locale = 'en'`);
   db.run(`UPDATE text_overrides SET ${W('text')} WHERE locale = 'en'`);
   db.run(`UPDATE products SET ${W('name')}, ${W('description')}`);
   db.run(`UPDATE whisper_prompts SET ${W('title_en')}, ${W('body_en')}`);
@@ -1006,7 +1012,7 @@ Volgende maand verschijnt er een nieuw raadsel uit het Fluisterbos. 🌲🔎', ?
     'Een woord onder de bladeren',
     `Dear {names},
 
-This morning the Whispering Forest smelled of rain. Not the rain itself, but the smell that comes just before and just after, when the earth is dry and the first drops land. I stood very still, pressed my feet into the path and breathed it in. It has a name: petrichor. My shoulders went soft when I found it, as if the word had been waiting for me.
+This morning the Whispering Woods smelled of rain. Not the rain itself, but the smell that comes just before and just after, when the earth is dry and the first drops land. I stood very still, pressed my feet into the path and breathed it in. It has a name: petrichor. My shoulders went soft when I found it, as if the word had been waiting for me.
 
 A little word game for you: which small word is hiding inside "forest"? Look closely. It is what you need after a long walk.
 
@@ -1349,6 +1355,12 @@ function createAdmin({ email, passwordHash, name, role, linkedRole, linkedId }) 
     [id, email.toLowerCase().trim(), passwordHash, name, ['support', 'editor'].includes(role) ? role : 'admin', lr, lr ? linkedId : null]);
   return id;
 }
+// Mare App 5 — change a staff member's role / remove them.
+function updateAdminRole(id, role) {
+  run(`UPDATE admins SET role = ? WHERE id = ?`, [['support', 'editor'].includes(role) ? role : 'admin', id]);
+}
+function deleteAdmin(id) { run(`DELETE FROM admins WHERE id = ?`, [id]); }
+function countAdmins() { return get(`SELECT COUNT(*) AS c FROM admins WHERE role = 'admin'`).c; }
 // Mare App 5 — the parent/teacher row a linked staff account signs in
 // with, or null (not linked, or the linked account no longer exists).
 function getStaffLinkedAccount(admin) {
@@ -1734,15 +1746,15 @@ function removeClubMareMembership(parentId) {
 function getAllClubMarePostsAdmin() {
   return all(`SELECT * FROM club_mare_posts ORDER BY published_at DESC`);
 }
-function createClubMarePost({ title, body, imageKey, minTier }) {
+function createClubMarePost({ title, body, imageKey, minTier, titleNl, bodyNl, active }) {
   const id = uuid();
-  run(`INSERT INTO club_mare_posts (id, title, body, image_key, min_tier) VALUES (?,?,?,?,?)`,
-    [id, title, body || null, imageKey || null, minTier === 2 ? 2 : 1]);
+  run(`INSERT INTO club_mare_posts (id, title, body, image_key, min_tier, title_nl, body_nl, active) VALUES (?,?,?,?,?,?,?,?)`,
+    [id, title, body || null, imageKey || null, minTier === 2 ? 2 : 1, titleNl || null, bodyNl || null, active === false ? 0 : 1]);
   return id;
 }
-function updateClubMarePost(id, { title, body, imageKey, minTier, active }) {
-  run(`UPDATE club_mare_posts SET title=?, body=?, image_key=?, min_tier=?, active=? WHERE id=?`,
-    [title, body || null, imageKey || null, minTier === 2 ? 2 : 1, active ? 1 : 0, id]);
+function updateClubMarePost(id, { title, body, imageKey, minTier, active, titleNl, bodyNl }) {
+  run(`UPDATE club_mare_posts SET title=?, body=?, image_key=?, min_tier=?, active=?, title_nl=?, body_nl=? WHERE id=?`,
+    [title, body || null, imageKey || null, minTier === 2 ? 2 : 1, active ? 1 : 0, titleNl || null, bodyNl || null, id]);
 }
 function deleteClubMarePost(id) {
   run(`DELETE FROM club_mare_posts WHERE id = ?`, [id]);
@@ -1760,6 +1772,14 @@ function parseProductRow(row) {
   let variantOptions = {};
   try { variantOptions = row.variant_options_json ? JSON.parse(row.variant_options_json) : {}; } catch { variantOptions = {}; }
   return { ...row, image_keys: imageKeys, variant_options: variantOptions };
+}
+// Mare App 5 — take a paid order's quantities off stock (never below 0;
+// products without a stock number are unlimited and left alone).
+function reduceStockForOrder(orderId) {
+  const items = all(`SELECT product_id, SUM(qty) AS q FROM order_items WHERE order_id = ? GROUP BY product_id`, [orderId]);
+  for (const it of items) {
+    run(`UPDATE products SET stock = MAX(0, stock - ?) WHERE id = ? AND stock IS NOT NULL`, [it.q, it.product_id]);
+  }
 }
 function getActiveProducts() {
   return all(`SELECT * FROM products WHERE active = 1 ORDER BY sort_order`).map(parseProductRow);
@@ -2685,6 +2705,7 @@ function getAllBulkImports() {
 }
 
 module.exports = {
+  reduceStockForOrder,
   getAdminOverviewDetail,
   getDb, save, uuid, run, get, all,
   exportDbBytes, restoreFromBuffer,
@@ -2712,7 +2733,7 @@ module.exports = {
   marePostRecipients, setParentEmailOptOut, setBroadcastOptOut,
   textGetOverrides, textGetAllOverrides, textGetOverride, textSet, textGetChanges, textGetChange, textMarkUndone, getHomeNotice, setHomeNotice,
   getAdminByEmail, getAdminById, createAdmin, updateAdminPasswordHash, getAllStaff,
-  getStaffLinkedAccount, searchStaffCandidates,
+  getStaffLinkedAccount, searchStaffCandidates, updateAdminRole, deleteAdmin, countAdmins,
   getAllParentsDirectory, getAllTeachersDirectory, setParentStatus, setTeacherStatus,
   createPasswordResetToken, getValidPasswordResetToken, getPasswordResetTokenAnyState,
   hasRecentPasswordResetToken, markPasswordResetTokenUsed,

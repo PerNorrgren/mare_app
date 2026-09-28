@@ -33,6 +33,7 @@ const prompts = require('./prompts');
 const email = require('./email');
 // Mare App 5 — the one public address for every link the app sends.
 const PUBLIC_URL = email.PUBLIC_URL;
+const htmlClean = require('./html-clean');
 
 const app = express();
 // The Stripe webhook must receive the untouched raw body to verify
@@ -553,7 +554,7 @@ function getOptionalUser(req) {
 
 // Whisper Forest — Club Mare's participation engine (Mare App 4).
 require('./whisper').register(app, { db, auth, media, anthropic, model: TALK_MODEL, getOptionalUser });
-// Riddles from the Whispering Forest — Club Mare step 6 (Mare App 4).
+// Riddles from the Whispering Woods — Club Mare step 6 (Mare App 4).
 require('./riddles').register(app, { db, auth, getOptionalUser });
 // Mare's monthly post — Club Mare step 4 (Mare App 4). Links in the
 // letters use PUBLIC_URL (the live site; see email.js).
@@ -1169,17 +1170,80 @@ app.delete('/api/admin/club-mare/members/:parentId', auth.requireAuthApi(['admin
 app.get('/api/admin/club-mare/posts', auth.requireAuthApi(['admin', 'support']), (req, res) => {
   res.json({ posts: db.getAllClubMarePostsAdmin() });
 });
+// Mare App 5 — posts carry rich HTML in English and Dutch; every body
+// passes the allowlist cleaner before it is stored.
+function cleanPostFields(b) {
+  const title = String(b.title || '').trim().slice(0, 200);
+  const titleNl = String(b.titleNl || '').trim().slice(0, 200);
+  const prep = (v) => {
+    const raw = String(v || '').trim();
+    if (!raw) return '';
+    const html = htmlClean.looksLikeHtml(raw) ? raw : htmlClean.textToHtml(raw);
+    const out = htmlClean.cleanHtml(html);
+    return out.replace(/<p><br><\/p>/g, '').trim() ? out : '';
+  };
+  return { title, titleNl, body: prep(b.body), bodyNl: prep(b.bodyNl) };
+}
 app.post('/api/admin/club-mare/posts', auth.requireAuthApi(['admin', 'support']), (req, res) => {
-  const { title, body, imageKey, minTier } = req.body || {};
-  if (!title || !title.trim()) return res.status(400).json({ error: 'Title is required' });
-  const id = db.createClubMarePost({ title, body, imageKey, minTier: Number(minTier) });
+  const b = req.body || {};
+  const f = cleanPostFields(b);
+  if (!f.title && !f.titleNl) return res.status(400).json({ error: 'Title is required' });
+  const id = db.createClubMarePost({ title: f.title || f.titleNl, titleNl: f.titleNl, body: f.body, bodyNl: f.bodyNl, imageKey: b.imageKey, minTier: Number(b.minTier), active: b.active !== false });
   res.json({ ok: true, id });
 });
 app.patch('/api/admin/club-mare/posts/:id', auth.requireAuthApi(['admin', 'support']), (req, res) => {
-  const { title, body, imageKey, minTier, active } = req.body || {};
-  if (!title || !title.trim()) return res.status(400).json({ error: 'Title is required' });
-  db.updateClubMarePost(req.params.id, { title, body, imageKey, minTier: Number(minTier), active });
+  const b = req.body || {};
+  const f = cleanPostFields(b);
+  if (!f.title && !f.titleNl) return res.status(400).json({ error: 'Title is required' });
+  db.updateClubMarePost(req.params.id, { title: f.title || f.titleNl, titleNl: f.titleNl, body: f.body, bodyNl: f.bodyNl, imageKey: b.imageKey, minTier: Number(b.minTier), active: b.active });
   res.json({ ok: true });
+});
+
+// Mare App 5 — "Suggest": from a seed word or idea, Mare writes a post
+// (English + Dutch) and suggests the button's text and where it goes.
+const POST_BUTTON_TARGETS = {
+  whisper: '/club-mare.html#whisper', question: '/club-mare.html#wq', mission: '/club-mare.html#ms',
+  makers: '/club-mare.html#mk', riddle: '/riddle.html', forest: '/forest.html', letter: '/club-mare.html#mp',
+  talk: '/talk.html', shop: '/merchandise.html', club: '/club-mare.html',
+};
+app.post('/api/admin/club-mare/posts/suggest', auth.requireAuthApi(['admin', 'support']), async (req, res) => {
+  const seed = String((req.body && req.body.seed) || '').trim().slice(0, 300);
+  if (!seed) return res.status(400).json({ error: 'Type a word or an idea first.' });
+  if (!anthropic) return res.status(503).json({ error: 'Suggestions are not available right now.' });
+  try {
+    const response = await anthropic.messages.create({
+      model: TALK_MODEL,
+      max_tokens: 1600,
+      system: `You write short exclusive posts for Club Mare, the members' corner of the children's book "Mare and the Whispering Woods of Words" (children 8-12, read with a parent). Mare is a ten-year-old girl who notices small things, feels them in her body (a flutter, warm hands, feet on the ground), loves words and the Whispering Woods, and is warm, curious and a little playful. The staff member gives a seed word or idea; write the post around it, 80-150 words, in Mare's voice or about Mare's world. Include one small thing to notice, try or wonder about. No selling, no asking for personal details, no promises, at most one emoji. The Dutch is natural Dutch (Mare's world is "het Fluisterbos"), not a word-for-word translation. Bodies are HTML using only <p>, <strong>, <em>, <h3>, <ul>, <li>. Also suggest ONE button that invites the child to do something in the app: a short button text (2-5 words, EN and NL) and a target, one of: ${Object.keys(POST_BUTTON_TARGETS).join(', ')} (whisper = plant a word, question = answer Mare's question, mission = this month's mission, makers = share something you made, riddle = the riddle, forest = see the Forest of Words, letter = Mare's letters, talk = talk with Mare, club = Club Mare, shop = the shop - use shop only if the seed is about a product). Reply with JSON only: {"title_en":"...","body_en":"...","title_nl":"...","body_nl":"...","button_text_en":"...","button_text_nl":"...","button_target":"..."}`,
+      messages: [{ role: 'user', content: `Seed: ${seed}` }],
+    });
+    const text = (response.content || []).map(c => c.text || '').join('');
+    const out = JSON.parse(text.slice(text.indexOf('{'), text.lastIndexOf('}') + 1));
+    const target = POST_BUTTON_TARGETS[out.button_target] ? out.button_target : 'club';
+    res.json({
+      titleEn: String(out.title_en || '').slice(0, 200), titleNl: String(out.title_nl || '').slice(0, 200),
+      bodyEn: htmlClean.cleanHtml(out.body_en || ''), bodyNl: htmlClean.cleanHtml(out.body_nl || ''),
+      button: { textEn: String(out.button_text_en || '').slice(0, 60), textNl: String(out.button_text_nl || '').slice(0, 60), target, href: POST_BUTTON_TARGETS[target] },
+    });
+  } catch (e) {
+    console.error('[club-post] suggest failed:', e.message);
+    res.status(502).json({ error: 'Mare could not write a suggestion just now. Please try again.' });
+  }
+});
+
+// Mare App 5 — media inside posts (images, video, audio uploaded in the
+// editor) live under club-mare/ in storage. This stable address sends
+// the browser on to a fresh signed link, so post HTML never goes stale.
+app.get(/^\/m\/(club-mare\/[A-Za-z0-9._\/-]+)$/, async (req, res) => {
+  const key = req.params[0];
+  if (key.includes('..')) return res.status(400).end();
+  try {
+    const url = await media.getPlaybackUrl(key);
+    res.set('Cache-Control', 'private, max-age=300');
+    res.redirect(302, url);
+  } catch {
+    res.status(404).end();
+  }
 });
 app.delete('/api/admin/club-mare/posts/:id', auth.requireAuthApi(['admin', 'support']), (req, res) => {
   db.deleteClubMarePost(req.params.id);
@@ -1246,6 +1310,19 @@ app.post('/api/checkout', async (req, res) => {
       offer = db.getOfferByCode(offerCode.trim());
       if (!offer || !offer.active) return res.status(400).json({ error: 'That code isn\'t valid.' });
       if (offer.expires_at && new Date(offer.expires_at) < new Date()) return res.status(400).json({ error: 'That code has expired.' });
+    }
+
+    // Mare App 5 — stock: a product with a stock number can't be bought
+    // beyond what's left (no number = unlimited). Counted per product
+    // across all its lines (e.g. two sizes of the same item).
+    const wanted = {};
+    for (const item of items) wanted[item.productId] = (wanted[item.productId] || 0) + (Number(item.qty) || 1);
+    for (const [pid, qty] of Object.entries(wanted)) {
+      const product = db.getProduct(pid);
+      if (!product || product.stock == null) continue;
+      const pn = (locale === 'nl' && product.name_nl) ? product.name_nl : product.name;
+      if (product.stock <= 0) return res.status(409).json({ error: locale === 'nl' ? `${pn} is uitverkocht.` : `${pn} is sold out.`, soldOut: pid });
+      if (qty > product.stock) return res.status(409).json({ error: locale === 'nl' ? `Er zijn nog maar ${product.stock} van ${pn}.` : `Only ${product.stock} of ${pn} left.`, maxQty: product.stock, productId: pid });
     }
 
     let originalTotalCents = 0;
@@ -1340,6 +1417,8 @@ async function finalizeCheckoutSession(session) {
     .filter(Boolean).join('\n');
   if (order.status !== 'paid') {
     db.setOrderPaidDetails(order.id, { name: cd.name || sd.name, email: cd.email, address });
+    // Mare App 5 — count the stock down, once, when the order becomes paid.
+    db.reduceStockForOrder(order.id);
   }
   const fresh = db.getOrderBySession(session.id);
   if (!fresh.notified_at) {
@@ -2013,6 +2092,40 @@ app.post('/api/admin/bootstrap', async (req, res) => {
 
 app.get('/api/admin/staff', auth.requireAuthApi(['admin']), (req, res) => {
   res.json({ staff: db.getAllStaff() });
+});
+// Mare App 5 — manage staff: change role, remove, resend the welcome
+// email. Nobody can change or remove their own account here, and the
+// last Admin can't be demoted or removed (someone must keep the keys).
+function staffGuard(req, res, target, changingAwayFromAdmin) {
+  if (!target) { res.status(404).json({ error: 'Not found' }); return false; }
+  if (target.id === req.user.id) { res.status(400).json({ error: 'You can’t change your own staff account here.' }); return false; }
+  if (changingAwayFromAdmin && target.role === 'admin' && db.countAdmins() <= 1) {
+    res.status(400).json({ error: 'There must always be at least one Admin.' }); return false;
+  }
+  return true;
+}
+app.patch('/api/admin/staff/:id', auth.requireAuthApi(['admin']), (req, res) => {
+  const role = String((req.body && req.body.role) || '');
+  if (!['admin', 'support', 'editor'].includes(role)) return res.status(400).json({ error: 'Invalid role' });
+  const target = db.getAdminById(req.params.id);
+  if (!staffGuard(req, res, target, role !== 'admin')) return;
+  db.updateAdminRole(target.id, role);
+  res.json({ ok: true });
+});
+app.delete('/api/admin/staff/:id', auth.requireAuthApi(['admin']), (req, res) => {
+  const target = db.getAdminById(req.params.id);
+  if (!staffGuard(req, res, target, true)) return;
+  db.deleteAdmin(target.id);
+  res.json({ ok: true });
+});
+app.post('/api/admin/staff/:id/welcome', auth.requireAuthApi(['admin']), async (req, res) => {
+  const target = db.getAdminById(req.params.id);
+  if (!target) return res.status(404).json({ error: 'Not found' });
+  const linked = db.getStaffLinkedAccount(target);
+  const sent = await email.sendStaffWelcomeEmail(target.email, { name: target.name, role: target.role, locale: linked && linked.preferred_locale })
+    .catch(e => ({ ok: false, error: e.message }));
+  if (!sent || !sent.ok) return res.status(502).json({ error: 'The email could not be sent — see the Email Log.' });
+  res.json({ ok: true });
 });
 // Mare App 5 — search existing parents/teachers to make one of them staff.
 app.get('/api/admin/staff/candidates', auth.requireAuthApi(['admin']), (req, res) => {

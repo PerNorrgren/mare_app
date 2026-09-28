@@ -24,6 +24,14 @@
     return fallback || key;
   }
 
+  // Mare App 5 — "Sold out" / "Only 3 left" on the product tile.
+  function stockBadge(p) {
+    if (p.stock == null) return '';
+    if (p.stock <= 0) return `<span class="shop-stock-badge out">${escapeHtml(t('shopSoldOut', 'Sold out'))}</span>`;
+    if (p.stock <= 5) return `<span class="shop-stock-badge">${escapeHtml(t('shopOnlyLeft', 'Only {count} left', { count: p.stock }))}</span>`;
+    return '';
+  }
+
   function escapeHtml(str) {
     return String(str).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   }
@@ -71,6 +79,7 @@
           <span class="shop-product-image" style="background-image:url('/images/mare-front-cover.jpg')" data-image-key="${escapeHtml(p.image_key || '')}"></span>
           <span class="shop-product-name">${escapeHtml(pName(p))}</span>
           <span class="shop-product-price">${escapeHtml(formatPrice(p.price_cents, p.currency))}</span>
+          ${stockBadge(p)}
         </button>
       `).join('');
       // Resolve real cover images from R2 in the background — the grid
@@ -104,6 +113,22 @@
     document.getElementById('pd-price').textContent = formatPrice(product.price_cents, product.currency);
     document.getElementById('pd-desc').textContent = pDesc(product);
     document.getElementById('pd-qty').value = 1;
+    // Mare App 5 — stock: sold out disables adding; low stock says so.
+    {
+      const left = product.stock;
+      const addBtn = document.getElementById('pd-add-btn');
+      const qtyEl = document.getElementById('pd-qty');
+      const note = document.getElementById('pd-stock-note');
+      const inCart = cart.filter(i => i.productId === product.id).reduce((n, i) => n + i.qty, 0);
+      const canAdd = left == null ? Infinity : Math.max(0, left - inCart);
+      addBtn.disabled = canAdd <= 0;
+      addBtn.textContent = left != null && left <= 0 ? t('shopSoldOut', 'Sold out') : t('shopAddToCart', 'Add to cart');
+      qtyEl.max = canAdd === Infinity ? '' : String(Math.max(1, canAdd));
+      note.textContent = left == null ? '' : (left <= 0 ? t('shopSoldOut', 'Sold out')
+        : (canAdd <= 0 ? t('shopAllInCart', 'All we have is already in your cart.')
+          : (left <= 5 ? t('shopOnlyLeft', 'Only {count} left', { count: left }) : '')));
+      note.hidden = !note.textContent;
+    }
 
     // Variants
     const variantOptions = product.variant_options || {};
@@ -228,7 +253,12 @@
     });
     document.getElementById('pd-add-btn').addEventListener('click', () => {
       if (!currentProduct) return;
-      const qty = Math.max(1, parseInt(document.getElementById('pd-qty').value, 10) || 1);
+      let qty = Math.max(1, parseInt(document.getElementById('pd-qty').value, 10) || 1);
+      if (currentProduct.stock != null) {
+        const inCart = cart.filter(i => i.productId === currentProduct.id).reduce((n, i) => n + i.qty, 0);
+        qty = Math.min(qty, Math.max(0, currentProduct.stock - inCart));
+        if (qty <= 0) return;
+      }
       const variantField = document.getElementById('pd-variant-field');
       const variant = variantField.hidden ? null : document.getElementById('pd-variant').value;
       const existing = cart.find(item => item.productId === currentProduct.id && item.variant === variant);

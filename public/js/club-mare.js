@@ -23,13 +23,21 @@
     // Mare App 5 — no stories yet: show nothing. The activity cards above
     // are the club now; an empty "check back soon" line only looked broken.
     if (!posts.length) { listEl.innerHTML = ''; return; }
-    listEl.innerHTML = posts.map(post => `
-      <div class="showcase-tile" style="cursor:default; text-align:left; align-items:flex-start;">
-        ${post.image_key ? `<img class="clubmare-post-image" data-image-key="${escapeHtml(post.image_key)}" alt="" style="width:100%;border-radius:10px;margin-bottom:10px;">` : ''}
-        <div class="showcase-tile-label" style="font-size:1.05rem;">${escapeHtml(post.title)}</div>
-        ${post.body ? `<p style="color:rgba(243,236,217,0.8);font-size:0.88rem;margin-top:8px;">${escapeHtml(post.body)}</p>` : ''}
-      </div>
-    `).join('');
+    // Mare App 5 — posts are rich (cleaned on the server): text, pictures,
+    // video, audio and Mare buttons, in the visitor's language.
+    const isNl = window.MareI18n && window.MareI18n.locale === 'nl';
+    const bodyHtml = (b) => (!b ? '' : (/<\/?[a-z][^>]*>/i.test(b) ? b : `<p>${escapeHtml(b)}</p>`));
+    listEl.innerHTML = posts.map(post => {
+      const title = (isNl && post.title_nl) ? post.title_nl : (post.title || post.title_nl || '');
+      const body = (isNl && post.body_nl) ? post.body_nl : (post.body || post.body_nl || '');
+      return `
+      <article class="whisper-card cm-post">
+        ${post.image_key ? `<img class="cm-post-cover" data-image-key="${escapeHtml(post.image_key)}" alt="">` : ''}
+        <span class="whisper-label">${escapeHtml(t('cmPostLabel', 'Just for Club Mare'))}</span>
+        <h2>${escapeHtml(title)}</h2>
+        <div class="cm-post-body">${bodyHtml(body)}</div>
+      </article>`;
+    }).join('');
     listEl.querySelectorAll('[data-image-key]').forEach(async (img) => {
       try {
         const r = await fetch(`/api/playback-url?key=${encodeURIComponent(img.getAttribute('data-image-key'))}`);
@@ -42,7 +50,7 @@
   async function loadPosts(tier) {
     const noteEl = document.getElementById('cm-tier-note');
     noteEl.textContent = tier === 2
-      ? t('clubMarePaidNote', "You're a paid member — thank you for supporting the forest.")
+      ? t('clubMarePaidNote', "You're a paid member — thank you for supporting the wood.")
       : t('clubMareFreeNote', "You're a free member.");
 
     const listEl = document.getElementById('cm-posts-list');

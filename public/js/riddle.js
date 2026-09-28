@@ -1,4 +1,4 @@
-// ── riddle.js — Riddles from the Whispering Forest (Mare App 4).
+// ── riddle.js — Riddles from the Whispering Woods (Mare App 4).
 // Shows this month's riddle; each clue has its own Check button, the
 // secret code unlocks Mare's reward. Every check goes to the server
 // (riddles.js) — the answers are never in this page. ──

@@ -383,7 +383,7 @@ Use "check" if ANY of these apply: a real person's face or body (a photo of a ch
       const response = await anthropic.messages.create({
         model,
         max_tokens: 700,
-        system: `You help the authors of the children's book "Mare and the Whispering Forest of Words" choose the Whisper Word of the Month from words children (8-12) have planted. Favour words with real delight in language — beautiful, strange, forgotten, playful or invented words — and reasons that show the child's own feeling or story. Mixed languages are welcome. Suggest the best 3 to 5. Reply with JSON only: [{"n":<number from the list>,"why":"one short sentence"}].`,
+        system: `You help the authors of the children's book "Mare and the Whispering Woods of Words" choose the Whisper Word of the Month from words children (8-12) have planted. Favour words with real delight in language — beautiful, strange, forgotten, playful or invented words — and reasons that show the child's own feeling or story. Mixed languages are welcome. Suggest the best 3 to 5. Reply with JSON only: [{"n":<number from the list>,"why":"one short sentence"}].`,
         messages: [{ role: 'user', content: list }],
       });
       const text = (response.content || []).map(c => c.text || '').join('');

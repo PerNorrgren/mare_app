@@ -1157,17 +1157,52 @@
       }
       const table = document.createElement('table');
       table.className = 'admin-table';
-      table.innerHTML = `<thead><tr><th>${t('fieldName')}</th><th>${t('fieldEmail')}</th><th>${t('adminFieldRole')}</th><th>${t('adminStaffSignsIn')}</th><th>${t('adminSince')}</th></tr></thead>`;
+      table.innerHTML = `<thead><tr><th>${t('fieldName')}</th><th>${t('fieldEmail')}</th><th>${t('adminFieldRole')}</th><th>${t('adminStaffSignsIn')}</th><th>${t('adminSince')}</th><th></th></tr></thead>`;
       const tbody = document.createElement('tbody');
       staff.forEach(s => {
+        const isMe = currentUser && s.id === currentUser.id;
         const tr = document.createElement('tr');
         tr.innerHTML = `
           <td>${escapeHtml(s.name)}</td>
           <td>${escapeHtml(s.email)}</td>
-          <td><span class="role-pill ${s.role === 'admin' ? 'admin' : ''}">${escapeHtml(t(s.role === 'admin' ? 'staffRoleAdmin' : (s.role === 'editor' ? 'staffRoleEditor' : 'staffRoleSupport')))}</span></td>
+          <td>${isMe
+            ? `<span class="role-pill ${s.role === 'admin' ? 'admin' : ''}">${escapeHtml(t(s.role === 'admin' ? 'staffRoleAdmin' : (s.role === 'editor' ? 'staffRoleEditor' : 'staffRoleSupport')))}</span> <span class="admin-empty-note">${escapeHtml(t('adminStaffYou'))}</span>`
+            : `<select class="staff-role-select" aria-label="${escapeHtml(t('adminFieldRole'))}">
+                ${['support', 'editor', 'admin'].map(r => `<option value="${r}"${s.role === r ? ' selected' : ''}>${escapeHtml(t(r === 'admin' ? 'staffRoleAdmin' : (r === 'editor' ? 'staffRoleEditor' : 'staffRoleSupport')))}</option>`).join('')}
+              </select>`}</td>
           <td>${escapeHtml(t(s.linked_role === 'teacher' ? 'adminStaffLoginTeacher' : (s.linked_role === 'parent' ? 'adminStaffLoginParent' : 'adminStaffLoginOwn')))}</td>
           <td>${escapeHtml(s.created_at)}</td>
+          <td class="staff-actions">${isMe ? '' : `
+            <button type="button" class="btn-ghost btn-small staff-welcome-btn">${escapeHtml(t('adminStaffResendWelcome'))}</button>
+            <button type="button" class="btn-ghost btn-small btn-danger staff-remove-btn">${escapeHtml(t('adminStaffRemove'))}</button>`}
+            <span class="staff-row-msg" role="status"></span></td>
         `;
+        if (!isMe) {
+          const msg = tr.querySelector('.staff-row-msg');
+          const say = (ok, text) => { msg.textContent = text; msg.className = 'staff-row-msg ' + (ok ? 'ok' : 'err'); };
+          const sel = tr.querySelector('.staff-role-select');
+          sel.addEventListener('change', async () => {
+            const prev = s.role;
+            try {
+              await api(`/api/admin/staff/${s.id}`, { method: 'PATCH', body: JSON.stringify({ role: sel.value }) });
+              s.role = sel.value;
+              say(true, t('adminStaffRoleChanged'));
+            } catch (err) { sel.value = prev; say(false, err.message || t('errorGeneric')); }
+          });
+          tr.querySelector('.staff-welcome-btn').addEventListener('click', async () => {
+            try {
+              await api(`/api/admin/staff/${s.id}/welcome`, { method: 'POST' });
+              say(true, t('adminStaffWelcomeSent'));
+            } catch (err) { say(false, err.message || t('errorGeneric')); }
+          });
+          tr.querySelector('.staff-remove-btn').addEventListener('click', async () => {
+            if (!confirm(t('adminStaffRemoveConfirm', { name: s.name }))) return;
+            try {
+              await api(`/api/admin/staff/${s.id}`, { method: 'DELETE' });
+              loadStaff();
+            } catch (err) { say(false, err.message || t('errorGeneric')); }
+          });
+        }
         tbody.appendChild(tr);
       });
       table.appendChild(tbody);
@@ -1922,7 +1957,7 @@
       container.innerHTML = rows.map(post => `
         <div class="admin-list-item">
           <div class="admin-list-item-main">
-            <div class="admin-list-item-title">${escapeHtml(post.title)}</div>
+            <div class="admin-list-item-title">${escapeHtml(post.title)}${post.title_nl && post.title_nl !== post.title ? ` <span class="admin-empty-note">· ${escapeHtml(post.title_nl)}</span>` : ''}</div>
             <div class="admin-list-item-sub">
               <span class="status-badge ${post.active ? 'active' : 'suspended'}">${escapeHtml(t(post.active ? 'adminActive' : 'adminInactive'))}</span>
               &nbsp;·&nbsp; ${escapeHtml(t(post.min_tier === 2 ? 'clubMareTierPaidOnly' : 'clubMareTierFreeAndPaid'))}
@@ -1949,23 +1984,53 @@
     }
   }
 
+  // Mare App 5 — the full post editor (post-editor.js): English + Dutch,
+  // rich text with pictures, video, audio, app links and a Mare button;
+  // "Suggest text" writes a first version from a seed word.
+  let cmpEditors = null;
+  let cmpSuggestedButton = null;
+  function cmpShowLang(lang) {
+    document.querySelectorAll('#clubmare-post-modal .cmp-lang').forEach(b => b.classList.toggle('active', b.getAttribute('data-lang') === lang));
+    document.querySelectorAll('#clubmare-post-modal .cmp-lang-pane').forEach(p => { p.hidden = p.getAttribute('data-pane') !== lang; });
+  }
+  function cmpEnsureEditors() {
+    if (cmpEditors) return cmpEditors;
+    const suggested = (lang) => () => (cmpSuggestedButton ? (lang === 'nl' ? cmpSuggestedButton.textNl : cmpSuggestedButton.textEn) : '');
+    cmpEditors = {
+      en: window.MarePostEditor.mount('cmp-editor-en', { placeholder: t('cmpBodyPh'), suggestedButtonText: suggested('en') }),
+      nl: window.MarePostEditor.mount('cmp-editor-nl', { placeholder: t('cmpBodyPhNl'), suggestedButtonText: suggested('nl') }),
+    };
+    return cmpEditors;
+  }
+
   function openClubMarePostModal(id, post) {
     cmpEditingId = id || null;
     cmpUploadedImageKey = post ? (post.image_key || null) : null;
+    cmpSuggestedButton = null;
     document.getElementById('clubmare-post-error').hidden = true;
     document.getElementById('clubmare-post-modal-title').textContent = t(id ? 'adminEditPost' : 'adminNewPost');
-    document.getElementById('cmp-title').value = post ? post.title : '';
-    document.getElementById('cmp-body').value = post ? (post.body || '') : '';
+    document.getElementById('cmp-seed').value = '';
+    document.getElementById('cmp-seed').placeholder = t('cmpSeedPh');
+    document.getElementById('cmp-seed-note').textContent = t('cmpSeedHint');
+    document.getElementById('cmp-seed-note').className = 'admin-empty-note';
+    document.getElementById('cmp-title').value = post ? (post.title || '') : '';
+    document.getElementById('cmp-title-nl').value = post ? (post.title_nl || '') : '';
     document.getElementById('cmp-min-tier').value = post ? String(post.min_tier) : '1';
     document.getElementById('cmp-active').checked = post ? !!post.active : true;
     document.getElementById('cmp-image-status').textContent = cmpUploadedImageKey ? t('adminImageAttached') : '';
     document.getElementById('cmp-image-file').value = '';
     document.getElementById('clubmare-post-modal').hidden = false;
+    const ed = cmpEnsureEditors();
+    const asHtml = (v) => (!v ? '' : (/<\/?[a-z][^>]*>/i.test(v) ? v : v.split(/\n{2,}/).map(p => `<p>${escapeHtml(p)}</p>`).join('')));
+    if (ed.en) ed.en.setHtml(asHtml(post && post.body));
+    if (ed.nl) ed.nl.setHtml(asHtml(post && post.body_nl));
+    cmpShowLang(window.MareI18n.locale === 'nl' ? 'nl' : 'en');
   }
 
   function setupClubMarePostModal() {
     document.getElementById('new-clubmare-post-btn').addEventListener('click', () => openClubMarePostModal(null, null));
     document.getElementById('cmp-close-btn').addEventListener('click', () => { document.getElementById('clubmare-post-modal').hidden = true; });
+    document.querySelectorAll('#clubmare-post-modal .cmp-lang').forEach(b => b.addEventListener('click', () => cmpShowLang(b.getAttribute('data-lang'))));
     document.getElementById('cmp-image-file').addEventListener('change', async (e) => {
       const file = e.target.files[0];
       if (!file) return;
@@ -1982,14 +2047,39 @@
         status.textContent = err.message || t('errorGeneric');
       }
     });
+
+    document.getElementById('cmp-suggest-btn').addEventListener('click', async () => {
+      const seed = document.getElementById('cmp-seed').value.trim();
+      const note = document.getElementById('cmp-seed-note');
+      if (!seed) { note.textContent = t('cmpSeedFirst'); note.className = 'form-error'; document.getElementById('cmp-seed').focus(); return; }
+      const ed = cmpEnsureEditors();
+      const hasText = (ed.en && ed.en.getHtml()) || (ed.nl && ed.nl.getHtml());
+      if (hasText && !confirm(t('cmpReplaceConfirm'))) return;
+      note.textContent = t('cmpSuggesting'); note.className = 'admin-empty-note';
+      try {
+        const s = await api('/api/admin/club-mare/posts/suggest', { method: 'POST', body: JSON.stringify({ seed }) });
+        cmpSuggestedButton = s.button || null;
+        document.getElementById('cmp-title').value = s.titleEn || '';
+        document.getElementById('cmp-title-nl').value = s.titleNl || '';
+        if (ed.en) { ed.en.setHtml(s.bodyEn || ''); if (s.button && s.button.textEn) ed.en.appendButton(s.button.textEn, s.button.href); }
+        if (ed.nl) { ed.nl.setHtml(s.bodyNl || ''); if (s.button && s.button.textNl) ed.nl.appendButton(s.button.textNl, s.button.href); }
+        note.textContent = t('cmpSuggested'); note.className = 'admin-empty-note ok';
+      } catch (err) {
+        note.textContent = err.message || t('errorGeneric'); note.className = 'form-error';
+      }
+    });
+
     document.getElementById('cmp-save-btn').addEventListener('click', async () => {
+      const ed = cmpEnsureEditors();
       const title = document.getElementById('cmp-title').value.trim();
-      const body = document.getElementById('cmp-body').value.trim();
+      const titleNl = document.getElementById('cmp-title-nl').value.trim();
+      const body = ed.en ? ed.en.getHtml() : '';
+      const bodyNl = ed.nl ? ed.nl.getHtml() : '';
       const minTier = document.getElementById('cmp-min-tier').value;
       const active = document.getElementById('cmp-active').checked;
-      if (!title) { showModalError('clubmare-post-error', t('errorMissingFields')); return; }
+      if (!title && !titleNl) { showModalError('clubmare-post-error', t('cmpNeedTitle')); return; }
       try {
-        const payload = JSON.stringify({ title, body, minTier, active, imageKey: cmpUploadedImageKey });
+        const payload = JSON.stringify({ title, titleNl, body, bodyNl, minTier, active, imageKey: cmpUploadedImageKey });
         if (cmpEditingId) {
           await api(`/api/admin/club-mare/posts/${cmpEditingId}`, { method: 'PATCH', body: payload });
         } else {
@@ -1997,8 +2087,8 @@
         }
         document.getElementById('clubmare-post-modal').hidden = true;
         loadClubMarePosts();
-      } catch {
-        showModalError('clubmare-post-error', t('errorGeneric'));
+      } catch (err) {
+        showModalError('clubmare-post-error', err.message || t('errorGeneric'));
       }
     });
   }

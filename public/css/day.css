@@ -1608,3 +1608,83 @@ button.stat-item.is-busy::after, button.stat-item.is-done::after, button.stat-it
 .stat-detail-actions { display: flex; gap: 8px; }
 .stat-detail-scroll { overflow-x: auto; max-height: 520px; overflow-y: auto; }
 .stat-detail-scroll th { position: sticky; top: 0; background: #fff; }
+
+/* Mare App 5 — phones: the top bar's buttons (EN/NL, Home, Log in,
+   Register / Sign out) never run off the right edge. They wrap, get a
+   little smaller, and on the narrowest phones "Home" steps aside (the
+   Mare logo on the left already goes home). */
+@media (max-width: 480px) {
+  .topbar-actions { flex-wrap: wrap; gap: 8px; max-width: 100%; }
+  .topbar-actions .btn-ghost, .topbar-actions .btn-primary { padding: 7px 13px; font-size: 0.86rem; }
+  .topbar-actions .lang-btn { padding: 5px 9px; }
+}
+@media (max-width: 380px) {
+  .topbar-actions > a.btn-ghost[href="/"] { display: none; }
+}
+
+/* Mare App 5 — shop stock, staff actions */
+.shop-stock-badge { display: inline-block; margin-top: 4px; font-size: 0.76rem; font-weight: 700; color: #8A4B00; background: #FFF1D6; border-radius: 999px; padding: 2px 9px; }
+.shop-stock-badge.out { color: #fff; background: #8C8C8C; }
+.shop-stock-note { font-size: 0.86rem; font-weight: 600; color: #8A4B00; margin: 4px 0 10px; }
+.shop-stock-note[hidden] { display: none; }
+.staff-role-select { font: inherit; font-size: 0.86rem; padding: 5px 8px; border-radius: 8px; border: 1.5px solid rgba(22,48,92,0.2); background: var(--cloud); color: var(--navy); }
+.staff-actions { white-space: nowrap; }
+.staff-actions .btn-small { margin: 2px 4px 2px 0; }
+.btn-danger { color: #A33B3B !important; border-color: rgba(163,59,59,0.45) !important; }
+.staff-row-msg { display: block; font-size: 0.8rem; margin-top: 3px; }
+.staff-row-msg.ok { color: #2E7D4F; }
+.staff-row-msg.err { color: #A33B3B; }
+
+/* Mare App 5 — rich Club Mare posts (public page) */
+.clubmare-posts:has(.cm-post) { display: block; max-width: 720px; margin: 0 auto; padding: 0 clamp(12px, 3vw, 20px); }
+.cm-post { margin-bottom: 24px; }
+.cm-post h2 { margin: 2px 0 10px; }
+.cm-post-cover { display: block; width: 100%; border-radius: 14px; margin-bottom: 14px; }
+.cm-post-body { color: #F3ECD9; line-height: 1.6; font-size: 1rem; }
+.cm-post-body p { margin: 0 0 12px; }
+.cm-post-body h2, .cm-post-body h3 { font-family: 'Fraunces', serif; color: var(--gold); margin: 16px 0 8px; }
+.cm-post-body a { color: var(--gold); }
+.cm-post-body img, .cm-post-body video { display: block; max-width: 100%; height: auto; border-radius: 12px; margin: 12px 0; }
+.cm-post-body audio { display: block; width: 100%; margin: 12px 0; }
+.cm-post-body iframe.ql-video, .cm-post-body iframe { display: block; width: 100%; aspect-ratio: 16 / 9; height: auto; border: 0; border-radius: 12px; margin: 12px 0; }
+.cm-post-body .ql-align-center { text-align: center; }
+.cm-post-body .ql-align-right { text-align: right; }
+.mare-btn { margin: 16px 0 6px; }
+.mare-btn .mare-btn-link {
+  display: inline-block; padding: 12px 22px; border-radius: 999px; text-decoration: none;
+  background: var(--gold); color: #16305C !important; font-weight: 700; font-family: 'Quicksand', sans-serif;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.25);
+}
+.mare-btn .mare-btn-link::after { content: ' →'; }
+
+/* Mare App 5 — the post editor (admin) */
+.cmp-card { max-width: 860px; width: calc(100vw - 32px); }
+.cmp-seed { background: #FFF6DF; border: 1.5px solid rgba(226,190,110,0.6); border-radius: 12px; padding: 12px 14px; margin-bottom: 14px; }
+.cmp-seed label { font-weight: 700; font-size: 0.86rem; color: var(--navy); display: block; margin-bottom: 6px; }
+.cmp-seed-row { display: flex; gap: 8px; }
+.cmp-seed-row input { flex: 1; min-width: 0; font: inherit; padding: 9px 12px; border-radius: 10px; border: 1.5px solid rgba(22,48,92,0.2); background: #fff; color: var(--navy); }
+.cmp-seed .admin-empty-note { margin: 6px 0 0; }
+.cmp-seed .ok { color: #2E7D4F; }
+.cmp-lang-tabs { display: flex; gap: 6px; margin-bottom: 10px; }
+.cmp-lang { font: inherit; font-size: 0.86rem; font-weight: 700; padding: 6px 14px; border-radius: 999px; border: 1.5px solid rgba(22,48,92,0.2); background: #fff; color: var(--navy); cursor: pointer; }
+.cmp-lang.active { background: var(--navy); color: #fff; border-color: var(--navy); }
+.cmp-lang-pane[hidden] { display: none; }
+.pe-wrap { position: relative; }
+.pe-toolbar { border: 1px solid #ccc; border-bottom: 0; border-radius: 10px 10px 0 0; padding: 6px; background: #fafafa; display: flex; flex-wrap: wrap; gap: 2px; }
+.pe-toolbar.ql-toolbar.ql-snow { border-radius: 10px 10px 0 0; }
+.pe-media { display: inline-flex !important; flex-wrap: wrap; gap: 4px; }
+.pe-toolbar .pe-btn { width: auto !important; height: auto !important; padding: 3px 9px !important; border-radius: 999px; border: 1px solid rgba(22,48,92,0.2) !important; background: #fff !important; font: 600 0.78rem 'Quicksand', sans-serif; color: var(--navy); cursor: pointer; float: none !important; }
+.pe-toolbar .pe-btn:hover { border-color: var(--gold) !important; }
+.pe-editor { min-height: 220px; max-height: 50vh; overflow-y: auto; border-radius: 0 0 10px 10px; background: #fff; font-size: 0.98rem; }
+.pe-editor .ql-editor { min-height: 220px; }
+.pe-editor img, .pe-editor video { max-width: 100%; border-radius: 8px; }
+.pe-editor audio { width: 100%; }
+.pe-editor .mare-btn .mare-btn-link { pointer-events: none; }
+.pe-status { font-size: 0.82rem; min-height: 1.2em; margin-top: 4px; color: var(--navy-soft); }
+.pe-status.bad { color: #A33B3B; }
+.pe-dialog { position: absolute; inset: 0; background: rgba(22,48,92,0.25); display: flex; align-items: center; justify-content: center; border-radius: 10px; z-index: 5; }
+.pe-dialog[hidden] { display: none; }
+.pe-dialog-card { background: #fff; border-radius: 12px; padding: 14px 16px; width: min(380px, 92%); box-shadow: 0 10px 30px rgba(0,0,0,0.2); display: flex; flex-direction: column; gap: 8px; color: var(--navy); }
+.pe-dialog-card label { display: flex; flex-direction: column; gap: 4px; font-size: 0.82rem; font-weight: 700; }
+.pe-dialog-card input, .pe-dialog-card select { font: inherit; font-weight: 500; padding: 8px 10px; border-radius: 8px; border: 1.5px solid rgba(22,48,92,0.2); }
+.pe-dialog-btns { display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px; }

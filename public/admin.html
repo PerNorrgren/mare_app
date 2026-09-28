@@ -384,8 +384,9 @@
             </select>
           </div>
           <div class="field">
-            <label for="pr-stock" data-i18n="adminFieldStockOptional">Stock (optional)</label>
-            <input type="number" id="pr-stock" min="0">
+            <label for="pr-stock" data-i18n="adminFieldStockOptional">In stock</label>
+            <input type="number" id="pr-stock" min="0" step="1">
+            <p class="admin-empty-note" data-i18n="adminFieldStockHint">How many you have. It counts down by itself with every paid order, and the shop shows "Sold out" at 0. Leave empty for no limit.</p>
           </div>
         </div>
 
@@ -725,11 +726,11 @@
         <div id="whisper-prompts" style="margin-top:18px;"></div>
       </div>
 
-      <!-- Riddles from the Whispering Forest (Mare App 4) -->
+      <!-- Riddles from the Whispering Woods (Mare App 4) -->
       <div class="admin-card">
         <div class="admin-card-header-row">
           <div>
-            <h2 data-i18n="adminRiddlesTitle">Riddles from the Whispering Forest</h2>
+            <h2 data-i18n="adminRiddlesTitle">Riddles from the Whispering Woods</h2>
             <p class="admin-card-sub" data-i18n="adminRiddlesDesc">The monthly book treasure hunt. Clues and the secret code are checked on the server, so answers and the promo code can't be found in the page. Put [PROMOCODE] in the reward text where the code should appear — and make sure that code exists as an offer in Sales &amp; Marketing. Open one riddle at a time.</p>
           </div>
           <button type="button" class="btn-ghost btn-small" id="rd-new-btn" data-i18n="adminRiddlesNew">+ New riddle</button>
@@ -786,27 +787,52 @@
 
     <!-- Club Mare post compose modal -->
     <div class="admin-modal-backdrop" id="clubmare-post-modal" hidden>
-      <div class="admin-modal-card">
+      <div class="admin-modal-card cmp-card">
         <h3 id="clubmare-post-modal-title" data-i18n="adminNewPost">New post</h3>
-        <div class="field">
-          <label for="cmp-title" data-i18n="adminFieldTitle">Title</label>
-          <input type="text" id="cmp-title" required>
+
+        <!-- Mare App 5 — start from a seed word: Mare suggests the post
+             (English + Dutch) and a button; everything stays editable. -->
+        <div class="cmp-seed">
+          <label for="cmp-seed" data-i18n="cmpSeedLabel">Start with a word or an idea</label>
+          <div class="cmp-seed-row">
+            <input type="text" id="cmp-seed" maxlength="300">
+            <button type="button" class="btn-primary btn-small" id="cmp-suggest-btn" data-i18n="cmpSuggest">✨ Suggest text</button>
+          </div>
+          <p class="admin-empty-note" id="cmp-seed-note" data-i18n="cmpSeedHint">Mare writes a first version in English and Dutch, with a button. Change anything you like before saving.</p>
         </div>
-        <div class="field">
-          <label for="cmp-body" data-i18n="adminFieldDescriptionOptional">Body (optional)</label>
-          <textarea id="cmp-body" rows="4"></textarea>
+
+        <div class="cmp-lang-tabs" role="tablist">
+          <button type="button" class="cmp-lang active" data-lang="en" data-no-busy>English</button>
+          <button type="button" class="cmp-lang" data-lang="nl" data-no-busy>Nederlands</button>
         </div>
-        <div class="field">
-          <label for="cmp-min-tier" data-i18n="adminFieldMinTier">Visible to</label>
-          <select id="cmp-min-tier">
-            <option value="1" data-i18n="clubMareTierFreeAndPaid">Everyone in Club Mare (free + paid)</option>
-            <option value="2" data-i18n="clubMareTierPaidOnly">Paid members only</option>
-          </select>
+        <div class="cmp-lang-pane" data-pane="en">
+          <div class="field">
+            <label for="cmp-title" data-i18n="adminFieldTitle">Title</label>
+            <input type="text" id="cmp-title">
+          </div>
+          <div class="field"><label data-i18n="cmpBody">Text</label><div id="cmp-editor-en"></div></div>
         </div>
-        <div class="field">
-          <label for="cmp-image-file" data-i18n="adminFieldImageOptional">Image (optional)</label>
-          <input type="file" id="cmp-image-file" accept="image/*">
-          <p class="admin-empty-note" id="cmp-image-status"></p>
+        <div class="cmp-lang-pane" data-pane="nl" hidden>
+          <div class="field">
+            <label for="cmp-title-nl" data-i18n="cmpTitleNl">Title (Dutch)</label>
+            <input type="text" id="cmp-title-nl">
+          </div>
+          <div class="field"><label data-i18n="cmpBodyNl">Text (Dutch)</label><div id="cmp-editor-nl"></div></div>
+        </div>
+
+        <div class="admin-form-row">
+          <div class="field">
+            <label for="cmp-min-tier" data-i18n="adminFieldMinTier">Visible to</label>
+            <select id="cmp-min-tier">
+              <option value="1" data-i18n="clubMareTierFreeAndPaid">Everyone in Club Mare (free + paid)</option>
+              <option value="2" data-i18n="clubMareTierPaidOnly">Paid members only</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="cmp-image-file" data-i18n="cmpCoverImage">Picture at the top (optional)</label>
+            <input type="file" id="cmp-image-file" accept="image/*">
+            <p class="admin-empty-note" id="cmp-image-status"></p>
+          </div>
         </div>
         <label class="mkt-platform-check"><input type="checkbox" id="cmp-active" checked> <span data-i18n="adminActive">Active</span></label>
         <p class="form-error" id="clubmare-post-error" hidden></p>
@@ -992,6 +1018,7 @@
 <script src="/js/mare-helper-widget.js"></script>
 <script src="/js/bg-slideshow.js"></script>
 <script src="/js/message-editor.js"></script>
+<script src="/js/post-editor.js"></script>
 <script src="/js/role-chooser.js"></script>
 <script src="/js/admin.js"></script>
 <script>window.MareBgSlideshow.init('bg-slideshow', ['/images/mare-front-cover.jpg', '/images/mare-back-cover.jpg']);</script>
