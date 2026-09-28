@@ -636,6 +636,9 @@ app.get('/api/playback-url', async (req, res) => {
   try {
     const { key } = req.query;
     if (!key) return res.status(400).json({ error: 'key required' });
+    // Mare App 5 — pictures shipped with the app (public/images/…) are
+    // served as they are; everything else is in storage (signed link).
+    if (/^\/images\/[A-Za-z0-9._-]+$/.test(key)) return res.json({ url: key });
     const url = await media.getPlaybackUrl(key);
     res.json({ url });
   } catch (e) {

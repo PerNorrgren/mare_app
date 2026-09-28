@@ -1004,6 +1004,24 @@ Volgende maand verschijnt er een nieuw raadsel uit het Fluisterbos. 🌲🔎', ?
     }
   }
 
+  // Mare App 5 — one-off changes that must run once only, ever (so a
+  // later edit in Admin is never overwritten at the next restart).
+  db.run(`CREATE TABLE IF NOT EXISTS app_once (key TEXT PRIMARY KEY, done_at TEXT DEFAULT (datetime('now')))`);
+  const once = (key, fn) => {
+    const r = db.exec(`SELECT 1 FROM app_once WHERE key = '${key}'`);
+    if (r.length && r[0].values.length) return;
+    fn();
+    db.run(`INSERT INTO app_once (key) VALUES (?)`, [key]);
+  };
+  // The lavender pouch gets its picture (Mare holding the pouch), shipped
+  // as public/images/mare-lavender-pouch.jpg. Change it later in Admin →
+  // Merchandise like any other product photo.
+  once('lavender-pouch-photo-v1', () => {
+    const img = '/images/mare-lavender-pouch.jpg';
+    db.run(`UPDATE products SET image_key = ?, image_keys_json = ? WHERE lower(name) LIKE '%lavender%' OR lower(COALESCE(name_nl, '')) LIKE '%lavendel%'`,
+      [img, JSON.stringify([img])]);
+  });
+
   // Mare App 5 — Mare's October 2026 letter, ready as a draft in Admin →
   // Club Mare → Mare's monthly post: test it, then send. Added once.
   db.run(`INSERT OR IGNORE INTO mare_posts (id, month, subject_en, subject_nl, body_en, body_nl, status) VALUES (?,?,?,?,?,?,'draft')`, [
