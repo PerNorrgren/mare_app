@@ -118,7 +118,7 @@
         submitBtn.disabled = false;
         return;
       }
-      window.location.href = '/';
+      window.location.href = '/companion.html'; // Mare App 5 — parents start in the Book Companion
     } catch {
       showError('errorGeneric');
       submitBtn.disabled = false;
@@ -196,7 +196,7 @@
     // Already signed in? No reason to show a login form. A teacher session
     // here (e.g. an old bookmark) still gets routed to their own hub.
     const user = await checkSession();
-    if (user) window.location.href = user.role === 'teacher' ? '/teacher.html' : '/';
+    if (user) window.location.href = user.role === 'teacher' ? '/teacher.html' : (user.role === 'parent' ? '/companion.html' : '/');
   }
 
   init();

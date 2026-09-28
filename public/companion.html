@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mare — The Book Companion</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/style.css">
+<link rel="stylesheet" href="/css/day.css">
+</head>
+<body class="day auth-atmosphere">
+<div class="bg-slideshow-wrap" id="bg-slideshow"></div>
+<div class="bg-veil"></div>
+<header class="topbar">
+  <a href="/companion.html" class="brand" style="text-decoration:none;">
+    <span class="brand-mark" aria-hidden="true">
+      <svg viewBox="0 0 40 40" width="28" height="28"><path d="M20 4c-7 0-13 6-13 14 0 9 8 15 13 18 5-3 13-9 13-18 0-8-6-14-13-14z" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="20" cy="17" r="3" fill="currentColor"/></svg>
+    </span>
+    <span class="brand-word" data-i18n="brand">Mare</span>
+  </a>
+  <nav class="topbar-actions">
+    <div class="lang-switch" id="lang-switch" aria-label="Language">
+      <button type="button" class="lang-btn" data-lang="en">EN</button>
+      <button type="button" class="lang-btn" data-lang="nl">NL</button>
+    </div>
+    <a href="/account.html" class="btn-ghost" data-i18n="companionNavAccount">My account</a>
+    <button type="button" class="btn-ghost" id="topbar-signout-btn" data-i18n="teacherSignOut">Sign out</button>
+  </nav>
+</header>
+
+<main class="shop-main companion-main">
+  <section class="hero">
+    <h1 data-i18n="companionTitle">The Book Companion</h1>
+    <p class="hero-sub" id="cp-hello" data-i18n="companionSub">Everything for reading Mare together</p>
+  </section>
+
+  <!-- 1. The picture book + where you are -->
+  <section class="whisper" id="cp-book">
+    <div class="whisper-card cp-book-card">
+      <span class="whisper-label" data-i18n="companionBookLabel">The picture book</span>
+      <h2 data-i18n="companionBookTitle">Read, listen and explore</h2>
+      <p class="whisper-body" data-i18n="companionBookBody">Every part of the story has its own picture. Tap the glowing spots to hear sounds, watch little films and discover secrets hidden in the Whispering Woods.</p>
+      <div class="cp-row">
+        <a class="btn-primary" id="cp-read-btn" href="/reader.html" data-i18n="companionBookOpen">Open the picture book →</a>
+        <span class="whisper-note" id="cp-progress-note" hidden data-i18n="companionBookContinue">It opens where you stopped last time.</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- 2. The practice for the chapter you are reading now -->
+  <section class="whisper" id="cp-practice">
+    <div class="whisper-card cp-practice-card">
+      <span class="whisper-label" data-i18n="companionPracticeLabel">A small practice for this chapter</span>
+      <div class="cp-chapter-row">
+        <label for="cp-chapter" data-i18n="companionChapterLabel">We are reading</label>
+        <select id="cp-chapter"></select>
+      </div>
+      <h2 id="cp-practice-title"></h2>
+      <div class="cp-practice-body" id="cp-practice-body"></div>
+      <p class="whisper-note" data-i18n="companionPracticeNote">Do it together, in a minute or two. There is no right or wrong: just notice.</p>
+    </div>
+  </section>
+
+  <!-- 3. Everything else -->
+  <section class="whisper" id="cp-links">
+    <div class="whisper-card">
+      <span class="whisper-label" data-i18n="companionMoreLabel">More in Mare's world</span>
+      <div class="cp-tiles">
+        <a class="cp-tile" href="/talk.html"><span class="cp-ico" aria-hidden="true">💬</span><strong data-i18n="companionTileTalk">Talk with Mare</strong><span data-i18n="companionTileTalkSub">Chat with Mare about the story and your day</span></a>
+        <a class="cp-tile" href="/club-mare.html"><span class="cp-ico" aria-hidden="true">🌳</span><strong data-i18n="companionTileClub">Club Mare</strong><span data-i18n="companionTileClubSub">The Whisper Word, Mare's question and missions</span></a>
+        <a class="cp-tile" href="/riddle.html"><span class="cp-ico" aria-hidden="true">🔍</span><strong data-i18n="companionTileRiddle">Riddles</strong><span data-i18n="companionTileRiddleSub">Hunt for clues in the book and crack the code</span></a>
+        <a class="cp-tile" href="/forest.html"><span class="cp-ico" aria-hidden="true">✨</span><strong data-i18n="companionTileForest">The Forest of Words</strong><span data-i18n="companionTileForestSub">See every word children have planted</span></a>
+        <a class="cp-tile" href="/club-mare.html#mk"><span class="cp-ico" aria-hidden="true">🎨</span><strong data-i18n="companionTileMakers">Makers' Corner</strong><span data-i18n="companionTileMakersSub">Show Mare something you made</span></a>
+        <a class="cp-tile" href="/merchandise.html"><span class="cp-ico" aria-hidden="true">🛍️</span><strong data-i18n="companionTileShop">Mare's Shop</strong><span data-i18n="companionTileShopSub">The book, the guide and little gifts</span></a>
+      </div>
+    </div>
+  </section>
+
+  <!-- 4. Write to Mare -->
+  <section class="whisper" id="cp-message">
+    <div class="whisper-card">
+      <span class="whisper-label" data-i18n="companionMsgLabel">Write to Mare</span>
+      <h2 data-i18n="companionMsgTitle">Send Mare a message</h2>
+      <p class="whisper-body" data-i18n="companionMsgBody">A question about the story, something you noticed, or a word you love. Mare writes back, usually within a few days. Her answer appears here and in your email.</p>
+      <form id="cp-msg-form" class="cp-form">
+        <div class="cp-row">
+          <label for="cp-msg-child" data-i18n="companionMsgFrom">From</label>
+          <select id="cp-msg-child"></select>
+        </div>
+        <textarea id="cp-msg-text" rows="4" maxlength="1500" data-i18n-ph="companionMsgPh"></textarea>
+        <p class="whisper-note" data-i18n="companionMsgSafety">Please don't include addresses, school names or other private details.</p>
+        <button type="submit" class="btn-primary" data-i18n="companionMsgSend">Send to Mare</button>
+        <p class="whisper-thanks" id="cp-msg-status" role="status" hidden></p>
+      </form>
+      <div class="cp-msgs" id="cp-msgs"></div>
+    </div>
+  </section>
+
+  <!-- 5. Rate the book -->
+  <section class="whisper" id="cp-rate">
+    <div class="whisper-card cp-rate-card">
+      <span class="whisper-label" data-i18n="companionRateLabel">What do you think of the book?</span>
+      <h2 id="cp-rate-title" data-i18n="companionRateTitle">Rate Mare and the Whispering Woods of Words</h2>
+      <p class="whisper-body" id="cp-rate-body"></p>
+      <div class="cp-stars" id="cp-stars" role="radiogroup" data-i18n-aria="companionRateStars"></div>
+      <textarea id="cp-rate-comment" rows="3" maxlength="1000"></textarea>
+      <button type="button" class="btn-primary" id="cp-rate-btn" data-i18n="companionRateSend">Send my rating</button>
+      <div class="cp-code" id="cp-code" hidden>
+        <p id="cp-code-text"></p>
+        <div class="cp-row"><span class="cp-code-value" id="cp-code-value"></span>
+          <button type="button" class="btn-ghost btn-small" id="cp-code-copy" data-i18n="homeNoticeCopy">Copy code</button>
+          <a class="btn-ghost btn-small" href="/merchandise.html" data-i18n="companionTileShop">Mare's Shop</a></div>
+      </div>
+      <p class="form-error" id="cp-rate-error" hidden></p>
+    </div>
+  </section>
+</main>
+
+<script src="/js/i18n.js"></script>
+<script src="/js/mare-helper-widget.js"></script>
+<script src="/js/bg-slideshow.js"></script>
+<script src="/js/companion.js"></script>
+<script>window.MareBgSlideshow.init('bg-slideshow', ['/images/mare-front-cover.jpg', '/images/mare-back-cover.jpg']);</script>
+</body>
+</html>

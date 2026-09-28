@@ -314,7 +314,7 @@
     link.hidden = false;
     link.href = user.role === 'teacher' ? '/teacher.html'
       : (user.role === 'admin' || user.role === 'support') ? '/admin.html'
-      : '/account.html';
+      : '/companion.html'; // Mare App 5 — a parent's home is the Book Companion
     link.removeAttribute('data-i18n');
     link.textContent = user.name ? window.MareI18n.t('hiName', { name: user.name }) : window.MareI18n.t('parentNavLabel');
     const signOutBtn = document.getElementById('topbar-signout-btn');

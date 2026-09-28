@@ -298,6 +298,7 @@ module.exports = {
   PUBLIC_URL: APP_URL,
   sendOrderNotification,
   sendEmail,
+  wrapHtml,
   sendWelcomeParentEmail,
   sendWelcomeTeacherEmail,
   sendStaffWelcomeEmail,

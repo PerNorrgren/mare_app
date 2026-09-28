@@ -192,7 +192,7 @@ app.post('/api/admin/login', async (req, res) => {
 // accounts whose password matches are found; one match signs straight
 // in, several return a short-lived choice token and the page shows a
 // small "where would you like to go?" popup (role-chooser.js).
-const HOME_FOR_ROLE = { parent: '/', teacher: '/teacher.html', admin: '/admin.html', support: '/admin.html', editor: '/editor.html' };
+const HOME_FOR_ROLE = { parent: '/companion.html', teacher: '/teacher.html', admin: '/admin.html', support: '/admin.html', editor: '/editor.html' };
 app.post('/api/login-any', async (req, res) => {
   const { email: rawEmail, password } = req.body || {};
   const e = rawEmail || '', p = password || '';
@@ -556,6 +556,8 @@ function getOptionalUser(req) {
 require('./whisper').register(app, { db, auth, media, anthropic, model: TALK_MODEL, getOptionalUser });
 // Riddles from the Whispering Woods — Club Mare step 6 (Mare App 4).
 require('./riddles').register(app, { db, auth, getOptionalUser });
+// Mare App 5 — The Book Companion (parent home after sign-in).
+require('./bookcompanion').register(app, { db, auth, email, anthropic, model: TALK_MODEL, publicUrl: PUBLIC_URL });
 // Mare's monthly post — Club Mare step 4 (Mare App 4). Links in the
 // letters use PUBLIC_URL (the live site; see email.js).
 require('./marepost').register(app, { db, auth, email, anthropic, model: TALK_MODEL,

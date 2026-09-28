@@ -199,6 +199,7 @@
         if (target === 'emaillog' && currentUser && currentUser.role === 'admin') loadEmailLog();
         if (target === 'backups' && currentUser && currentUser.role === 'admin') loadBackups();
         if (target === 'directory') { loadDirectory(); loadAdminSettings(); }
+        if (target === 'companion') loadCompanionAdmin();
       });
     });
   }
@@ -324,6 +325,101 @@
   { // admin.js runs at the end of <body>, so the panel already exists
     const c = document.getElementById('stat-detail-close');
     if (c) c.addEventListener('click', closeStatDetail);
+  }
+
+  // ── Mare App 5 — Book Companion admin ──
+  async function loadCompanionAdmin() {
+    let d;
+    try { d = await api('/api/admin/companion'); } catch (err) {
+      document.getElementById('cpa-messages').innerHTML = `<p class="form-error">${escapeHtml(err.message || t('errorGeneric'))}</p>`;
+      return;
+    }
+    // Messages to Mare: unanswered first.
+    const mbox = document.getElementById('cpa-messages');
+    mbox.innerHTML = d.messages.length ? '' : `<p class="admin-empty-note">${escapeHtml(t('adminCompanionNoMessages'))}</p>`;
+    d.messages.forEach(m => {
+      const el = document.createElement('div');
+      el.className = 'cpa-msg' + (m.reply ? ' answered' : '');
+      el.innerHTML = `
+        <div class="cpa-msg-head"><strong>${escapeHtml(m.child_name || m.parent_name || '')}</strong>
+          <span class="admin-empty-note">${escapeHtml(m.parent_name || '')} · ${escapeHtml(m.parent_email || '')} · ${escapeHtml(m.created_at)} · ${escapeHtml((m.preferred_locale || 'en').toUpperCase())}</span>
+          ${m.reply ? `<span class="role-pill">${escapeHtml(t('adminCompanionReplied'))}</span>` : ''}</div>
+        <p class="cpa-msg-text">${escapeHtml(m.message).replace(/\n/g, '<br>')}</p>
+        <textarea data-editor="plain" class="cpa-reply" rows="4">${escapeHtml(m.reply || '')}</textarea>
+        <div class="cpa-msg-btns">
+          <button type="button" class="btn-ghost btn-small cpa-suggest">${escapeHtml(t('adminCompanionSuggest'))}</button>
+          <button type="button" class="btn-primary btn-small cpa-send">${escapeHtml(t('adminCompanionSendReply'))}</button>
+          <span class="staff-row-msg" role="status"></span>
+        </div>`;
+      const say = (ok, txt) => { const s2 = el.querySelector('.staff-row-msg'); s2.textContent = txt; s2.className = 'staff-row-msg ' + (ok ? 'ok' : 'err'); };
+      el.querySelector('.cpa-suggest').addEventListener('click', async () => {
+        try {
+          const out = await api(`/api/admin/companion/messages/${m.id}/suggest`, { method: 'POST' });
+          el.querySelector('.cpa-reply').value = out.reply || '';
+        } catch (err) { say(false, err.message || t('errorGeneric')); }
+      });
+      el.querySelector('.cpa-send').addEventListener('click', async () => {
+        const reply = el.querySelector('.cpa-reply').value.trim();
+        if (!reply) { say(false, t('errorGeneric')); return; }
+        try {
+          const out = await api(`/api/admin/companion/messages/${m.id}/reply`, { method: 'POST', body: JSON.stringify({ reply }) });
+          say(true, t(out.emailed ? 'adminCompanionReplySent' : 'adminCompanionReplySaved'));
+          el.classList.add('answered');
+        } catch (err) { say(false, err.message || t('errorGeneric')); }
+      });
+      mbox.appendChild(el);
+    });
+
+    // Practices, one per chapter (collapsed; open to edit).
+    const pbox = document.getElementById('cpa-practices');
+    pbox.innerHTML = '';
+    d.practices.forEach(p => {
+      const el = document.createElement('details');
+      el.className = 'cpa-practice';
+      el.innerHTML = `<summary><strong>${escapeHtml(t('companionChapterN', { n: p.chapter_no }))}</strong> · ${escapeHtml(p.chapter_title_en)} — ${escapeHtml(p.title_en)}</summary>
+        <div class="admin-form-row">
+          <div class="field"><label>${escapeHtml(t('adminCompanionChapterTitle'))} (EN)</label><input type="text" class="cpa-ct-en" value="${escapeHtml(p.chapter_title_en)}"></div>
+          <div class="field"><label>${escapeHtml(t('adminCompanionChapterTitle'))} (NL)</label><input type="text" class="cpa-ct-nl" value="${escapeHtml(p.chapter_title_nl)}"></div>
+        </div>
+        <div class="admin-form-row">
+          <div class="field"><label>${escapeHtml(t('adminCompanionPracticeTitle'))} (EN)</label><input type="text" class="cpa-t-en" value="${escapeHtml(p.title_en)}"></div>
+          <div class="field"><label>${escapeHtml(t('adminCompanionPracticeTitle'))} (NL)</label><input type="text" class="cpa-t-nl" value="${escapeHtml(p.title_nl)}"></div>
+        </div>
+        <div class="admin-form-row">
+          <div class="field"><label>${escapeHtml(t('adminCompanionPracticeBody'))} (EN)</label><textarea data-editor="plain" class="cpa-b-en" rows="9">${escapeHtml(p.body_en)}</textarea></div>
+          <div class="field"><label>${escapeHtml(t('adminCompanionPracticeBody'))} (NL)</label><textarea data-editor="plain" class="cpa-b-nl" rows="9">${escapeHtml(p.body_nl)}</textarea></div>
+        </div>
+        <button type="button" class="btn-primary btn-small cpa-save">${escapeHtml(t('adminSaveItem'))}</button> <span class="staff-row-msg" role="status"></span>`;
+      el.querySelector('.cpa-save').addEventListener('click', async () => {
+        const q = (c) => el.querySelector(c).value;
+        const msg = el.querySelector('.staff-row-msg');
+        try {
+          await api(`/api/admin/companion/practices/${p.chapter_no}`, { method: 'PUT', body: JSON.stringify({
+            chapterTitleEn: q('.cpa-ct-en'), chapterTitleNl: q('.cpa-ct-nl'), titleEn: q('.cpa-t-en'), titleNl: q('.cpa-t-nl'), bodyEn: q('.cpa-b-en'), bodyNl: q('.cpa-b-nl'),
+          }) });
+          msg.textContent = t('adminSaved'); msg.className = 'staff-row-msg ok';
+        } catch (err) { msg.textContent = err.message || t('errorGeneric'); msg.className = 'staff-row-msg err'; }
+      });
+      pbox.appendChild(el);
+    });
+
+    // Ratings.
+    const sum = d.ratingSummary || { count: 0 };
+    document.getElementById('cpa-rating-summary').textContent = sum.count ? t('adminCompanionRatingsSummary', { count: sum.count, average: sum.average }) : t('adminCompanionNoRatings');
+    document.getElementById('cpa-percent').value = d.ratingPercent;
+    const rbox = document.getElementById('cpa-ratings');
+    rbox.innerHTML = d.ratings && d.ratings.length ? `<div class="stat-detail-scroll"><table class="admin-table"><thead><tr>
+        <th>★</th><th>${escapeHtml(t('adminFieldName'))}</th><th>${escapeHtml(t('adminFieldEmail'))}</th><th></th><th>Code</th><th>${escapeHtml(t('adminStatColDate'))}</th></tr></thead><tbody>
+        ${d.ratings.map(r => `<tr><td>${'★'.repeat(r.stars)}</td><td>${escapeHtml(r.name || '')}</td><td>${escapeHtml(r.email || '')}</td><td>${escapeHtml(r.comment || '')}</td><td>${escapeHtml(r.discount_code || '')}</td><td>${escapeHtml(r.updated_at)}</td></tr>`).join('')}
+      </tbody></table></div>` : '';
+  }
+  {
+    const b = document.getElementById('cpa-percent-save');
+    if (b) b.addEventListener('click', async () => {
+      try {
+        await api('/api/admin/companion/rating-percent', { method: 'PUT', body: JSON.stringify({ percent: Number(document.getElementById('cpa-percent').value) }) });
+      } catch (err) { alert(err.message || t('errorGeneric')); }
+    });
   }
 
   // ── Teacher resources ──

@@ -1699,3 +1699,52 @@ button.stat-item.is-busy::after, button.stat-item.is-done::after, button.stat-it
 .pe-plain .ql-editor p { margin: 0; }
 .pe-toolbar { padding: 4px 6px !important; }
 .pe-toolbar .pe-btn { font-size: 0.74rem !important; }
+
+/* Mare App 5 — The Book Companion (parents' home) */
+.companion-main .whisper-card h2 { margin: 2px 0 10px; }
+.cp-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.cp-book-card { border-color: rgba(226,190,110,0.8); }
+.cp-chapter-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 4px 0 12px; }
+.cp-chapter-row label { font-weight: 700; font-size: 0.88rem; color: rgba(243,236,217,0.8); }
+.cp-chapter-row select, .cp-form select { font: inherit; font-size: 0.92rem; padding: 7px 10px; border-radius: 10px; border: 1.5px solid rgba(243,236,217,0.3); background: rgba(10,20,16,0.6); color: #F3ECD9; max-width: 100%; }
+.cp-practice-body { color: #F3ECD9; line-height: 1.6; }
+.cp-practice-body p { margin: 0 0 10px; }
+.cp-practice-body ol { margin: 0 0 12px; padding-left: 22px; }
+.cp-practice-body li { margin-bottom: 6px; }
+.cp-practice-body .cp-talk { background: rgba(226,190,110,0.12); border-left: 3px solid var(--gold); padding: 8px 12px; border-radius: 8px; }
+.cp-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 12px; margin-top: 8px; }
+.cp-tile { display: flex; flex-direction: column; gap: 4px; padding: 14px; border-radius: 14px; text-decoration: none; background: rgba(243,236,217,0.06); border: 1px solid rgba(243,236,217,0.18); color: #F3ECD9; transition: border-color 0.15s ease, transform 0.1s ease; }
+.cp-tile:hover, .cp-tile:focus-visible { border-color: var(--gold); outline: none; transform: translateY(-1px); }
+.cp-tile strong { color: var(--gold); font-family: 'Fraunces', serif; font-size: 1.05rem; }
+.cp-tile span:not(.cp-ico) { font-size: 0.86rem; color: rgba(243,236,217,0.78); }
+.cp-ico { font-size: 1.5rem; }
+.cp-form { display: flex; flex-direction: column; gap: 10px; }
+.cp-form label { font-weight: 700; font-size: 0.88rem; color: rgba(243,236,217,0.8); }
+.cp-form textarea, .cp-rate-card textarea { font: inherit; padding: 10px 12px; border-radius: 12px; border: 1.5px solid rgba(243,236,217,0.3); background: rgba(10,20,16,0.6); color: #F3ECD9; resize: vertical; width: 100%; box-sizing: border-box; }
+.cp-form textarea::placeholder, .cp-rate-card textarea::placeholder { color: rgba(243,236,217,0.45); }
+.cp-form .btn-primary { align-self: flex-start; }
+.cp-msgs h3 { font-family: 'Fraunces', serif; color: var(--gold); margin: 18px 0 8px; font-size: 1.05rem; }
+.cp-msg { border-top: 1px solid rgba(243,236,217,0.15); padding: 10px 0; }
+.cp-msg p { margin: 0 0 6px; color: #F3ECD9; line-height: 1.5; }
+.cp-msg p span { font-weight: 700; color: rgba(243,236,217,0.7); }
+.cp-msg-mare { background: rgba(226,190,110,0.12); border-radius: 10px; padding: 8px 12px; }
+.cp-msg-mare span { color: var(--gold) !important; }
+.cp-msg-wait { font-size: 0.85rem; color: rgba(243,236,217,0.6) !important; font-style: italic; }
+.cp-stars { display: flex; gap: 4px; margin: 6px 0 12px; }
+.cp-star { font-size: 2rem; line-height: 1; background: none; border: 0; cursor: pointer; color: rgba(243,236,217,0.3); padding: 2px; transition: transform 0.1s ease, color 0.1s ease; }
+.cp-star.on { color: var(--gold); }
+.cp-star:hover { transform: scale(1.12); }
+.cp-rate-card textarea { margin-bottom: 12px; }
+.cp-code { margin-top: 14px; padding: 12px 14px; border-radius: 12px; background: rgba(226,190,110,0.14); border: 1px dashed var(--gold); }
+.cp-code p { margin: 0 0 8px; color: #F3ECD9; }
+.cp-code-value { font-family: ui-monospace, Menlo, monospace; font-size: 1.2rem; font-weight: 700; color: var(--gold); letter-spacing: 0.08em; }
+/* admin */
+.cp-admin-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+.cpa-msg { border: 1px solid rgba(22,48,92,0.12); border-left: 4px solid var(--gold); border-radius: 10px; padding: 10px 12px; margin-bottom: 12px; }
+.cpa-msg.answered { border-left-color: #2E7D4F; opacity: 0.85; }
+.cpa-msg-head { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+.cpa-msg-text { margin: 6px 0 8px; color: var(--navy); }
+.cpa-msg-btns { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 8px; }
+.cpa-practice { border: 1px solid rgba(22,48,92,0.12); border-radius: 10px; padding: 8px 12px; margin-bottom: 8px; }
+.cpa-practice summary { cursor: pointer; color: var(--navy); }
+.cpa-practice[open] summary { margin-bottom: 10px; }

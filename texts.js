@@ -28,6 +28,7 @@ const HIDDEN_PREFIXES = ['admin', 'staff', 'editor'];
 // Which page a text belongs to, from its key - for grouping on the
 // editor page. First match wins.
 const GROUPS = [
+  ['companion', /^companion/],
   ['home', /^(showcase|home|hero|press|brand|nav|talkToMare|clubMare$|clubMareSub$|maresShop|teachersTile)/],
   ['teacher', /^teacher/],
   ['club', /^(clubMare|whisper|wq|forest)/],

@@ -81,6 +81,7 @@
       <button type="button" class="admin-tab" data-tab="marketing" data-i18n="adminTabMarketing">Sales &amp; Marketing</button>
       <button type="button" class="admin-tab" data-tab="showcase" data-i18n="adminTabShowcase">Showcase Page</button>
       <button type="button" class="admin-tab" data-tab="clubmare" data-i18n="adminTabClubMare">Club Mare</button>
+      <button type="button" class="admin-tab" data-tab="companion" data-i18n="adminTabCompanion">Book Companion</button>
       <button type="button" class="admin-tab" data-tab="directory" data-i18n="adminTabDirectory">Parents &amp; Teachers</button>
       <button type="button" class="admin-tab admin-only-tab" data-tab="emaillog" hidden data-i18n="adminTabEmailLog">Email Log</button>
       <button type="button" class="admin-tab admin-only-tab" data-tab="staff" hidden data-i18n="adminTabStaff">Staff Accounts</button>
@@ -680,6 +681,41 @@
     </div>
 
     <!-- Club Mare -->
+    <!-- Mare App 5 — The Book Companion (parents' home after sign-in) -->
+    <div class="admin-panel" id="panel-companion">
+      <div class="admin-card">
+        <h2 data-i18n="adminTabCompanion">Book Companion</h2>
+        <p class="admin-card-sub" data-i18n="adminCompanionDesc">The parents' home page after they sign in.</p>
+        <div class="cp-admin-actions">
+          <a class="btn-primary" href="/editor.html?group=companion" target="_blank" rel="noopener" data-i18n="adminCompanionTexts">Change the Companion page texts</a>
+          <a class="btn-ghost" href="/companion.html" target="_blank" rel="noopener" data-i18n="adminCompanionOpenPage">View the page</a>
+        </div>
+      </div>
+      <div class="admin-card">
+        <h2 data-i18n="adminCompanionMessages">Messages to Mare</h2>
+        <p class="admin-card-sub" data-i18n="adminCompanionMessagesDesc">Answer as Mare.</p>
+        <div id="cpa-messages"><p class="admin-empty-note" data-i18n="adminLoading">Loading…</p></div>
+      </div>
+      <div class="admin-card">
+        <h2 data-i18n="adminCompanionPractices">A practice for each chapter</h2>
+        <p class="admin-card-sub" data-i18n="adminCompanionPracticesDesc">Shown to families for the chapter they are reading.</p>
+        <div id="cpa-practices"></div>
+      </div>
+      <div class="admin-card">
+        <h2 data-i18n="adminCompanionRatings">Book ratings</h2>
+        <p class="admin-card-sub" id="cpa-rating-summary"></p>
+        <div class="admin-form-row admin-only-tab" id="cpa-percent-row">
+          <div class="field" style="max-width:220px;">
+            <label for="cpa-percent" data-i18n="adminCompanionPercent">Discount for rating (%)</label>
+            <input type="number" id="cpa-percent" min="1" max="90" step="1">
+          </div>
+          <div class="field" style="align-self:flex-end;"><button type="button" class="btn-primary btn-small" id="cpa-percent-save" data-i18n="adminSaveItem">Save</button></div>
+        </div>
+        <p class="admin-empty-note admin-only-tab" data-i18n="adminCompanionPercentHint">Every family that rates the book gets a personal code.</p>
+        <div id="cpa-ratings"></div>
+      </div>
+    </div>
+
     <div class="admin-panel" id="panel-clubmare">
       <div class="admin-card">
         <h2 data-i18n="adminOverviewStatsTitle">At a glance</h2>

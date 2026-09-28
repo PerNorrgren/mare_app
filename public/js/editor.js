@@ -5,9 +5,10 @@
 (function () {
   const t = (key, vars) => window.MareI18n.t(key, vars);
   const PAGE = 40;
-  const GROUP_ORDER = ['home', 'teacher', 'club', 'shop', 'reader', 'talk', 'account', 'other'];
+  const GROUP_ORDER = ['home', 'companion', 'teacher', 'club', 'shop', 'reader', 'talk', 'account', 'other'];
   let texts = [];
-  let group = 'all';
+  // ?group=companion opens the editor on one page's texts (Mare App 5).
+  let group = new URLSearchParams(window.location.search).get('group') || 'all';
   let shown = PAGE;
 
   function autoGrow(el) { el.style.height = 'auto'; el.style.height = `${el.scrollHeight + 2}px`; }
