@@ -75,7 +75,10 @@ function register(app, { db, auth, email }) {
     res.json(dict);
   });
 
-  const editors = auth.requireAuthApi(['editor', 'admin']);
+  // Mare App 5 — Support may edit the site texts too (their welcome
+  // email and the admin both say so); v55 and earlier let only Editor and
+  // Admin in, so Support was sent straight back to the admin page.
+  const editors = auth.requireAuthApi(['editor', 'admin', 'support']);
 
   app.get('/api/editor/texts', editors, (req, res) => {
     const overrides = {};
