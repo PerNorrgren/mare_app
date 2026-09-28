@@ -86,6 +86,12 @@
       return;
     }
     $('cp-hello').textContent = t('companionHello', { name: data.name || '' });
+    if (data.preview) {
+      $('cp-preview').hidden = false;
+      document.querySelectorAll('#cp-msg-form button, #cp-msg-form textarea, #cp-msg-form select, #cp-rate-btn, #cp-rate-comment').forEach(el => { el.disabled = true; });
+      document.querySelector('.topbar-actions a[href="/account.html"]').setAttribute('href', '/admin.html');
+      document.querySelector('.topbar-actions a[href="/admin.html"]').textContent = t('companionBackToAdmin');
+    }
     if (data.book) $('cp-read-btn').href = `/reader.html?book=${encodeURIComponent(data.book.slug)}`;
     $('cp-progress-note').hidden = !data.hasProgress;
     renderChapters();

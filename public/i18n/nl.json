@@ -1126,5 +1126,9 @@
   "adminCompanionRatingsSummary": "{count} beoordelingen, gemiddeld {average} ★",
   "adminCompanionPercent": "Korting voor een beoordeling (%)",
   "adminCompanionPercentHint": "Elk gezin dat het boek beoordeelt (elke score) krijgt een persoonlijke code voor deze korting, 3 maanden geldig.",
-  "adminCompanionNoRatings": "Nog geen beoordelingen."
+  "adminCompanionNoRatings": "Nog geen beoordelingen.",
+  "companionPreview": "Voorbeeld voor medewerkers: zo zien ouders deze pagina. Berichten sturen en beoordelen staan hier uit.",
+  "companionBackToAdmin": "Terug naar beheer",
+  "adminTryAgain": "Opnieuw proberen",
+  "adminCompanionSlow": "Het laden van de Boekgids duurt te lang."
 }

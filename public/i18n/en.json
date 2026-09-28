@@ -1126,5 +1126,9 @@
   "adminCompanionRatingsSummary": "{count} ratings, average {average} ★",
   "adminCompanionPercent": "Discount for rating (%)",
   "adminCompanionPercentHint": "Every family that rates the book (any score) gets a personal code for this discount, valid for 3 months.",
-  "adminCompanionNoRatings": "No ratings yet."
+  "adminCompanionNoRatings": "No ratings yet.",
+  "companionPreview": "Preview for staff: this is what parents see. Sending messages and rating are switched off here.",
+  "companionBackToAdmin": "Back to admin",
+  "adminTryAgain": "Try again",
+  "adminCompanionSlow": "The Book Companion is taking too long to load."
 }

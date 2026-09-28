@@ -11,6 +11,10 @@ const crypto = require('crypto');
 
 function register(app, { db, auth, email, anthropic, model, publicUrl }) {
   const parentOnly = auth.requireAuthApi(['parent']);
+  // Staff may open the page too ("View the page" in Admin): they see a
+  // preview with the real practices; sending and rating stay off.
+  const parentOrStaff = auth.requireAuthApi(['parent', 'admin', 'support', 'editor']);
+  const isStaff = (req) => req.user.role !== 'parent';
   const staff = auth.requireAuthApi(['admin', 'support']);
   const adminOnly = auth.requireAuthApi(['admin']);
   const nlOf = (req, parent) => ((req.query.lang || (req.body && req.body.lang)) === 'nl' || (!req.query.lang && parent && parent.preferred_locale === 'nl'));
@@ -41,7 +45,27 @@ function register(app, { db, auth, email, anthropic, model, publicUrl }) {
     return 1;
   }
 
-  app.get('/api/companion', parentOnly, (req, res) => {
+  app.get('/api/companion', parentOrStaff, (req, res) => {
+    if (isStaff(req)) {
+      const nl = req.query.lang === 'nl';
+      const books = db.getAllBooks ? db.getAllBooks() : [];
+      const book = books.find(b => b.active !== 0 && b.locale === (nl ? 'nl' : 'en')) || books.find(b => b.active !== 0) || null;
+      const chapterNo = Number(req.query.chapter) || 1;
+      return res.json({
+        preview: true,
+        name: String(req.user.name || '').split(/\s+/)[0],
+        book: book ? { slug: book.slug, title: book.title } : null,
+        hasProgress: false,
+        chapter: chapterNo,
+        chapters: db.companionPractices().map(p => ({ no: p.chapter_no, title: (nl && p.chapter_title_nl) || p.chapter_title_en })),
+        practice: practiceFor(chapterNo, nl),
+        children: [],
+        clubMember: true,
+        rating: null,
+        ratingPercent: (db.getAppConfig() || {}).rating_discount_percent || 10,
+        messages: [],
+      });
+    }
     const parent = db.getParentById(req.user.id);
     if (!parent) return res.status(404).json({ error: 'Not found' });
     const nl = nlOf(req, parent);
@@ -66,9 +90,10 @@ function register(app, { db, auth, email, anthropic, model, publicUrl }) {
     });
   });
 
-  app.post('/api/companion/chapter', parentOnly, (req, res) => {
+  app.post('/api/companion/chapter', parentOrStaff, (req, res) => {
     const n = Math.round(Number(req.body && req.body.chapter));
     if (!db.companionPractice(n)) return res.status(400).json({ error: 'Unknown chapter' });
+    if (isStaff(req)) return res.json({ ok: true, chapter: n, practice: practiceFor(n, req.query.lang === 'nl') });
     db.setCompanionChapter(req.user.id, n);
     const parent = db.getParentById(req.user.id);
     res.json({ ok: true, chapter: n, practice: practiceFor(n, nlOf(req, parent)) });

@@ -1748,3 +1748,8 @@ button.stat-item.is-busy::after, button.stat-item.is-done::after, button.stat-it
 .cpa-practice { border: 1px solid rgba(22,48,92,0.12); border-radius: 10px; padding: 8px 12px; margin-bottom: 8px; }
 .cpa-practice summary { cursor: pointer; color: var(--navy); }
 .cpa-practice[open] summary { margin-bottom: 10px; }
+
+/* Mare App 5 — Book Companion staff preview banner */
+.cp-preview { max-width: 720px; margin: 0 auto 18px; padding: 10px 16px; border-radius: 12px; background: #FFF4E0; color: #8A4B00; font-weight: 600; font-size: 0.9rem; text-align: center; }
+.cp-preview[hidden] { display: none; }
+.companion-main button:disabled, .companion-main textarea:disabled, .companion-main select:disabled { opacity: 0.5; cursor: not-allowed; }

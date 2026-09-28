@@ -177,6 +177,7 @@
     loadClubMareMembers();
     loadClubMarePosts();
     loadClubMareStats();
+    loadCompanionAdmin();
     if (isAdmin) loadStaff();
     if (isAdmin) loadEmailLog();
     if (isAdmin) setupClearEmailLog();
@@ -328,12 +329,27 @@
   }
 
   // ── Mare App 5 — Book Companion admin ──
+  // Never leaves the tab on "Loading…": a slow or failed load says so,
+  // with a Try again button, and a rendering problem shows its message.
   async function loadCompanionAdmin() {
+    const mboxEl = document.getElementById('cpa-messages');
+    const fail = (msg) => {
+      mboxEl.innerHTML = `<p class="form-error">${escapeHtml(msg || t('errorGeneric'))}</p><button type="button" class="btn-ghost btn-small" id="cpa-retry">${escapeHtml(t('adminTryAgain'))}</button>`;
+      document.getElementById('cpa-retry').addEventListener('click', loadCompanionAdmin);
+    };
+    mboxEl.innerHTML = `<p class="admin-empty-note">${escapeHtml(t('adminLoading'))}</p>`;
     let d;
-    try { d = await api('/api/admin/companion'); } catch (err) {
-      document.getElementById('cpa-messages').innerHTML = `<p class="form-error">${escapeHtml(err.message || t('errorGeneric'))}</p>`;
-      return;
-    }
+    try {
+      d = await Promise.race([
+        api('/api/admin/companion'),
+        new Promise((_, rej) => setTimeout(() => rej(new Error(t('adminCompanionSlow'))), 20000)),
+      ]);
+    } catch (err) { fail(err.message); return; }
+    try { renderCompanionAdmin(d); } catch (err) { console.error(err); fail(`${t('errorGeneric')} (${err.message})`); }
+  }
+  function renderCompanionAdmin(d) {
+    d.messages = d.messages || [];
+    d.practices = d.practices || [];
     // Messages to Mare: unanswered first.
     const mbox = document.getElementById('cpa-messages');
     mbox.innerHTML = d.messages.length ? '' : `<p class="admin-empty-note">${escapeHtml(t('adminCompanionNoMessages'))}</p>`;
