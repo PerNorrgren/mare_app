@@ -1130,5 +1130,11 @@
   "companionPreview": "Voorbeeld voor medewerkers: zo zien ouders deze pagina. Berichten sturen en beoordelen staan hier uit.",
   "companionBackToAdmin": "Terug naar beheer",
   "adminTryAgain": "Opnieuw proberen",
-  "adminCompanionSlow": "Het laden van de Boekgids duurt te lang."
+  "adminCompanionSlow": "Het laden van de Boekgids duurt te lang.",
+  "adminViewAsTitle": "Bekijk de site als…",
+  "adminViewAsDesc": "Zie precies wat anderen zien. Een balk onderaan elke pagina laat zien als wie je kijkt en brengt je hier terug.",
+  "adminViewAsVisitor": "👤 Een bezoeker (niet ingelogd)",
+  "adminViewAsParent": "👪 Een ouder (voorbeeldgezin)",
+  "adminViewAsTeacher": "🍎 Een leerkracht (voorbeeldleerkracht)",
+  "adminViewAsNote": "Het voorbeeldgezin (Noor en Sam, lid van Club Mare) en de voorbeeldleerkracht zijn testaccounts: ze krijgen nooit e-mail en tellen niet mee in de cijfers. Wat je als hen doet (een woord planten, Mare schrijven) gebeurt echt, zodat je alles kunt testen."
 }

@@ -44,6 +44,9 @@ function htmlToText(html) {
 
 // meta: { kind, userId } — both optional. Returns {ok, id, error}.
 async function sendEmail(to, subject, html, meta = {}) {
+  // Mare App 5 — the "view as" preview accounts (@preview.mare.invalid)
+  // never get email; pretend it went, so nothing reports a failure.
+  if (/\.invalid$/i.test(String(to || '').trim())) return { ok: true, skipped: true };
   const kind = meta.kind || 'other';
   const id = db.uuid();
   db.run(

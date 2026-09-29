@@ -556,6 +556,43 @@ function getOptionalUser(req) {
 require('./whisper').register(app, { db, auth, media, anthropic, model: TALK_MODEL, getOptionalUser });
 // Riddles from the Whispering Woods — Club Mare step 6 (Mare App 4).
 require('./riddles').register(app, { db, auth, getOptionalUser });
+// Mare App 5 — "View the site as…" (Admin and Support). The staff
+// session is parked in its own cookie; the browser then gets a session
+// for the preview family / preview teacher, or none at all (a visitor).
+// A bar on every page (viewas-bar.js) shows it and leads back.
+const VIEWAS_BACK = 'mare_viewas_back';
+const VIEWAS_FLAG = 'mare_viewas';
+app.post('/api/admin/view-as', auth.requireAuthApi(['admin', 'support']), async (req, res) => {
+  const as = String((req.body && req.body.as) || '');
+  if (!['visitor', 'parent', 'teacher'].includes(as)) return res.status(400).json({ error: 'Choose visitor, parent or teacher' });
+  const staffToken = req.cookies[auth.COOKIE_NAME];
+  res.cookie(VIEWAS_BACK, staffToken, auth.COOKIE_OPTIONS);
+  res.cookie(VIEWAS_FLAG, as, { ...auth.COOKIE_OPTIONS, httpOnly: false });
+  if (as === 'visitor') {
+    res.clearCookie(auth.COOKIE_NAME);
+    return res.json({ ok: true, redirect: '/' });
+  }
+  const { parent, teacher } = db.ensurePreviewAccounts(await auth.hashPassword(crypto.randomBytes(24).toString('hex')));
+  const acct = as === 'parent' ? parent : teacher;
+  res.cookie(auth.COOKIE_NAME, auth.createToken({ role: as, id: acct.id, name: acct.name, email: acct.email }), auth.COOKIE_OPTIONS);
+  res.json({ ok: true, redirect: HOME_FOR_ROLE[as] });
+});
+app.get('/api/view-as', (req, res) => {
+  const back = auth.verifyToken(req.cookies[VIEWAS_BACK]);
+  if (!back || !['admin', 'support'].includes(back.role)) return res.json({ active: false });
+  const cur = auth.verifyToken(req.cookies[auth.COOKIE_NAME]);
+  res.json({ active: true, as: cur ? cur.role : 'visitor', staffName: String(back.name || '').split(/\s+/)[0] });
+});
+app.post('/api/view-as/exit', (req, res) => {
+  const token = req.cookies[VIEWAS_BACK];
+  const back = auth.verifyToken(token);
+  res.clearCookie(VIEWAS_BACK);
+  res.clearCookie(VIEWAS_FLAG);
+  if (!back || !['admin', 'support'].includes(back.role)) return res.json({ ok: true, redirect: '/login.html' });
+  res.cookie(auth.COOKIE_NAME, token, auth.COOKIE_OPTIONS);
+  res.json({ ok: true, redirect: '/admin.html' });
+});
+
 // Mare App 5 — The Book Companion (parent home after sign-in).
 require('./bookcompanion').register(app, { db, auth, email, anthropic, model: TALK_MODEL, publicUrl: PUBLIC_URL });
 // Mare's monthly post — Club Mare step 4 (Mare App 4). Links in the

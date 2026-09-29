@@ -90,6 +90,17 @@
 
     <!-- Overview -->
     <div class="admin-panel active" id="panel-overview">
+      <!-- Mare App 5 — see the site through someone else's eyes -->
+      <div class="admin-card viewas-card">
+        <h2 data-i18n="adminViewAsTitle">View the site as…</h2>
+        <p class="admin-card-sub" data-i18n="adminViewAsDesc">See exactly what others see. A bar at the bottom of every page shows who you are viewing as and brings you back here.</p>
+        <div class="viewas-btns">
+          <button type="button" class="btn-ghost" data-viewas="visitor" data-i18n="adminViewAsVisitor">👤 A visitor (not signed in)</button>
+          <button type="button" class="btn-ghost" data-viewas="parent" data-i18n="adminViewAsParent">👪 A parent (preview family)</button>
+          <button type="button" class="btn-ghost" data-viewas="teacher" data-i18n="adminViewAsTeacher">🍎 A teacher (preview teacher)</button>
+        </div>
+        <p class="admin-empty-note" data-i18n="adminViewAsNote">The preview family (Noor and Sam, Club Mare member) and the preview teacher are test accounts: they never get email and don't count in the numbers. What you do as them (plant a word, write to Mare) really happens, so you can test the whole flow.</p>
+      </div>
       <div class="admin-card">
         <h2 data-i18n="adminOverviewStatsTitle">At a glance</h2>
         <p class="admin-card-sub" data-i18n="adminStatClickHint">Click a box to see what's behind it.</p>
@@ -1057,5 +1068,6 @@
 <script src="/js/role-chooser.js"></script>
 <script src="/js/admin.js"></script>
 <script>window.MareBgSlideshow.init('bg-slideshow', ['/images/mare-front-cover.jpg', '/images/mare-back-cover.jpg']);</script>
+<script src="/js/viewas-bar.js"></script>
 </body>
 </html>

@@ -1753,3 +1753,17 @@ button.stat-item.is-busy::after, button.stat-item.is-done::after, button.stat-it
 .cp-preview { max-width: 720px; margin: 0 auto 18px; padding: 10px 16px; border-radius: 12px; background: #FFF4E0; color: #8A4B00; font-weight: 600; font-size: 0.9rem; text-align: center; }
 .cp-preview[hidden] { display: none; }
 .companion-main button:disabled, .companion-main textarea:disabled, .companion-main select:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* Mare App 5 — "View the site as…" bar (admin/support previewing) */
+#viewas-bar {
+  position: fixed; left: 50%; bottom: calc(12px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%);
+  z-index: 10001; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: center;
+  max-width: calc(100vw - 24px); padding: 8px 14px; border-radius: 16px;
+  background: #16305C; color: #fff; font: 600 0.86rem 'Quicksand', sans-serif; box-shadow: 0 10px 30px rgba(0,0,0,0.35);
+}
+#viewas-bar strong { color: #E2BE6E; }
+#viewas-bar button { font: inherit; cursor: pointer; border-radius: 999px; padding: 4px 11px; border: 1px solid rgba(255,255,255,0.35); background: transparent; color: #fff; margin-left: 4px; }
+#viewas-bar button:hover { border-color: #E2BE6E; }
+#viewas-bar .va-back { background: #E2BE6E; color: #16305C; border-color: #E2BE6E; }
+body.has-viewas-bar { padding-bottom: 70px; }
+.viewas-btns { display: flex; gap: 10px; flex-wrap: wrap; margin: 6px 0 8px; }

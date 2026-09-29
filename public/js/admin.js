@@ -328,6 +328,14 @@
     if (c) c.addEventListener('click', closeStatDetail);
   }
 
+  // ── Mare App 5 — "View the site as…" ──
+  document.querySelectorAll('[data-viewas]').forEach(b => b.addEventListener('click', async () => {
+    try {
+      const out = await api('/api/admin/view-as', { method: 'POST', body: JSON.stringify({ as: b.getAttribute('data-viewas') }) });
+      window.location.href = out.redirect || '/';
+    } catch (err) { alert(err.message || t('errorGeneric')); }
+  }));
+
   // ── Mare App 5 — Book Companion admin ──
   // Never leaves the tab on "Loading…": a slow or failed load says so,
   // with a Try again button, and a rendering problem shows its message.

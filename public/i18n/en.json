@@ -1130,5 +1130,11 @@
   "companionPreview": "Preview for staff: this is what parents see. Sending messages and rating are switched off here.",
   "companionBackToAdmin": "Back to admin",
   "adminTryAgain": "Try again",
-  "adminCompanionSlow": "The Book Companion is taking too long to load."
+  "adminCompanionSlow": "The Book Companion is taking too long to load.",
+  "adminViewAsTitle": "View the site as…",
+  "adminViewAsDesc": "See exactly what others see. A bar at the bottom of every page shows who you are viewing as and brings you back here.",
+  "adminViewAsVisitor": "👤 A visitor (not signed in)",
+  "adminViewAsParent": "👪 A parent (preview family)",
+  "adminViewAsTeacher": "🍎 A teacher (preview teacher)",
+  "adminViewAsNote": "The preview family (Noor and Sam, Club Mare member) and the preview teacher are test accounts: they never get email and don't count in the numbers. What you do as them (plant a word, write to Mare) really happens, so you can test the whole flow."
 }

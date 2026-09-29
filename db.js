@@ -1436,10 +1436,10 @@ function searchStaffCandidates(q, limit = 20) {
   const like = '%' + String(q || '').toLowerCase().trim() + '%';
   const rows = all(`
     SELECT 'parent' AS kind, id, name, email, status FROM parents
-      WHERE lower(name) LIKE ? OR lower(email) LIKE ?
+      WHERE (lower(name) LIKE ? OR lower(email) LIKE ?) AND email NOT LIKE '%.invalid'
     UNION ALL
     SELECT 'teacher' AS kind, id, name, email, status FROM teachers
-      WHERE lower(name) LIKE ? OR lower(email) LIKE ?
+      WHERE (lower(name) LIKE ? OR lower(email) LIKE ?) AND email NOT LIKE '%.invalid'
     ORDER BY name COLLATE NOCASE, kind LIMIT ?`, [like, like, like, like, limit]);
   return rows.map(r => ({ ...r, isStaff: !!getAdminByEmail(r.email) }));
 }
@@ -1453,10 +1453,10 @@ function getAllStaff() {
 // ── Directory lookups for support/admin to help troubleshoot parent and
 // teacher accounts. password_hash deliberately excluded from these. ──
 function getAllParentsDirectory() {
-  return all(`SELECT id, email, name, email_opt_in, email_frequency, preferred_locale, status, created_at FROM parents ORDER BY created_at DESC`);
+  return all(`SELECT id, email, name, email_opt_in, email_frequency, preferred_locale, status, created_at FROM parents WHERE email NOT LIKE '%.invalid' ORDER BY created_at DESC`);
 }
 function getAllTeachersDirectory() {
-  return all(`SELECT id, email, name, school, preferred_locale, status, created_at FROM teachers ORDER BY created_at DESC`);
+  return all(`SELECT id, email, name, school, preferred_locale, status, created_at FROM teachers WHERE email NOT LIKE '%.invalid' ORDER BY created_at DESC`);
 }
 function setParentStatus(id, status) {
   run(`UPDATE parents SET status = ? WHERE id = ?`, [status === 'suspended' ? 'suspended' : 'active', id]);
@@ -1841,6 +1841,30 @@ function reduceStockForOrder(orderId) {
     run(`UPDATE products SET stock = MAX(0, stock - ?) WHERE id = ? AND stock IS NOT NULL`, [it.q, it.product_id]);
   }
 }
+// ── Mare App 5 — "View the site as…" preview accounts. One demo family
+// (two children, Club Mare member) and one demo teacher, created the
+// first time an admin uses "view as". Their emails end in .invalid, so
+// no email is ever sent to them, and they are left out of the counts
+// and lists in the admin.
+const PREVIEW_PARENT_EMAIL = 'preview-parent@preview.mare.invalid';
+const PREVIEW_TEACHER_EMAIL = 'preview-teacher@preview.mare.invalid';
+function ensurePreviewAccounts(passwordHash) {
+  let parent = getParentByEmail(PREVIEW_PARENT_EMAIL);
+  if (!parent) {
+    const id = createParent({ email: PREVIEW_PARENT_EMAIL, passwordHash, name: 'Preview Family' });
+    createChild(id, 'Noor', null);
+    createChild(id, 'Sam', null);
+    joinClubMareFree(id);
+    parent = getParentById(id);
+  }
+  let teacher = get(`SELECT * FROM teachers WHERE email = ?`, [PREVIEW_TEACHER_EMAIL]);
+  if (!teacher) {
+    const id = createTeacher({ email: PREVIEW_TEACHER_EMAIL, passwordHash, name: 'Preview Teacher', school: 'Preview School' });
+    teacher = get(`SELECT * FROM teachers WHERE id = ?`, [id]);
+  }
+  return { parent, teacher };
+}
+
 // ── Mare App 5 — The Book Companion ──
 function companionPractices() { return all(`SELECT * FROM companion_practices ORDER BY chapter_no`); }
 function companionPractice(n) { return get(`SELECT * FROM companion_practices WHERE chapter_no = ?`, [n]); }
@@ -2596,14 +2620,14 @@ function getAdminOverviewDetail(kind, limit = 200) {
     return all(`SELECT p.id, p.name, p.email, p.status, p.created_at, p.email_opt_in AS letter_on,
         (SELECT group_concat(c.name, ', ') FROM children c WHERE c.parent_id = p.id) AS children,
         (SELECT m.tier FROM club_mare_members m WHERE m.parent_id = p.id) AS club_tier
-      FROM parents p ORDER BY p.created_at DESC LIMIT ?`, [limit]);
+      FROM parents p WHERE p.email NOT LIKE '%.invalid' ORDER BY p.created_at DESC LIMIT ?`, [limit]);
   }
   if (kind === 'children') {
     return all(`SELECT c.id, c.name, c.age_band, c.created_at, p.name AS parent_name, p.email AS parent_email
-      FROM children c LEFT JOIN parents p ON p.id = c.parent_id ORDER BY c.created_at DESC LIMIT ?`, [limit]);
+      FROM children c LEFT JOIN parents p ON p.id = c.parent_id WHERE COALESCE(p.email, '') NOT LIKE '%.invalid' ORDER BY c.created_at DESC LIMIT ?`, [limit]);
   }
   if (kind === 'teachers') {
-    return all(`SELECT id, name, email, school, status, created_at FROM teachers ORDER BY created_at DESC LIMIT ?`, [limit]);
+    return all(`SELECT id, name, email, school, status, created_at FROM teachers WHERE email NOT LIKE '%.invalid' ORDER BY created_at DESC LIMIT ?`, [limit]);
   }
   if (kind === 'talk') {
     return all(`SELECT s.id, s.started_at, s.last_activity_at, s.turn_count, s.locale, c.name AS child_name, p.name AS parent_name
@@ -2620,21 +2644,21 @@ function getAdminOverviewDetail(kind, limit = 200) {
   if (kind === 'club') {
     return all(`SELECT m.id, m.tier, m.joined_at, p.name, p.email, p.email_opt_in AS letter_on,
         (SELECT group_concat(c.name, ', ') FROM children c WHERE c.parent_id = p.id) AS children
-      FROM club_mare_members m LEFT JOIN parents p ON p.id = m.parent_id ORDER BY m.joined_at DESC LIMIT ?`, [limit]);
+      FROM club_mare_members m LEFT JOIN parents p ON p.id = m.parent_id WHERE COALESCE(p.email, '') NOT LIKE '%.invalid' ORDER BY m.joined_at DESC LIMIT ?`, [limit]);
   }
   return null;
 }
 function getAdminOverviewStats() {
-  const parents = get(`SELECT COUNT(*) as c FROM parents`).c;
+  const parents = get(`SELECT COUNT(*) as c FROM parents WHERE email NOT LIKE '%.invalid'`).c;
   const suspendedParents = get(`SELECT COUNT(*) as c FROM parents WHERE status = 'suspended'`).c;
-  const children = get(`SELECT COUNT(*) as c FROM children`).c;
-  const teachers = get(`SELECT COUNT(*) as c FROM teachers`).c;
+  const children = get(`SELECT COUNT(*) as c FROM children WHERE parent_id NOT IN (SELECT id FROM parents WHERE email LIKE '%.invalid')`).c;
+  const teachers = get(`SELECT COUNT(*) as c FROM teachers WHERE email NOT LIKE '%.invalid'`).c;
   const suspendedTeachers = get(`SELECT COUNT(*) as c FROM teachers WHERE status = 'suspended'`).c;
   const talkSessionsTotal = get(`SELECT COUNT(*) as c FROM talk_sessions`).c;
   const talkSessions7d = get(`SELECT COUNT(*) as c FROM talk_sessions WHERE started_at > datetime('now', '-7 days')`).c;
   const ordersTotal = get(`SELECT COUNT(*) as c FROM orders`).c;
   const ordersPaid = get(`SELECT COUNT(*) as c FROM orders WHERE status = 'paid'`).c;
-  const clubMembers = get(`SELECT COUNT(*) as c FROM club_mare_members`).c;
+  const clubMembers = get(`SELECT COUNT(*) as c FROM club_mare_members WHERE parent_id NOT IN (SELECT id FROM parents WHERE email LIKE '%.invalid')`).c;
   return {
     parents, suspendedParents, children, teachers, suspendedTeachers,
     talkSessionsTotal, talkSessions7d,
@@ -2809,6 +2833,7 @@ function getAllBulkImports() {
 }
 
 module.exports = {
+  ensurePreviewAccounts,
   companionPractices, companionPractice, updateCompanionPractice, setCompanionChapter,
   getBookRating, saveBookRating, bookRatingsList, bookRatingsSummary,
   createMareMessage, mareMessagesForParent, mareMessagesAll, getMareMessage, replyMareMessage,
