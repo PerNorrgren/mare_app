@@ -1180,5 +1180,7 @@
   "adminSpotNone": "Click a spot to edit it.",
   "adminSpotUploaded": "Uploaded ✓",
   "adminSpotRemove": "remove",
-  "editorDone": "✓ Done"
+  "editorDone": "✓ Done",
+  "adminSpotListen": "Listen",
+  "adminSpotStop": "Stop"
 }

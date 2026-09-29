@@ -451,10 +451,13 @@
       scene.spots.push(sp); picSelected = sp.id; drawSpots(); drawForm(sp);
     });
 
+    // Mare App 5 — show the uploaded file's own name (the stored key is
+    // pictures/<folder>/<timestamp>-<name>), and let sounds be played here.
+    function fileNameOf(key) { return String(key || '').split('/').pop().replace(/^\d{10,}-/, ''); }
     function mediaField(label, key, accept, folder, sp) {
       const has = sp[key];
       return `<div class="field pic-media" data-key="${key}" data-accept="${accept}" data-folder="${folder}"><label>${escapeHtml(label)}</label>
-        <span class="pic-media-state">${has ? `${escapeHtml(t('adminSpotUploaded'))} <a href="#" class="pic-media-rm">${escapeHtml(t('adminSpotRemove'))}</a>` : ''}</span>
+        <span class="pic-media-state">${has ? `✓ <strong class="pic-media-name">${escapeHtml(fileNameOf(has))}</strong>${accept.startsWith('audio') ? ` <a href="#" class="pic-media-play">▶ ${escapeHtml(t('adminSpotListen'))}</a>` : ''} <a href="#" class="pic-media-rm">${escapeHtml(t('adminSpotRemove'))}</a>` : ''}</span>
         <input type="file" accept="${accept}"></div>`;
     }
     function drawForm(sp) {
@@ -491,6 +494,18 @@
             await api(`/api/admin/picture-spots/${sp.id}`, { method: 'PATCH', body: JSON.stringify({ [key]: k }) });
             sp[key] = k; drawForm(sp);
           } catch (err) { state.textContent = err.message || t('errorGeneric'); }
+        });
+        const play = box.querySelector('.pic-media-play');
+        if (play) play.addEventListener('click', async (e) => {
+          e.preventDefault();
+          if (window._picAudio) { window._picAudio.pause(); window._picAudio = null; if (play.dataset.on) { delete play.dataset.on; play.textContent = '▶ ' + t('adminSpotListen'); return; } }
+          try {
+            const { url } = await api('/api/playback-url?key=' + encodeURIComponent(sp[key]));
+            window._picAudio = new Audio(url);
+            play.dataset.on = '1'; play.textContent = '■ ' + t('adminSpotStop');
+            window._picAudio.onended = () => { delete play.dataset.on; play.textContent = '▶ ' + t('adminSpotListen'); };
+            await window._picAudio.play();
+          } catch (err) { box.querySelector('.pic-media-state').append(' ' + (err.message || t('errorGeneric'))); }
         });
         const rm = box.querySelector('.pic-media-rm');
         if (rm) rm.addEventListener('click', async (e) => {

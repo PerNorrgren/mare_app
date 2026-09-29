@@ -1793,3 +1793,5 @@ body.has-viewas-bar { padding-bottom: 70px; }
 .pic-form select, .pic-form input[type=text] { width: 100%; font: inherit; padding: 7px 10px; border-radius: 8px; border: 1.5px solid rgba(22,48,92,0.2); }
 .pic-media-state { font-size: 0.82rem; color: #2E7D4F; margin-left: 6px; }
 .pic-form-btns { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 6px; }
+.pic-media-name { color: var(--navy); font-weight: 700; word-break: break-all; }
+.pic-media-state a { margin-left: 6px; }

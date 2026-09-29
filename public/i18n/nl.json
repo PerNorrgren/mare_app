@@ -1180,5 +1180,7 @@
   "adminSpotNone": "Klik op een lichtje om het te bewerken.",
   "adminSpotUploaded": "Geüpload ✓",
   "adminSpotRemove": "verwijderen",
-  "editorDone": "✓ Klaar"
+  "editorDone": "✓ Klaar",
+  "adminSpotListen": "Beluisteren",
+  "adminSpotStop": "Stop"
 }
