@@ -200,7 +200,7 @@
         if (target === 'emaillog' && currentUser && currentUser.role === 'admin') loadEmailLog();
         if (target === 'backups' && currentUser && currentUser.role === 'admin') loadBackups();
         if (target === 'directory') { loadDirectory(); loadAdminSettings(); }
-        if (target === 'companion') loadCompanionAdmin();
+        if (target === 'companion') { loadCompanionAdmin(); loadPictures(); }
       });
     });
   }
@@ -335,6 +335,189 @@
       window.location.href = out.redirect || '/';
     } catch (err) { alert(err.message || t('errorGeneric')); }
   }));
+
+  // ── Mare App 5 — Picture explorer editor (Admin → Book Companion) ──
+  let picData = null;
+  let picSelected = null; // spot id
+  async function picUpload(file, folder) {
+    const key = `pictures/${folder}/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, '_').slice(-80)}`;
+    const { url } = await api('/api/admin/upload-url', { method: 'POST', body: JSON.stringify({ key, contentType: file.type || 'application/octet-stream' }) });
+    const put = await fetch(url, { method: 'PUT', headers: { 'Content-Type': file.type || 'application/octet-stream' }, body: file });
+    if (!put.ok) throw new Error(t('adminErrorUploadFailed'));
+    return key;
+  }
+  async function loadPictures(keepChapter) {
+    try { picData = await api('/api/admin/pictures'); } catch (err) {
+      document.getElementById('pic-list').innerHTML = `<p class="form-error">${escapeHtml(err.message || t('errorGeneric'))}</p>`; return;
+    }
+    const sel = document.getElementById('pic-chapter');
+    const cur = keepChapter || Number(sel.value) || 1;
+    sel.innerHTML = picData.chapters.map(c => {
+      const n = picData.scenes.filter(s => s.chapter_no === c.no).length;
+      return `<option value="${c.no}"${c.no === cur ? ' selected' : ''}>${c.no}. ${escapeHtml(c.title)}${n ? ` (${n})` : ''}</option>`;
+    }).join('');
+    renderPictures();
+  }
+  function renderPictures() {
+    const ch = Number(document.getElementById('pic-chapter').value) || 1;
+    document.getElementById('pic-preview').href = `/pictures.html?chapter=${ch}`;
+    const list = document.getElementById('pic-list');
+    const scenes = picData.scenes.filter(s => s.chapter_no === ch);
+    list.innerHTML = scenes.length ? '' : `<p class="admin-empty-note">${escapeHtml(t('adminPicNone'))}</p>`;
+    scenes.forEach(scene => list.appendChild(pictureCard(scene)));
+  }
+  function pictureCard(scene) {
+    const el = document.createElement('div');
+    el.className = 'pic-card';
+    el.innerHTML = `
+      <div class="pic-head">
+        <input type="text" class="pic-title-en" placeholder="Title (EN, optional)" value="${escapeHtml(scene.title_en)}">
+        <input type="text" class="pic-title-nl" placeholder="Titel (NL, optioneel)" value="${escapeHtml(scene.title_nl)}">
+        <label class="pic-upload btn-ghost btn-small">${escapeHtml(t('adminPicUpload'))}<input type="file" accept="image/*" hidden></label>
+        <button type="button" class="btn-ghost btn-small btn-danger pic-del">${escapeHtml(t('adminPicDelete'))}</button>
+      </div>
+      <p class="admin-empty-note">${escapeHtml(scene.imageUrl ? t('adminPicClickHint') : t('adminPicLandscape'))}</p>
+      <div class="pic-body">
+        <div class="pic-canvas">${scene.imageUrl ? `<img src="${escapeHtml(scene.imageUrl)}" alt="" draggable="false">` : ''}<div class="pic-spots"></div></div>
+        <div class="pic-form"><p class="admin-empty-note">${escapeHtml(t('adminSpotNone'))}</p></div>
+      </div>`;
+    const canvas = el.querySelector('.pic-canvas');
+    const spotsEl = el.querySelector('.pic-spots');
+    const form = el.querySelector('.pic-form');
+    const saveTitles = async () => {
+      await api(`/api/admin/pictures/${scene.id}`, { method: 'PATCH', body: JSON.stringify({ titleEn: el.querySelector('.pic-title-en').value, titleNl: el.querySelector('.pic-title-nl').value }) });
+    };
+    el.querySelector('.pic-title-en').addEventListener('change', saveTitles);
+    el.querySelector('.pic-title-nl').addEventListener('change', saveTitles);
+    el.querySelector('.pic-upload input').addEventListener('change', async (e) => {
+      const file = e.target.files[0]; if (!file) return;
+      const note = el.querySelector('.admin-empty-note'); note.textContent = t('adminUploading');
+      try {
+        const key = await picUpload(file, 'scenes');
+        await api(`/api/admin/pictures/${scene.id}`, { method: 'PATCH', body: JSON.stringify({ imageKey: key }) });
+        loadPictures(scene.chapter_no);
+      } catch (err) { note.textContent = err.message || t('errorGeneric'); }
+    });
+    el.querySelector('.pic-del').addEventListener('click', async () => {
+      if (!confirm(t('adminPicDeleteConfirm'))) return;
+      await api(`/api/admin/pictures/${scene.id}`, { method: 'DELETE' });
+      loadPictures(scene.chapter_no);
+    });
+
+    const drawSpots = () => {
+      spotsEl.innerHTML = '';
+      scene.spots.forEach(sp => {
+        const d = document.createElement('div');
+        d.className = 'pic-spot pic-spot-' + sp.type + (sp.id === picSelected ? ' sel' : '');
+        d.style.left = (sp.x * 100) + '%'; d.style.top = (sp.y * 100) + '%'; d.style.width = (sp.r * 200) + '%';
+        d.title = sp.title_en || sp.type;
+        // drag to move; click to edit
+        d.addEventListener('pointerdown', (e) => {
+          e.stopPropagation(); e.preventDefault();
+          const rect = canvas.getBoundingClientRect();
+          let moved = false;
+          const mv = (ev) => {
+            moved = true;
+            sp.x = Math.min(1, Math.max(0, (ev.clientX - rect.left) / rect.width));
+            sp.y = Math.min(1, Math.max(0, (ev.clientY - rect.top) / rect.height));
+            d.style.left = (sp.x * 100) + '%'; d.style.top = (sp.y * 100) + '%';
+          };
+          const up = async () => {
+            window.removeEventListener('pointermove', mv); window.removeEventListener('pointerup', up);
+            if (moved) await api(`/api/admin/picture-spots/${sp.id}`, { method: 'PATCH', body: JSON.stringify({ x: sp.x, y: sp.y }) });
+            picSelected = sp.id; drawSpots(); drawForm(sp);
+          };
+          window.addEventListener('pointermove', mv); window.addEventListener('pointerup', up);
+        });
+        spotsEl.appendChild(d);
+      });
+    };
+    canvas.addEventListener('click', async (e) => {
+      if (!scene.imageUrl || e.target.closest('.pic-spot')) return;
+      const rect = canvas.getBoundingClientRect();
+      const x = (e.clientX - rect.left) / rect.width, y = (e.clientY - rect.top) / rect.height;
+      const out = await api(`/api/admin/pictures/${scene.id}/spots`, { method: 'POST', body: JSON.stringify({ x, y, type: 'popup' }) });
+      const sp = { id: out.id, x, y, r: 0.06, type: 'popup', title_en: '', title_nl: '', text_en: '', text_nl: '' };
+      scene.spots.push(sp); picSelected = sp.id; drawSpots(); drawForm(sp);
+    });
+
+    function mediaField(label, key, accept, folder, sp) {
+      const has = sp[key];
+      return `<div class="field pic-media" data-key="${key}" data-accept="${accept}" data-folder="${folder}"><label>${escapeHtml(label)}</label>
+        <span class="pic-media-state">${has ? `${escapeHtml(t('adminSpotUploaded'))} <a href="#" class="pic-media-rm">${escapeHtml(t('adminSpotRemove'))}</a>` : ''}</span>
+        <input type="file" accept="${accept}"></div>`;
+    }
+    function drawForm(sp) {
+      const type = sp.type;
+      form.innerHTML = `
+        <div class="field"><label>${escapeHtml(t('adminSpotType'))}</label><select class="sp-type">
+          ${['popup', 'sound', 'voice', 'video'].map(k => `<option value="${k}"${k === type ? ' selected' : ''}>${escapeHtml(t('adminSpotType_' + k))}</option>`).join('')}</select></div>
+        <div class="field"><label>${escapeHtml(t('adminSpotSize'))}</label><input type="range" class="sp-r" min="0.03" max="0.2" step="0.005" value="${sp.r}"></div>
+        <div class="admin-form-row"><div class="field"><label>${escapeHtml(t('adminSpotTitle'))} EN</label><input type="text" class="sp-title-en" value="${escapeHtml(sp.title_en || '')}"></div>
+          <div class="field"><label>${escapeHtml(t('adminSpotTitle'))} NL</label><input type="text" class="sp-title-nl" value="${escapeHtml(sp.title_nl || '')}"></div></div>
+        ${type !== 'sound' ? `<div class="admin-form-row"><div class="field"><label>${escapeHtml(t('adminSpotText'))} EN</label><textarea data-editor="plain" class="sp-text-en" rows="3">${escapeHtml(sp.text_en || '')}</textarea></div>
+          <div class="field"><label>${escapeHtml(t('adminSpotText'))} NL</label><textarea data-editor="plain" class="sp-text-nl" rows="3">${escapeHtml(sp.text_nl || '')}</textarea></div></div>` : ''}
+        ${type === 'popup' ? mediaField(t('adminSpotImage'), 'image_key', 'image/*', 'spots', sp) : ''}
+        ${type === 'sound' || type === 'voice' ? mediaField(t('adminSpotAudioEn'), 'audio_key_en', 'audio/*', 'sounds', sp) + mediaField(t('adminSpotAudioNl'), 'audio_key_nl', 'audio/*', 'sounds', sp) : ''}
+        ${type === 'video' ? mediaField(t('adminSpotVideo'), 'video_key', 'video/*', 'videos', sp) + `<div class="field"><label>${escapeHtml(t('adminSpotVideoUrl'))}</label><input type="text" class="sp-video-url" value="${escapeHtml(sp.video_url || '')}" placeholder="https://www.youtube.com/watch?v=…"></div>` : ''}
+        <div class="pic-form-btns"><button type="button" class="btn-primary btn-small sp-save">${escapeHtml(t('adminSaveItem'))}</button>
+          <button type="button" class="btn-ghost btn-small btn-danger sp-del">${escapeHtml(t('adminSpotDelete'))}</button>
+          <span class="staff-row-msg" role="status"></span></div>`;
+      const q = (c) => form.querySelector(c);
+      const say = (ok, txt) => { const m = q('.staff-row-msg'); m.textContent = txt; m.className = 'staff-row-msg ' + (ok ? 'ok' : 'err'); };
+      q('.sp-type').addEventListener('change', async () => {
+        sp.type = q('.sp-type').value;
+        await api(`/api/admin/picture-spots/${sp.id}`, { method: 'PATCH', body: JSON.stringify({ type: sp.type }) });
+        drawSpots(); drawForm(sp);
+      });
+      q('.sp-r').addEventListener('input', () => { sp.r = Number(q('.sp-r').value); drawSpots(); });
+      form.querySelectorAll('.pic-media').forEach(box => {
+        const key = box.dataset.key;
+        box.querySelector('input[type=file]').addEventListener('change', async (e) => {
+          const file = e.target.files[0]; if (!file) return;
+          const state = box.querySelector('.pic-media-state'); state.textContent = t('adminUploading');
+          try {
+            const k = await picUpload(file, box.dataset.folder);
+            await api(`/api/admin/picture-spots/${sp.id}`, { method: 'PATCH', body: JSON.stringify({ [key]: k }) });
+            sp[key] = k; drawForm(sp);
+          } catch (err) { state.textContent = err.message || t('errorGeneric'); }
+        });
+        const rm = box.querySelector('.pic-media-rm');
+        if (rm) rm.addEventListener('click', async (e) => {
+          e.preventDefault();
+          await api(`/api/admin/picture-spots/${sp.id}`, { method: 'PATCH', body: JSON.stringify({ [key]: null }) });
+          sp[key] = null; drawForm(sp);
+        });
+      });
+      q('.sp-save').addEventListener('click', async () => {
+        const body = { r: sp.r, title_en: q('.sp-title-en').value, title_nl: q('.sp-title-nl').value };
+        if (q('.sp-text-en')) { body.text_en = q('.sp-text-en').value; body.text_nl = q('.sp-text-nl').value; }
+        if (q('.sp-video-url')) body.video_url = q('.sp-video-url').value;
+        try {
+          await api(`/api/admin/picture-spots/${sp.id}`, { method: 'PATCH', body: JSON.stringify(body) });
+          Object.assign(sp, body); drawSpots(); say(true, t('adminSaved'));
+        } catch (err) { say(false, err.message || t('errorGeneric')); }
+      });
+      q('.sp-del').addEventListener('click', async () => {
+        await api(`/api/admin/picture-spots/${sp.id}`, { method: 'DELETE' });
+        scene.spots = scene.spots.filter(x => x.id !== sp.id); picSelected = null; drawSpots();
+        form.innerHTML = `<p class="admin-empty-note">${escapeHtml(t('adminSpotNone'))}</p>`;
+      });
+    }
+    drawSpots();
+    return el;
+  }
+  {
+    const sel = document.getElementById('pic-chapter');
+    if (sel) {
+      sel.addEventListener('change', renderPictures);
+      document.getElementById('pic-add').addEventListener('click', async () => {
+        const ch = Number(sel.value) || 1;
+        await api('/api/admin/pictures', { method: 'POST', body: JSON.stringify({ chapter: ch }) });
+        loadPictures(ch);
+      });
+    }
+  }
 
   // ── Mare App 5 — Book Companion admin ──
   // Never leaves the tab on "Loading…": a slow or failed load says so,

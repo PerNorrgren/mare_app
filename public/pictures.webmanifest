@@ -1,0 +1,10 @@
+{
+  "name": "Mare — Pictures",
+  "short_name": "Mare",
+  "start_url": "/pictures.html",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#0B1712",
+  "theme_color": "#0B1712",
+  "icons": [{ "src": "/images/mare-avatar.jpg", "sizes": "400x400", "type": "image/jpeg" }]
+}

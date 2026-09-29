@@ -1046,6 +1046,33 @@ Volgende maand verschijnt er een nieuw raadsel uit het Fluisterbos. 🌲🔎', ?
     }
   }
 
+  // ── Mare App 5 — Picture explorer. The book itself is sold on Amazon
+  // and never shown in the app; instead each chapter has one or more
+  // interactive pictures the child explores (e.g. on an iPad) while a
+  // grown-up reads. picture_spots are the tappable places on a picture.
+  db.run(`CREATE TABLE IF NOT EXISTS picture_scenes (
+    id TEXT PRIMARY KEY,
+    chapter_no INTEGER NOT NULL,
+    image_key TEXT,
+    title_en TEXT NOT NULL DEFAULT '', title_nl TEXT NOT NULL DEFAULT '',
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    active INTEGER NOT NULL DEFAULT 1,
+    created_at TEXT DEFAULT (datetime('now'))
+  )`);
+  db.run(`CREATE TABLE IF NOT EXISTS picture_spots (
+    id TEXT PRIMARY KEY,
+    scene_id TEXT NOT NULL,
+    x REAL NOT NULL, y REAL NOT NULL,
+    r REAL NOT NULL DEFAULT 0.06,
+    type TEXT NOT NULL DEFAULT 'popup',
+    title_en TEXT NOT NULL DEFAULT '', title_nl TEXT NOT NULL DEFAULT '',
+    text_en TEXT NOT NULL DEFAULT '', text_nl TEXT NOT NULL DEFAULT '',
+    image_key TEXT,
+    audio_key_en TEXT, audio_key_nl TEXT,
+    video_key TEXT, video_url TEXT,
+    sort_order INTEGER NOT NULL DEFAULT 0
+  )`);
+
   // Mare App 5 — one-off changes that must run once only, ever (so a
   // later edit in Admin is never overwritten at the next restart).
   db.run(`CREATE TABLE IF NOT EXISTS app_once (key TEXT PRIMARY KEY, done_at TEXT DEFAULT (datetime('now')))`);
@@ -1864,6 +1891,44 @@ function ensurePreviewAccounts(passwordHash) {
   }
   return { parent, teacher };
 }
+
+// ── Mare App 5 — Picture explorer ──
+function pictureScenes(chapterNo, activeOnly) {
+  return chapterNo == null
+    ? all(`SELECT * FROM picture_scenes ORDER BY chapter_no, sort_order, created_at`)
+    : all(`SELECT * FROM picture_scenes WHERE chapter_no = ? ${activeOnly ? 'AND active = 1 AND image_key IS NOT NULL' : ''} ORDER BY sort_order, created_at`, [chapterNo]);
+}
+function pictureScene(id) { return get(`SELECT * FROM picture_scenes WHERE id = ?`, [id]); }
+function createPictureScene(chapterNo) {
+  const id = uuid();
+  const n = get(`SELECT COUNT(*) AS c FROM picture_scenes WHERE chapter_no = ?`, [chapterNo]).c;
+  run(`INSERT INTO picture_scenes (id, chapter_no, sort_order) VALUES (?,?,?)`, [id, chapterNo, n]);
+  return id;
+}
+function updatePictureScene(id, f) {
+  const s = pictureScene(id); if (!s) return;
+  const v = (k, d) => (f[k] !== undefined ? f[k] : d);
+  run(`UPDATE picture_scenes SET image_key=?, title_en=?, title_nl=?, sort_order=?, active=? WHERE id=?`,
+    [v('imageKey', s.image_key), v('titleEn', s.title_en), v('titleNl', s.title_nl), v('sortOrder', s.sort_order), v('active', s.active) ? 1 : 0, id]);
+}
+function deletePictureScene(id) { run(`DELETE FROM picture_spots WHERE scene_id = ?`, [id]); run(`DELETE FROM picture_scenes WHERE id = ?`, [id]); }
+function pictureSpots(sceneId) { return all(`SELECT * FROM picture_spots WHERE scene_id = ? ORDER BY sort_order, rowid`, [sceneId]); }
+function pictureSpot(id) { return get(`SELECT * FROM picture_spots WHERE id = ?`, [id]); }
+const SPOT_FIELDS = ['x', 'y', 'r', 'type', 'title_en', 'title_nl', 'text_en', 'text_nl', 'image_key', 'audio_key_en', 'audio_key_nl', 'video_key', 'video_url'];
+function savePictureSpot(id, sceneId, f) {
+  const cur = id ? pictureSpot(id) : null;
+  const val = (k) => (f[k] !== undefined ? f[k] : (cur ? cur[k] : null));
+  if (cur) {
+    run(`UPDATE picture_spots SET ${SPOT_FIELDS.map(k => `${k}=?`).join(', ')} WHERE id=?`, [...SPOT_FIELDS.map(val), id]);
+    return id;
+  }
+  const nid = uuid();
+  const defaults = { r: 0.06, type: 'popup', title_en: '', title_nl: '', text_en: '', text_nl: '' };
+  run(`INSERT INTO picture_spots (id, scene_id, ${SPOT_FIELDS.join(', ')}) VALUES (?,?,${SPOT_FIELDS.map(() => '?').join(',')})`,
+    [nid, sceneId, ...SPOT_FIELDS.map(k => (f[k] !== undefined ? f[k] : (defaults[k] !== undefined ? defaults[k] : null)))]);
+  return nid;
+}
+function deletePictureSpot(id) { run(`DELETE FROM picture_spots WHERE id = ?`, [id]); }
 
 // ── Mare App 5 — The Book Companion ──
 function companionPractices() { return all(`SELECT * FROM companion_practices ORDER BY chapter_no`); }
@@ -2833,6 +2898,8 @@ function getAllBulkImports() {
 }
 
 module.exports = {
+  pictureScenes, pictureScene, createPictureScene, updatePictureScene, deletePictureScene,
+  pictureSpots, pictureSpot, savePictureSpot, deletePictureSpot,
   ensurePreviewAccounts,
   companionPractices, companionPractice, updateCompanionPractice, setCompanionChapter,
   getBookRating, saveBookRating, bookRatingsList, bookRatingsSummary,

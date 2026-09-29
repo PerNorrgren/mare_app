@@ -43,6 +43,7 @@
         const out = await api('/api/companion/chapter', { chapter: Number(sel.value) });
         data.chapter = out.chapter;
         renderPractice(out.practice);
+        if (data.preview) $('cp-read-btn').href = `/pictures.html?chapter=${out.chapter}`;
       } catch { /* keep the old one */ }
     };
   }
@@ -89,11 +90,10 @@
     if (data.preview) {
       $('cp-preview').hidden = false;
       document.querySelectorAll('#cp-msg-form button, #cp-msg-form textarea, #cp-msg-form select, #cp-rate-btn, #cp-rate-comment').forEach(el => { el.disabled = true; });
+      $('cp-read-btn').href = `/pictures.html?chapter=${data.chapter}`;
       document.querySelector('.topbar-actions a[href="/account.html"]').setAttribute('href', '/admin.html');
       document.querySelector('.topbar-actions a[href="/admin.html"]').textContent = t('companionBackToAdmin');
     }
-    if (data.book) $('cp-read-btn').href = `/reader.html?book=${encodeURIComponent(data.book.slug)}`;
-    $('cp-progress-note').hidden = !data.hasProgress;
     renderChapters();
     renderPractice(data.practice);
     const from = $('cp-msg-child');

@@ -1767,3 +1767,29 @@ button.stat-item.is-busy::after, button.stat-item.is-done::after, button.stat-it
 #viewas-bar .va-back { background: #E2BE6E; color: #16305C; border-color: #E2BE6E; }
 body.has-viewas-bar { padding-bottom: 70px; }
 .viewas-btns { display: flex; gap: 10px; flex-wrap: wrap; margin: 6px 0 8px; }
+
+/* Mare App 5 — Companion: pictures on a tablet */
+.cp-ipad { margin-top: 14px; color: rgba(243,236,217,0.85); font-size: 0.92rem; }
+.cp-ipad summary { cursor: pointer; font-weight: 700; color: var(--gold); }
+.cp-ipad ol { margin: 8px 0 0; padding-left: 20px; line-height: 1.55; }
+
+/* Mare App 5 — Picture explorer editor (admin) */
+.pic-toolbar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+.pic-toolbar label { font-weight: 700; color: var(--navy); }
+.pic-toolbar select { font: inherit; padding: 7px 10px; border-radius: 10px; border: 1.5px solid rgba(22,48,92,0.2); background: var(--cloud); color: var(--navy); }
+.pic-card { border: 1px solid rgba(22,48,92,0.14); border-radius: 12px; padding: 12px; margin-bottom: 14px; }
+.pic-head { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.pic-head input[type=text] { flex: 1; min-width: 160px; font: inherit; padding: 7px 10px; border-radius: 8px; border: 1.5px solid rgba(22,48,92,0.2); }
+.pic-upload { cursor: pointer; }
+.pic-body { display: grid; grid-template-columns: minmax(0, 3fr) minmax(260px, 2fr); gap: 14px; align-items: start; }
+@media (max-width: 900px) { .pic-body { grid-template-columns: 1fr; } }
+.pic-canvas { position: relative; background: #0B1712; border-radius: 10px; min-height: 120px; overflow: hidden; cursor: crosshair; }
+.pic-canvas img { display: block; width: 100%; height: auto; user-select: none; }
+.pic-spots { position: absolute; inset: 0; }
+.pic-spot { position: absolute; transform: translate(-50%, -50%); aspect-ratio: 1; border-radius: 50%; min-width: 18px; border: 2px solid #FFE9A8; background: rgba(255,225,140,0.3); cursor: grab; box-shadow: 0 0 10px rgba(255,220,130,0.6); }
+.pic-spot.sel { border-color: #fff; box-shadow: 0 0 0 3px #16305C, 0 0 14px rgba(255,255,255,0.8); }
+.pic-spot-sound { border-color: #9BD3FF; } .pic-spot-voice { border-color: #FFB8E0; } .pic-spot-video { border-color: #B8FFB0; }
+.pic-form .field { margin-bottom: 8px; }
+.pic-form select, .pic-form input[type=text] { width: 100%; font: inherit; padding: 7px 10px; border-radius: 8px; border: 1.5px solid rgba(22,48,92,0.2); }
+.pic-media-state { font-size: 0.82rem; color: #2E7D4F; margin-left: 6px; }
+.pic-form-btns { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 6px; }

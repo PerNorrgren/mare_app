@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Mare">
+<meta name="theme-color" content="#0B1712">
+<link rel="apple-touch-icon" href="/images/mare-avatar.jpg">
+<link rel="manifest" href="/pictures.webmanifest">
+<title>Mare — Pictures</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Quicksand:wght@600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/pictures.css">
+</head>
+<body>
+<!-- Mare App 5 — Child mode. Nothing here leads away from the pictures:
+     no shop, no links, no chat. A grown-up leaves by holding the little
+     moon in the top corner for 3 seconds. -->
+<div class="px-stage" id="px-stage">
+  <div class="px-frame" id="px-frame">
+    <img id="px-img" alt="" draggable="false">
+    <div class="px-spots" id="px-spots"></div>
+  </div>
+</div>
+
+<div class="px-top">
+  <div class="px-chapter" id="px-chapter"></div>
+  <div class="px-found" id="px-found" hidden></div>
+  <button type="button" class="px-exit" id="px-exit" aria-label="Grown-ups: hold to leave"><span>☾</span><i id="px-exit-ring"></i></button>
+</div>
+<button type="button" class="px-nav px-prev" id="px-prev" aria-label="Previous picture" hidden>‹</button>
+<button type="button" class="px-nav px-next" id="px-next" aria-label="Next picture" hidden>›</button>
+<div class="px-dots" id="px-dots"></div>
+
+<div class="px-empty" id="px-empty" hidden>
+  <div class="px-empty-card">
+    <p class="px-empty-title" id="px-empty-title"></p>
+    <p id="px-empty-body"></p>
+  </div>
+</div>
+
+<div class="px-pop" id="px-pop" hidden>
+  <div class="px-pop-card" id="px-pop-card" role="dialog" aria-modal="true">
+    <button type="button" class="px-pop-close" id="px-pop-close" aria-label="Close">✕</button>
+    <div id="px-pop-body"></div>
+  </div>
+</div>
+
+<div class="px-hint" id="px-hint" hidden></div>
+<div class="px-start" id="px-start" hidden><button type="button" id="px-start-btn"></button></div>
+
+<script src="/js/i18n.js"></script>
+<script src="/js/pictures.js"></script>
+</body>
+</html>
