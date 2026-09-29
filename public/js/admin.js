@@ -470,7 +470,7 @@
           <div class="field"><label>${escapeHtml(t('adminSpotTitle'))} NL</label><input type="text" class="sp-title-nl" value="${escapeHtml(sp.title_nl || '')}"></div></div>
         ${type !== 'sound' ? `<div class="admin-form-row"><div class="field"><label>${escapeHtml(t('adminSpotText'))} EN</label><textarea data-editor="plain" class="sp-text-en" rows="3">${escapeHtml(sp.text_en || '')}</textarea></div>
           <div class="field"><label>${escapeHtml(t('adminSpotText'))} NL</label><textarea data-editor="plain" class="sp-text-nl" rows="3">${escapeHtml(sp.text_nl || '')}</textarea></div></div>` : ''}
-        ${type === 'popup' ? mediaField(t('adminSpotImage'), 'image_key', 'image/*', 'spots', sp) : ''}
+        ${type === 'popup' || type === 'voice' ? mediaField(t('adminSpotImage'), 'image_key', 'image/*', 'spots', sp) : ''}
         ${type === 'sound' || type === 'voice' ? mediaField(t('adminSpotAudioEn'), 'audio_key_en', 'audio/*', 'sounds', sp) + mediaField(t('adminSpotAudioNl'), 'audio_key_nl', 'audio/*', 'sounds', sp) : ''}
         ${type === 'video' ? mediaField(t('adminSpotVideo'), 'video_key', 'video/*', 'videos', sp) + `<div class="field"><label>${escapeHtml(t('adminSpotVideoUrl'))}</label><input type="text" class="sp-video-url" value="${escapeHtml(sp.video_url || '')}" placeholder="https://www.youtube.com/watch?v=…"></div>` : ''}
         <div class="pic-form-btns"><button type="button" class="btn-primary btn-small sp-save">${escapeHtml(t('adminSaveItem'))}</button>
@@ -478,9 +478,19 @@
           <span class="staff-row-msg" role="status"></span></div>`;
       const q = (c) => form.querySelector(c);
       const say = (ok, txt) => { const m = q('.staff-row-msg'); m.textContent = txt; m.className = 'staff-row-msg ' + (ok ? 'ok' : 'err'); };
+      // What's typed in the form right now, so a type change or an upload
+      // (which redraw the form) never loses unsaved words; they are saved
+      // together with that change.
+      const typed = () => {
+        const b = { r: sp.r, title_en: q('.sp-title-en').value, title_nl: q('.sp-title-nl').value };
+        if (q('.sp-text-en')) { b.text_en = q('.sp-text-en').value; b.text_nl = q('.sp-text-nl').value; }
+        if (q('.sp-video-url')) b.video_url = q('.sp-video-url').value;
+        return b;
+      };
       q('.sp-type').addEventListener('change', async () => {
-        sp.type = q('.sp-type').value;
-        await api(`/api/admin/picture-spots/${sp.id}`, { method: 'PATCH', body: JSON.stringify({ type: sp.type }) });
+        const body = { ...typed(), type: q('.sp-type').value };
+        await api(`/api/admin/picture-spots/${sp.id}`, { method: 'PATCH', body: JSON.stringify(body) });
+        Object.assign(sp, body);
         drawSpots(); drawForm(sp);
       });
       q('.sp-r').addEventListener('input', () => { sp.r = Number(q('.sp-r').value); drawSpots(); });
@@ -491,8 +501,9 @@
           const state = box.querySelector('.pic-media-state'); state.textContent = t('adminUploading');
           try {
             const k = await picUpload(file, box.dataset.folder);
-            await api(`/api/admin/picture-spots/${sp.id}`, { method: 'PATCH', body: JSON.stringify({ [key]: k }) });
-            sp[key] = k; drawForm(sp);
+            const body = { ...typed(), [key]: k };
+            await api(`/api/admin/picture-spots/${sp.id}`, { method: 'PATCH', body: JSON.stringify(body) });
+            Object.assign(sp, body); drawForm(sp);
           } catch (err) { state.textContent = err.message || t('errorGeneric'); }
         });
         const play = box.querySelector('.pic-media-play');
@@ -510,8 +521,9 @@
         const rm = box.querySelector('.pic-media-rm');
         if (rm) rm.addEventListener('click', async (e) => {
           e.preventDefault();
-          await api(`/api/admin/picture-spots/${sp.id}`, { method: 'PATCH', body: JSON.stringify({ [key]: null }) });
-          sp[key] = null; drawForm(sp);
+          const body = { ...typed(), [key]: null };
+          await api(`/api/admin/picture-spots/${sp.id}`, { method: 'PATCH', body: JSON.stringify(body) });
+          Object.assign(sp, body); drawForm(sp);
         });
       });
       q('.sp-save').addEventListener('click', async () => {
