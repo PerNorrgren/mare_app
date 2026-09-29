@@ -1179,5 +1179,6 @@
   "adminSpotDelete": "Lichtje verwijderen",
   "adminSpotNone": "Klik op een lichtje om het te bewerken.",
   "adminSpotUploaded": "Geüpload ✓",
-  "adminSpotRemove": "verwijderen"
+  "adminSpotRemove": "verwijderen",
+  "editorDone": "✓ Klaar"
 }

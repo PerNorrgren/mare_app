@@ -328,6 +328,16 @@
     if (c) c.addEventListener('click', closeStatDetail);
   }
 
+  // ── Mare App 5 — the text editor opens in one reusable tab ("mare-editor"),
+  // opened by script so its "✓ Done" button is allowed to close it again.
+  document.addEventListener('click', (e) => {
+    const a = e.target.closest && e.target.closest('a[href^="/editor.html"]');
+    if (!a || e.metaKey || e.ctrlKey || e.shiftKey) return;
+    e.preventDefault();
+    const w = window.open(a.getAttribute('href'), 'mare-editor');
+    if (w) w.focus(); else window.location.href = a.getAttribute('href');
+  });
+
   // ── Mare App 5 — "View the site as…" ──
   document.querySelectorAll('[data-viewas]').forEach(b => b.addEventListener('click', async () => {
     try {

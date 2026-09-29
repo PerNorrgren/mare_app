@@ -155,4 +155,20 @@
     render();
   }
   init();
+
+  // Mare App 5 — "Done": close this tab if the admin opened it, else go
+  // back to the admin (staff) or the home page (editors).
+  {
+    const done = document.getElementById('editor-done');
+    if (done) done.addEventListener('click', async () => {
+      if (window.opener && !window.opener.closed) {
+        window.close();
+        // some browsers refuse to close the tab: then just go back instead
+        await new Promise(r => setTimeout(r, 300));
+      }
+      let role = null;
+      try { const r = await fetch('/api/me'); if (r.ok) role = ((await r.json()).user || {}).role; } catch { /* offline */ }
+      window.location.href = (role === 'admin' || role === 'support') ? '/admin.html' : '/';
+    });
+  }
 })();

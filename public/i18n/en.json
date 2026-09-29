@@ -1179,5 +1179,6 @@
   "adminSpotDelete": "Delete spot",
   "adminSpotNone": "Click a spot to edit it.",
   "adminSpotUploaded": "Uploaded ✓",
-  "adminSpotRemove": "remove"
+  "adminSpotRemove": "remove",
+  "editorDone": "✓ Done"
 }
