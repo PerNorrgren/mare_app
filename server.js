@@ -64,6 +64,29 @@ app.get('/library.html', (req, res) => {
 // static files so /i18n/*.json comes from here. (Mare App 4)
 require('./texts').register(app, { db, auth, email });
 
+// Mare App 5 — cache-busting. Some browsers (and any cache in between)
+// kept serving an old day.css/admin.js after a deploy even with
+// 'no-cache', so a new page arrived with yesterday's styles. Every page
+// now asks for its CSS and JS with ?v=<this deploy>, so each deploy is a
+// fresh address and can never be mixed with an older one.
+const BUILD_ID = String(process.env.RAILWAY_DEPLOYMENT_ID || process.env.RAILWAY_GIT_COMMIT_SHA || Date.now()).slice(0, 12);
+const htmlCache = new Map();
+app.get(/^\/([A-Za-z0-9_-]+\.html)?$/, (req, res, next) => {
+  const name = req.params[0] || 'index.html';
+  const file = require('path').join(__dirname, 'public', name);
+  let html = htmlCache.get(name);
+  if (html === undefined) {
+    try {
+      html = require('fs').readFileSync(file, 'utf8')
+        .replace(/(<(?:script|link)\b[^>]*?\s(?:src|href)=")(\/(?:js|css)\/[A-Za-z0-9._-]+\.(?:js|css))(")/g, `$1$2?v=${BUILD_ID}$3`);
+    } catch { html = null; }
+    htmlCache.set(name, html);
+  }
+  if (html == null) return next();
+  res.setHeader('Cache-Control', 'no-cache');
+  res.type('html').send(html);
+});
+
 app.use(express.static('public', {
   setHeaders: (res, filePath) => {
     if (/\.(css|js|html)$/.test(filePath)) {
