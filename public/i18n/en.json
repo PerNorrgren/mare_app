@@ -1209,5 +1209,9 @@
   "homeCompanionFree": "Free with your account.",
   "bookCompanionTile": "Book Companion",
   "bookCompanionTileSub": "The story comes alive",
-  "homeSampleClose": "Close"
+  "homeSampleClose": "Close",
+  "homeFeatureBadge": "New",
+  "homeFeatureTitle": "The interactive Book Companion",
+  "homeFeatureDesc": "While you read Mare's story aloud, your child explores a magical picture for every chapter on a tablet: tapping glowing secrets, hearing the church bell and the ticking clock, and talking to Mare about how she feels. You choose the chapter; the pictures follow.",
+  "homeFeatureLink": "See everything you can do ↓"
 }

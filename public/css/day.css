@@ -1815,3 +1815,20 @@ body.has-viewas-bar { padding-bottom: 70px; }
 .sample-more { font-weight: 700; margin: 16px 0 14px; color: #6B4E1F; }
 .sample-btns { display: flex; gap: 10px; flex-wrap: wrap; }
 .sample-close { position: absolute; top: 12px; right: 12px; width: 42px; height: 42px; border-radius: 50%; border: 0; background: rgba(22,48,92,0.08); color: #16305C; font-size: 1.1rem; cursor: pointer; }
+
+/* Mare App 5 — Book Companion feature at the top of the home page */
+html { scroll-behavior: smooth; }
+.home-companion { scroll-margin-top: 20px; }
+.companion-feature {
+  display: flex; gap: 16px; align-items: flex-start; max-width: 960px; margin: 0 auto 20px; box-sizing: border-box;
+  width: calc(100% - 2 * clamp(20px, 5vw, 56px)); padding: 20px 24px; border-radius: 18px; text-decoration: none;
+  background: linear-gradient(135deg, rgba(107,78,31,0.92), rgba(166,124,46,0.92)); color: #FFF7E3;
+  border: 1.5px solid rgba(226,190,110,0.9); box-shadow: 0 12px 30px rgba(0,0,0,0.3); transition: transform 0.15s ease;
+}
+.companion-feature:hover { transform: translateY(-2px); }
+.companion-feature-badge { flex: none; background: #FFF7E3; color: #6B4E1F; font-weight: 700; font-size: 0.78rem; letter-spacing: 0.06em; text-transform: uppercase; padding: 4px 10px; border-radius: 999px; margin-top: 4px; }
+.companion-feature-text { display: flex; flex-direction: column; gap: 6px; }
+.companion-feature-text strong { font-family: 'Fraunces', serif; font-size: 1.35rem; }
+.companion-feature-text span { line-height: 1.55; }
+.companion-feature-text em { font-style: normal; font-weight: 700; color: #FFE3A3; }
+@media (max-width: 560px) { .companion-feature { flex-direction: column; gap: 8px; } }
