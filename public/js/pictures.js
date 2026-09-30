@@ -107,9 +107,11 @@
       $('px-empty-body').textContent = t('picturesNoneBody');
       $('px-spots').innerHTML = ''; $('px-img').removeAttribute('src');
       $('px-prev').hidden = $('px-next').hidden = true; $('px-dots').innerHTML = ''; $('px-found').hidden = true;
+      $('px-talk').hidden = true;
       return;
     }
     $('px-empty').hidden = true;
+    $('px-talk').hidden = !data.talk;
     showScene(0);
     if (!sessionStorage.getItem('px-hinted')) {
       $('px-hint').textContent = t('picturesHint');
@@ -121,12 +123,29 @@
 
   // Follow the grown-up's chapter.
   async function poll() {
-    if (fixedChapter || !data) return;
+    if (fixedChapter || !data || !$('px-talkbox').hidden) return;
     try {
       const c = await getJson('/api/pictures/chapter');
       if (c.chapter !== data.chapter) { found.clear(); await load(); }
     } catch { /* offline for a moment: try again next time */ }
   }
+
+  // Mare App 5 — Talk to Mare about the picture on screen.
+  function openTalk() {
+    const scene = data && data.scenes[idx];
+    if (!scene) return;
+    closePop();
+    const lang = window.MareI18n ? window.MareI18n.locale : 'en';
+    $('px-talk-frame').src = `/talk.html?embed=1&scene=${encodeURIComponent(scene.id)}&lang=${lang}`;
+    $('px-talkbox').hidden = false;
+  }
+  function closeTalk() {
+    $('px-talkbox').hidden = true;
+    $('px-talk-frame').src = 'about:blank';
+  }
+  window.addEventListener('message', (e) => {
+    if (e.origin === location.origin && e.data && e.data.mare === 'talk-close') closeTalk();
+  });
 
   // Grown-ups: hold the moon 3 seconds to leave.
   function setupExit() {
@@ -151,6 +170,9 @@
     $('px-prev').onclick = () => showScene(idx - 1);
     $('px-next').onclick = () => showScene(idx + 1);
     $('px-pop-close').onclick = closePop;
+    $('px-talk-label').textContent = t('picturesTalk');
+    $('px-talk').onclick = openTalk;
+    $('px-talk-close').onclick = closeTalk;
     $('px-pop').addEventListener('click', (e) => { if (e.target.id === 'px-pop') closePop(); });
     // swipe between pictures
     let sx = null;

@@ -54,8 +54,10 @@ function register(app, { db, auth, media }) {
   app.get('/api/pictures', family, async (req, res) => {
     let chapterNo = Number(req.query.chapter) || 0;
     let nl = req.query.lang === 'nl';
+    let talk = false;
     if (req.user.role === 'parent') {
       const parent = db.getParentById(req.user.id);
+      talk = !!(parent && parent.picture_talk !== 0 && db.getChildrenByParent(parent.id).length);
       if (!chapterNo) chapterNo = (parent && parent.companion_chapter) || 1;
       if (!req.query.lang && parent) nl = parent.preferred_locale === 'nl';
     }
@@ -65,6 +67,7 @@ function register(app, { db, auth, media }) {
     res.json({
       chapter: chapterNo,
       chapterTitle: p ? ((nl && p.chapter_title_nl) || p.chapter_title_en) : '',
+      talk, // Mare App 5 — show the "Talk to Mare" bubble (family switch on, has a child)
       scenes: await publicScenes(chapterNo, nl),
     });
   });
@@ -94,6 +97,8 @@ function register(app, { db, auth, media }) {
     if (b.imageKey !== undefined) { if (b.imageKey && !KEY_OK.test(b.imageKey)) return res.status(400).json({ error: 'Bad key' }); f.imageKey = b.imageKey || null; }
     if (b.titleEn !== undefined) f.titleEn = String(b.titleEn).slice(0, 120);
     if (b.titleNl !== undefined) f.titleNl = String(b.titleNl).slice(0, 120);
+    if (b.contextEn !== undefined) f.contextEn = String(b.contextEn).slice(0, 1500);
+    if (b.contextNl !== undefined) f.contextNl = String(b.contextNl).slice(0, 1500);
     if (b.sortOrder !== undefined) f.sortOrder = Math.round(Number(b.sortOrder)) || 0;
     if (b.active !== undefined) f.active = !!b.active;
     db.updatePictureScene(req.params.id, f);

@@ -233,12 +233,43 @@ function buildMareSystemPrompt({ ageBand, locale, childName, bookText }) {
   ].filter(Boolean).join('\n');
 }
 
+// Mare App 5 — Talk to Mare inside the picture explorer. The child is
+// looking at one picture from the chapter a grown-up is reading aloud.
+// Mare knows the story only up to that chapter (no spoilers) and what is
+// in the picture, and keeps it short, bodily, and turned back to the
+// grown-up now and then — the talk supports the reading, never replaces it.
+function buildPictureTalkContext({ locale, chapterNo, chapterTitle, summaries, pictureTitle, pictureNote, spots }) {
+  const nl = locale === 'nl';
+  const story = summaries.map(s => `Chapter ${s.no} (${s.title}): ${s.summary}`).join('\n');
+  const spotLines = (spots || []).filter(s => s.title || s.text).map(s => `- ${[s.title, s.text].filter(Boolean).join(': ')}`).join('\n');
+  return `
+---
+RIGHT NOW: the child is looking at a picture from chapter ${chapterNo} ("${chapterTitle}") of your book, while a grown-up reads the book aloud to them. They tapped "Talk to Mare" on that picture.
+${pictureTitle ? `The picture is called: ${pictureTitle}` : ''}
+${pictureNote ? `What is happening in the picture: ${pictureNote}` : ''}
+${spotLines ? `Things in the picture the child can tap:\n${spotLines}` : ''}
+
+What has happened in your story so far (you remember these as your own life; the child may not know every detail):
+${story}
+
+How to talk here:
+- You are Mare, living this moment. Talk about what's happening in the picture and how it feels for you — especially in your body (a tight tummy, cold hands, feet on the floor, warm chest) — and what helps you.
+- Keep every reply to two or three short sentences. Ask at most one gentle question, often about the child: "Have you ever felt like that?"
+- Now and then, turn it back to the grown-up who is reading: "Ask your grown-up if they ever…". Never try to keep the child talking instead of listening to the story.
+- You only know the story up to chapter ${chapterNo}. Never tell what happens later, even if asked: say you don't know yet — "let's find out together when your grown-up reads on."
+- Don't recite or quote the book; tell it in your own words, like remembering.
+- If you're not sure about a detail, say so rather than making it up.
+${nl ? '- Speak Dutch. Your woods are "het Fluisterbos".' : ''}
+---`;
+}
+
 module.exports = {
   AGE_REGISTER,
   DEFAULT_AGE_BAND,
   MARE_CORE,
   MARE_SAFETY,
   buildMareSystemPrompt,
+  buildPictureTalkContext,
   buildMareHelperSystemPrompt,
   MARKETING_PLATFORM_KEYS,
   buildMarketingPrompt,

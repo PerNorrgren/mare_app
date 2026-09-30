@@ -1182,5 +1182,13 @@
   "adminSpotRemove": "verwijderen",
   "editorDone": "✓ Klaar",
   "adminSpotListen": "Beluisteren",
-  "adminSpotStop": "Stop"
+  "adminSpotStop": "Stop",
+  "picturesTalk": "Praat met Mare",
+  "talkBackToStory": "Mare moet nu gaan — terug naar het verhaal!",
+  "companionPictureTalk": "Laat mijn kind met Mare praten over de platen (het spraakwolkje \"Praat met Mare\"). Mare kent het verhaal alleen tot het hoofdstuk dat jullie lezen, en elk gesprek stopt na een paar minuten.",
+  "adminPicNoteEn": "Over deze plaat, voor Mare (EN)",
+  "adminPicNoteNl": "Over deze plaat, voor Mare (NL, optioneel)",
+  "adminPicNoteHint": "Niet zichtbaar voor kinderen. Vertel Mare wat er gebeurt en hoe ze zich voelt, zodat ze erover kan praten (bijv. \"Mare ligt wakker voor het feest; de kerkklok slaat elf; ze is bang dat er niemand komt.\").",
+  "adminCompanionSummary": "Wat er in dit hoofdstuk gebeurt (voor Mare, privé)",
+  "adminCompanionSummaryHint": "Nooit zichtbaar. Mare gebruikt de samenvattingen tot het hoofdstuk van het gezin als een kind met haar praat bij de platen, zodat ze het verhaal kent zonder te verklappen wat er nog komt."
 }

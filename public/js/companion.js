@@ -100,6 +100,12 @@
     from.innerHTML = data.children.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('') + `<option value="">${esc(t('companionMsgFromMe'))}</option>`;
     renderMessages();
     renderRating();
+    const pt = $('cp-picture-talk');
+    if (pt) {
+      pt.checked = data.pictureTalk !== false;
+      pt.disabled = !!data.preview;
+      pt.onchange = async () => { try { await api('/api/companion/picture-talk', { on: pt.checked }); } catch { pt.checked = !pt.checked; } };
+    }
   }
 
   function setup() {

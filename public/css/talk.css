@@ -161,3 +161,7 @@ body.talk-body { margin: 0; background: var(--night-deep); overflow: hidden; fon
 @media (prefers-reduced-motion: reduce) {
   .talk-orb, .talk-orb-ring { animation: none !important; }
 }
+
+/* Mare App 5 — Talk to Mare inside the pictures (talk.html?embed=1):
+   no site chrome, no helper, no view-as bar. */
+html.talk-embed .talk-picker-topbar, html.talk-embed #mare-helper-root, html.talk-embed #viewas-bar { display: none !important; }

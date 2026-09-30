@@ -1182,5 +1182,13 @@
   "adminSpotRemove": "remove",
   "editorDone": "✓ Done",
   "adminSpotListen": "Listen",
-  "adminSpotStop": "Stop"
+  "adminSpotStop": "Stop",
+  "picturesTalk": "Talk to Mare",
+  "talkBackToStory": "Mare has to go now — back to the story!",
+  "companionPictureTalk": "Let my child talk to Mare about the pictures (the speech bubble \"Talk to Mare\"). Mare only knows the story up to the chapter you're reading, and each talk ends after a few minutes.",
+  "adminPicNoteEn": "About this picture, for Mare (EN)",
+  "adminPicNoteNl": "About this picture, for Mare (NL, optional)",
+  "adminPicNoteHint": "Not shown to children. Tell Mare what's happening and how she feels, so she can talk about it (e.g. \"Mare lies awake before the party; the church bell strikes eleven; she's worried nobody will come.\").",
+  "adminCompanionSummary": "What happens in this chapter (for Mare, private)",
+  "adminCompanionSummaryHint": "Never shown. Mare uses the summaries up to the family's chapter when a child talks to her in the pictures, so she knows the story without spoiling what comes next."
 }

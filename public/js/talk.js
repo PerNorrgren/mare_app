@@ -85,6 +85,18 @@
 
   // ── Child picker ──
   const AVATAR_COLORS = ['#EAC066', '#7FB5A8', '#D98E73', '#8CA9D9', '#C98CC9', '#A8C97E'];
+  // Mare App 5 — opened inside the picture explorer (iPad): ?embed=1&scene=<id>.
+  // No site chrome, the first child is picked if there's only one, Mare
+  // knows the picture, and leaving goes back to the picture.
+  const qs = new URLSearchParams(window.location.search);
+  const EMBED = qs.get('embed') === '1';
+  const PICTURE_SCENE = qs.get('scene') || null;
+  if (EMBED) document.documentElement.classList.add('talk-embed');
+  function backToPicture() {
+    if (window.parent && window.parent !== window) window.parent.postMessage({ mare: 'talk-close' }, window.location.origin);
+    else window.location.href = '/pictures.html';
+  }
+
   async function loadChildren() {
     const data = await api('/api/children');
     children = data.children || [];
@@ -93,6 +105,7 @@
       els['no-children-msg'].hidden = false;
       return;
     }
+    if (EMBED && children.length === 1) { beginConversation({ mode: 'child', child: children[0] }); return; }
     children.forEach((c, i) => {
       const card = document.createElement('button');
       card.type = 'button';
@@ -224,6 +237,14 @@
       const data = await api('/api/talk/chat', { method: 'POST', body: JSON.stringify({ sessionId, message: text }) });
       messageCount++;
       await speak(data.reply);
+      if (data.done) {
+        // Mare App 5 — picture talks end after a while: back to the story.
+        stopListening();
+        setOrbState('disabled');
+        els['state-label'].textContent = window.MareI18n.t('talkBackToStory');
+        if (sessionId) api(`/api/talk/session/${sessionId}/end`, { method: 'POST' }).catch(() => {});
+        setTimeout(backToPicture, 3500);
+      }
     } catch (err) {
       if (err.message === 'Preview limit reached') { showPreviewGate(); return; }
       setOrbState('idle');
@@ -292,6 +313,7 @@
 
     try {
       const body = isAgeBandMode ? { ageBand: opts.ageBand } : { childId: child.id };
+      if (PICTURE_SCENE && !isAgeBandMode) body.pictureSceneId = PICTURE_SCENE;
       const data = await api('/api/talk/session', { method: 'POST', body: JSON.stringify(body) });
       sessionId = data.sessionId;
       locale = data.locale;
@@ -328,10 +350,11 @@
   async function endConversationAndLeave() {
     stopListening();
     if (sessionId) await api(`/api/talk/session/${sessionId}/end`, { method: 'POST' }).catch(() => {});
+    if (EMBED) { backToPicture(); return; }
     window.location.href = '/';
   }
   function setupLeave() {
-    els['leave-btn'].addEventListener('click', () => { els['leave-confirm'].hidden = false; });
+    els['leave-btn'].addEventListener('click', () => { if (EMBED) { endConversationAndLeave(); return; } els['leave-confirm'].hidden = false; });
     els['leave-cancel-btn'].addEventListener('click', () => { els['leave-confirm'].hidden = true; });
     els['leave-confirm-btn'].addEventListener('click', endConversationAndLeave);
   }

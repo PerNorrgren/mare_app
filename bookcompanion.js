@@ -87,7 +87,14 @@ function register(app, { db, auth, email, anthropic, model, publicUrl }) {
       rating: rating ? { stars: rating.stars, comment: rating.comment || '', code: rating.discount_code } : null,
       ratingPercent: (db.getAppConfig() || {}).rating_discount_percent || 10,
       messages: db.mareMessagesForParent(parent.id),
+      pictureTalk: parent.picture_talk !== 0,
     });
+  });
+  // Mare App 5 — the family's switch for "Talk to Mare" in the pictures.
+  app.post('/api/companion/picture-talk', parentOnly, (req, res) => {
+    const on = !!(req.body && req.body.on);
+    db.setPictureTalk(req.user.id, on);
+    res.json({ ok: true, on });
   });
 
   app.post('/api/companion/chapter', parentOrStaff, (req, res) => {
@@ -159,6 +166,7 @@ function register(app, { db, auth, email, anthropic, model, publicUrl }) {
       chapterTitleEn: clip(b.chapterTitleEn, 120), chapterTitleNl: clip(b.chapterTitleNl, 120),
       titleEn: clip(b.titleEn, 120), titleNl: clip(b.titleNl, 120),
       bodyEn: clip(b.bodyEn, 3000), bodyNl: clip(b.bodyNl, 3000),
+      summary: b.summary !== undefined ? clip(b.summary, 2000) : undefined,
     });
     res.json({ ok: true });
   });

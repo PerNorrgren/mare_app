@@ -27,6 +27,13 @@
   </div>
 </div>
 
+<!-- Mare App 5 — Talk to Mare about this picture (top left, a speech
+     bubble; separate from the little Mare helper used elsewhere). -->
+<button type="button" class="px-talk" id="px-talk" hidden><span id="px-talk-label">Talk to Mare</span></button>
+<div class="px-talkbox" id="px-talkbox" hidden>
+  <button type="button" class="px-talk-close" id="px-talk-close" aria-label="Back to the picture">✕</button>
+  <iframe id="px-talk-frame" title="Talk to Mare" allow="microphone; autoplay"></iframe>
+</div>
 <div class="px-top">
   <div class="px-chapter" id="px-chapter"></div>
   <div class="px-found" id="px-found" hidden></div>

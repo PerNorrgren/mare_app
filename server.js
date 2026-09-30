@@ -798,6 +798,30 @@ function getPrimaryBookText(locale) {
   }
 }
 
+// Mare App 5 — context for Talk from inside a picture (see prompts.js
+// buildPictureTalkContext). Null if the family switched it off.
+const PICTURE_TALK_TURNS = 12; // then Mare says goodbye and sends them back to the story
+function pictureTalkContext(sceneId, locale, parentId) {
+  const parent = db.getParentById(parentId);
+  if (!parent || parent.picture_talk === 0) return null;
+  const scene = db.pictureScene(sceneId);
+  if (!scene) return null;
+  const nl = locale === 'nl';
+  const chapters = db.companionPractices().filter(p => p.chapter_no <= scene.chapter_no);
+  const cur = chapters.find(p => p.chapter_no === scene.chapter_no) || {};
+  return {
+    context: prompts.buildPictureTalkContext({
+      locale,
+      chapterNo: scene.chapter_no,
+      chapterTitle: (nl && cur.chapter_title_nl) || cur.chapter_title_en || '',
+      summaries: chapters.map(p => ({ no: p.chapter_no, title: p.chapter_title_en, summary: p.summary || '' })),
+      pictureTitle: (nl && scene.title_nl) || scene.title_en || '',
+      pictureNote: (nl && scene.context_nl) || scene.context_en || scene.context_nl || '',
+      spots: db.pictureSpots(scene.id).map(sp => ({ title: (nl && sp.title_nl) || sp.title_en, text: (nl && sp.text_nl) || sp.text_en })),
+    }),
+  };
+}
+
 const VALID_TEACHER_AGE_BANDS = ['6-8', '9-11', '12-15'];
 
 app.post('/api/talk/session', (req, res) => {
@@ -832,15 +856,19 @@ app.post('/api/talk/session', (req, res) => {
 
   const child = requireOwnedChild(req, res);
   if (!child) return;
+  // Mare App 5 — Talk from inside a picture: Mare knows that picture and
+  // the story up to the family's chapter (never the whole book: spoilers).
+  const pic = req.body && req.body.pictureSceneId ? pictureTalkContext(req.body.pictureSceneId, locale, user.id) : null;
+  if (req.body && req.body.pictureSceneId && !pic) return res.status(403).json({ error: 'Talk is switched off for these pictures.' });
   const sessionId = db.createTalkSession(child.id, user.id, locale);
   const systemPrompt = prompts.buildMareSystemPrompt({
     ageBand: child.age_band,
     locale,
     childName: child.name,
-    bookText: getPrimaryBookText(locale),
-  });
-  talkSessions.set(sessionId, { history: [], systemPrompt, dbRow: db.getTalkSession(sessionId) });
-  res.json({ ok: true, sessionId, locale });
+    bookText: pic ? '' : getPrimaryBookText(locale),
+  }) + (pic ? pic.context : '');
+  talkSessions.set(sessionId, { history: [], systemPrompt, dbRow: db.getTalkSession(sessionId), picture: !!pic, childTurns: 0 });
+  res.json({ ok: true, sessionId, locale, picture: !!pic });
 });
 
 app.post('/api/talk/chat', async (req, res) => {
@@ -883,11 +911,18 @@ app.post('/api/talk/chat', async (req, res) => {
     }
 
     session.history.push({ role: 'user', content: message });
+    // Mare App 5 — picture talks are short: after PICTURE_TALK_TURNS Mare
+    // says a warm goodbye and sends the child back to the story.
+    let lastTurn = false;
+    if (session.picture) {
+      session.childTurns = (session.childTurns || 0) + 1;
+      lastTurn = session.childTurns >= PICTURE_TALK_TURNS;
+    }
 
     const response = await anthropic.messages.create({
       model: TALK_MODEL,
-      max_tokens: 400,
-      system: session.systemPrompt,
+      max_tokens: session.picture ? 220 : 400,
+      system: session.systemPrompt + (lastTurn ? '\n\nThis is your last reply in this talk: answer briefly, then say a warm goodbye and invite the child to listen to the story again with their grown-up.' : ''),
       messages: session.history,
     });
     const replyText = (response.content || [])
@@ -900,7 +935,7 @@ app.post('/api/talk/chat', async (req, res) => {
     db.touchTalkSession(sessionId);
     if (dbRow.user_role === 'anonymous') db.incrementTalkSessionMessageCount(sessionId);
 
-    res.json({ ok: true, reply: replyText });
+    res.json({ ok: true, reply: replyText, done: lastTurn || undefined });
   } catch (e) {
     console.error('talk chat failed', e);
     res.status(500).json({ error: 'Mare is having trouble hearing right now — try again in a moment.' });
@@ -938,7 +973,9 @@ app.post('/api/talk/session/:id/opening', async (req, res) => {
       model: TALK_MODEL,
       max_tokens: 200,
       system: session.systemPrompt,
-      messages: [{ role: 'user', content: '(The child has just arrived. Give your opening line now.)' }],
+      messages: [{ role: 'user', content: session.picture
+        ? '(The child has just tapped "Talk to Mare" on the picture. Greet them in one or two short sentences about what is happening in this picture and how it feels for you, then ask one small question.)'
+        : '(The child has just arrived. Give your opening line now.)' }],
     });
     const replyText = (response.content || [])
       .filter(b => b.type === 'text')

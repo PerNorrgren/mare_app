@@ -1073,6 +1073,20 @@ Volgende maand verschijnt er een nieuw raadsel uit het Fluisterbos. 🌲🔎', ?
     sort_order INTEGER NOT NULL DEFAULT 0
   )`);
 
+  // ── Mare App 5 — Talk to Mare in the pictures: what Mare knows.
+  // companion_practices.summary = a short private summary of the chapter
+  // (never shown; Mare only gets chapters up to the family's chapter, so
+  // no spoilers). picture_scenes.context_* = "what's happening in this
+  // picture" written by staff. parents.picture_talk = the family's switch.
+  try { db.run(`ALTER TABLE companion_practices ADD COLUMN summary TEXT NOT NULL DEFAULT ''`); } catch {}
+  try { db.run(`ALTER TABLE picture_scenes ADD COLUMN context_en TEXT NOT NULL DEFAULT ''`); } catch {}
+  try { db.run(`ALTER TABLE picture_scenes ADD COLUMN context_nl TEXT NOT NULL DEFAULT ''`); } catch {}
+  try { db.run(`ALTER TABLE parents ADD COLUMN picture_talk INTEGER NOT NULL DEFAULT 1`); } catch {}
+  {
+    const SUMMARIES = {"1": "Late at night Mare lies awake under her cosy duvet, looking at the tiny lights her dad hung from the ceiling like little stars. The church bells next to her house chime and she counts along, as she always does; something is worrying her and keeps her awake. Later she shares it with her best friend Felien, and what helped her (pressing her feet into the ground) becomes her superpower.", "2": "Mare has to give a class presentation about penguins at two o'clock, and worries about it all day, a cold wind in her tummy. With Felien cheering her on it goes really well and the class loves the penguin videos. A question from Lisa throws her off balance, but she learns that both feelings can exist side by side.", "3": "After half-term, maths word problems make Mare feel like a detective. A note turns up under the table and Mare worries that she and Felien are in trouble; her shoulders creep up to her ears. It turns out to be nothing bad: this time her detective nose was wrong, and that was fine.", "4": "Wednesdays mean a supply teacher and a noisy, chaotic class, so Mare doesn't want to get out of bed. She discovers that being curious and kind helps her more than worrying; tingles in her tummy tell her 'this is right'.", "5": "Mare has new trainers she loves, but Lisa's comments make her doubt them, and at home she feels foggy and far away. The warmth of her mum's arm helps. The next day she is proud she got through it, and Lisa turns out to be dreading getting braces.", "6": "At hockey, forming groups brings back a knot in Mare's stomach. Feeling her trainers around her feet and the rough tape on her stick grounds her; she plays well and feels her own strength return.", "7": "Year 5 gets homework for the first time: a geography test. Making a summary is hard, and Mare feels a wave of shame, which she notices like a smell and simply lets be. Wrapped in a warm duvet she knows how to start, and falls asleep peacefully.", "8": "On Friday Mare is quiet, counting the days until Saturday, when they go to look at a puppy. A teacher shows her how a mind map helps her remember. At night Felien stays with her for a while: she didn't need fancy words, just someone to stay.", "9": "Mare's family gets a Labradoodle puppy called Felix: tiny, fluffy, with paws far too big for his body. After a whole week of waiting, Mare is bursting with joy.", "10": "A school trip is coming and Mare feels homesick long before it starts. She finds a way to talk about her worries, and learns she doesn't need to know what it will be like, only that she can do it; stroking her own arm calms her.", "11": "Mare watches Felix sleep and breathes in time with his little tummy. When Felix gets overexcited she stays calm and helps him settle. Someone needed her today, and she was there.", "12": "Mare gets her first phone on her tenth birthday. Scrolling, she compares herself with girls whose photos look perfect, but making a video with Felien feels like golden confetti inside. Felix at home and Felien beside her: together, that's enough.", "13": "The teacher announces the class will be split into 6A and 6B after the summer, and Mare and Felien will be in different classes. Mare looks at what makes each classmate special, and realises some things stay the same: her friendship with Felien.", "14": "Mare and Felien walk Felix in silence; something has upset them. Mare's alarm rises, but the cool table under her hand and her feet on the floor steady her, and with the teacher's help she finds out what really happened. Looking back, she has learned to pause and notice what she feels."};
+    for (const [n, text] of Object.entries(SUMMARIES)) db.run(`UPDATE companion_practices SET summary = ? WHERE chapter_no = ? AND summary = ''`, [text, Number(n)]);
+  }
+
   // Mare App 5 — one-off changes that must run once only, ever (so a
   // later edit in Admin is never overwritten at the next restart).
   db.run(`CREATE TABLE IF NOT EXISTS app_once (key TEXT PRIMARY KEY, done_at TEXT DEFAULT (datetime('now')))`);
@@ -1908,8 +1922,8 @@ function createPictureScene(chapterNo) {
 function updatePictureScene(id, f) {
   const s = pictureScene(id); if (!s) return;
   const v = (k, d) => (f[k] !== undefined ? f[k] : d);
-  run(`UPDATE picture_scenes SET image_key=?, title_en=?, title_nl=?, sort_order=?, active=? WHERE id=?`,
-    [v('imageKey', s.image_key), v('titleEn', s.title_en), v('titleNl', s.title_nl), v('sortOrder', s.sort_order), v('active', s.active) ? 1 : 0, id]);
+  run(`UPDATE picture_scenes SET image_key=?, title_en=?, title_nl=?, sort_order=?, active=?, context_en=?, context_nl=? WHERE id=?`,
+    [v('imageKey', s.image_key), v('titleEn', s.title_en), v('titleNl', s.title_nl), v('sortOrder', s.sort_order), v('active', s.active) ? 1 : 0, v('contextEn', s.context_en || ''), v('contextNl', s.context_nl || ''), id]);
 }
 function deletePictureScene(id) { run(`DELETE FROM picture_spots WHERE scene_id = ?`, [id]); run(`DELETE FROM picture_scenes WHERE id = ?`, [id]); }
 function pictureSpots(sceneId) { return all(`SELECT * FROM picture_spots WHERE scene_id = ? ORDER BY sort_order, rowid`, [sceneId]); }
@@ -1936,7 +1950,9 @@ function companionPractice(n) { return get(`SELECT * FROM companion_practices WH
 function updateCompanionPractice(n, f) {
   run(`UPDATE companion_practices SET chapter_title_en=?, chapter_title_nl=?, title_en=?, title_nl=?, body_en=?, body_nl=?, updated_at=datetime('now') WHERE chapter_no=?`,
     [f.chapterTitleEn || '', f.chapterTitleNl || '', f.titleEn || '', f.titleNl || '', f.bodyEn || '', f.bodyNl || '', n]);
+  if (f.summary !== undefined) run(`UPDATE companion_practices SET summary=? WHERE chapter_no=?`, [f.summary || '', n]);
 }
+function setPictureTalk(parentId, on) { run(`UPDATE parents SET picture_talk = ? WHERE id = ?`, [on ? 1 : 0, parentId]); }
 function setCompanionChapter(parentId, n) { run(`UPDATE parents SET companion_chapter = ? WHERE id = ?`, [n, parentId]); }
 function getBookRating(parentId) { return get(`SELECT * FROM book_ratings WHERE parent_id = ?`, [parentId]); }
 function saveBookRating(parentId, stars, comment, code) {
@@ -2898,6 +2914,7 @@ function getAllBulkImports() {
 }
 
 module.exports = {
+  setPictureTalk,
   pictureScenes, pictureScene, createPictureScene, updatePictureScene, deletePictureScene,
   pictureSpots, pictureSpot, savePictureSpot, deletePictureSpot,
   ensurePreviewAccounts,

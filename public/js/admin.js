@@ -386,6 +386,11 @@
         <label class="pic-upload btn-ghost btn-small">${escapeHtml(t('adminPicUpload'))}<input type="file" accept="image/*" hidden></label>
         <button type="button" class="btn-ghost btn-small btn-danger pic-del">${escapeHtml(t('adminPicDelete'))}</button>
       </div>
+      <div class="admin-form-row pic-notes">
+        <div class="field"><label>${escapeHtml(t('adminPicNoteEn'))}</label><textarea data-editor="plain" class="pic-note-en" rows="3">${escapeHtml(scene.context_en || '')}</textarea></div>
+        <div class="field"><label>${escapeHtml(t('adminPicNoteNl'))}</label><textarea data-editor="plain" class="pic-note-nl" rows="3">${escapeHtml(scene.context_nl || '')}</textarea></div>
+      </div>
+      <p class="admin-empty-note pic-note-hint">${escapeHtml(t('adminPicNoteHint'))} <button type="button" class="btn-ghost btn-small pic-note-save">${escapeHtml(t('adminSaveItem'))}</button> <span class="staff-row-msg" role="status"></span></p>
       <p class="admin-empty-note">${escapeHtml(scene.imageUrl ? t('adminPicClickHint') : t('adminPicLandscape'))}</p>
       <div class="pic-body">
         <div class="pic-canvas">${scene.imageUrl ? `<img src="${escapeHtml(scene.imageUrl)}" alt="" draggable="false">` : ''}<div class="pic-spots"></div></div>
@@ -397,6 +402,14 @@
     const saveTitles = async () => {
       await api(`/api/admin/pictures/${scene.id}`, { method: 'PATCH', body: JSON.stringify({ titleEn: el.querySelector('.pic-title-en').value, titleNl: el.querySelector('.pic-title-nl').value }) });
     };
+    el.querySelector('.pic-note-save').addEventListener('click', async () => {
+      const msg = el.querySelector('.pic-note-hint .staff-row-msg');
+      try {
+        await api(`/api/admin/pictures/${scene.id}`, { method: 'PATCH', body: JSON.stringify({ contextEn: el.querySelector('.pic-note-en').value, contextNl: el.querySelector('.pic-note-nl').value }) });
+        scene.context_en = el.querySelector('.pic-note-en').value; scene.context_nl = el.querySelector('.pic-note-nl').value;
+        msg.textContent = t('adminSaved'); msg.className = 'staff-row-msg ok';
+      } catch (err) { msg.textContent = err.message || t('errorGeneric'); msg.className = 'staff-row-msg err'; }
+    });
     el.querySelector('.pic-title-en').addEventListener('change', saveTitles);
     el.querySelector('.pic-title-nl').addEventListener('change', saveTitles);
     el.querySelector('.pic-upload input').addEventListener('change', async (e) => {
@@ -633,13 +646,15 @@
           <div class="field"><label>${escapeHtml(t('adminCompanionPracticeBody'))} (EN)</label><textarea data-editor="plain" class="cpa-b-en" rows="9">${escapeHtml(p.body_en)}</textarea></div>
           <div class="field"><label>${escapeHtml(t('adminCompanionPracticeBody'))} (NL)</label><textarea data-editor="plain" class="cpa-b-nl" rows="9">${escapeHtml(p.body_nl)}</textarea></div>
         </div>
+        <div class="field"><label>${escapeHtml(t('adminCompanionSummary'))}</label><textarea data-editor="plain" class="cpa-summary" rows="4">${escapeHtml(p.summary || '')}</textarea>
+          <p class="admin-empty-note">${escapeHtml(t('adminCompanionSummaryHint'))}</p></div>
         <button type="button" class="btn-primary btn-small cpa-save">${escapeHtml(t('adminSaveItem'))}</button> <span class="staff-row-msg" role="status"></span>`;
       el.querySelector('.cpa-save').addEventListener('click', async () => {
         const q = (c) => el.querySelector(c).value;
         const msg = el.querySelector('.staff-row-msg');
         try {
           await api(`/api/admin/companion/practices/${p.chapter_no}`, { method: 'PUT', body: JSON.stringify({
-            chapterTitleEn: q('.cpa-ct-en'), chapterTitleNl: q('.cpa-ct-nl'), titleEn: q('.cpa-t-en'), titleNl: q('.cpa-t-nl'), bodyEn: q('.cpa-b-en'), bodyNl: q('.cpa-b-nl'),
+            chapterTitleEn: q('.cpa-ct-en'), chapterTitleNl: q('.cpa-ct-nl'), titleEn: q('.cpa-t-en'), titleNl: q('.cpa-t-nl'), bodyEn: q('.cpa-b-en'), bodyNl: q('.cpa-b-nl'), summary: q('.cpa-summary'),
           }) });
           msg.textContent = t('adminSaved'); msg.className = 'staff-row-msg ok';
         } catch (err) { msg.textContent = err.message || t('errorGeneric'); msg.className = 'staff-row-msg err'; }

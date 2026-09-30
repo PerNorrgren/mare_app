@@ -1795,3 +1795,5 @@ body.has-viewas-bar { padding-bottom: 70px; }
 .pic-form-btns { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 6px; }
 .pic-media-name { color: var(--navy); font-weight: 700; word-break: break-all; }
 .pic-media-state a { margin-left: 6px; }
+.cp-talk-toggle { display: flex; gap: 8px; align-items: flex-start; margin-top: 10px; font-size: 0.9rem; color: rgba(243,236,217,0.9); cursor: pointer; }
+.cp-talk-toggle input { margin-top: 4px; }
