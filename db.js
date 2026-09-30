@@ -1096,6 +1096,13 @@ Volgende maand verschijnt er een nieuw raadsel uit het Fluisterbos. 🌲🔎', ?
     fn();
     db.run(`INSERT INTO app_once (key) VALUES (?)`, [key]);
   };
+  // Chapter 1's private summary for Mare, now with what actually happens
+  // (only replaces the first draft, never an edited one).
+  once('chapter1-summary-v2', () => {
+    db.run(`UPDATE companion_practices SET summary = ? WHERE chapter_no = 1 AND summary LIKE 'Late at night Mare lies awake%'`, [
+      "Late at night Mare lies awake under her cosy duvet, looking at the tiny lights her dad hung up like stars. The church bells next to her house strike eleven; she counts along and realises she has been lying awake thinking about her tenth birthday party. She handed out ten invitations; the tenth went to Lisa, a cool girl from her class. Before walking up to her, Mare pressed her feet into the ground and breathed slowly, her own safe bubble; but Lisa laughed and said no in front of everyone, and it felt as if the ground gave way. Later Mare shares it with her best friend Felien, and the feet-press becomes her superpower.",
+    ]);
+  });
   // The lavender pouch gets its picture (Mare holding the pouch), shipped
   // as public/images/mare-lavender-pouch.jpg. Change it later in Admin →
   // Merchandise like any other product photo.

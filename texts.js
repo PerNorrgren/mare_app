@@ -29,7 +29,7 @@ const HIDDEN_PREFIXES = ['admin', 'staff', 'editor'];
 // editor page. First match wins.
 const GROUPS = [
   ['companion', /^companion/],
-  ['home', /^(showcase|home|hero|press|brand|nav|talkToMare|clubMare$|clubMareSub$|maresShop|teachersTile)/],
+  ['home', /^(showcase|home|hero|press|brand|nav|talkToMare|clubMare$|clubMareSub$|maresShop|teachersTile|bookCompanionTile)/],
   ['teacher', /^teacher/],
   ['club', /^(clubMare|whisper|wq|forest)/],
   ['shop', /^shop/],

@@ -107,7 +107,34 @@
     </div>
   </section>
 
+  <!-- Mare App 5 — The Book Companion, explained under the book. -->
+  <section class="home-companion" aria-labelledby="home-companion-title">
+    <div class="whisper-card home-companion-card">
+      <span class="whisper-label" data-i18n="homeCompanionLabel">The Book Companion</span>
+      <h2 id="home-companion-title" data-i18n="homeCompanionTitle">The story comes alive while you read</h2>
+      <p class="whisper-body" data-i18n="homeCompanionBody">You read the book aloud, from paper or your e-reader. Your child follows along on a tablet, and the Whispering Woods come to life:</p>
+      <ul class="home-companion-list">
+        <li data-i18n="homeCompanionPoint1">✨ Magical pictures for every chapter, full of glowing secrets to find: tap them to hear the church bell, the ticking clock, the puppy, or Mare herself.</li>
+        <li data-i18n="homeCompanionPoint2">💬 Talk to Mare about the picture: ask her how she felt, why she couldn't sleep, what helped her. She only knows the story up to your chapter, so there are no spoilers.</li>
+        <li data-i18n="homeCompanionPoint3">📖 You're the guide: choose the chapter on your phone and the pictures on the tablet follow by themselves.</li>
+        <li data-i18n="homeCompanionPoint4">🌿 A small calming practice for every chapter, the same ones Mare uses in the story, to try together in a minute or two.</li>
+        <li data-i18n="homeCompanionPoint5">💌 Write to Mare, and she writes back.</li>
+      </ul>
+      <div class="home-companion-cta">
+        <a class="btn-primary" href="/companion.html" data-i18n="homeCompanionCta">Open the Book Companion →</a>
+        <span class="whisper-note" data-i18n="homeCompanionFree">Free with your account.</span>
+      </div>
+    </div>
+  </section>
+
   <section class="extras" aria-label="More from Mare">
+    <a class="extra-tile extra-companion" href="/companion.html">
+      <span class="extra-icon" aria-hidden="true">
+        <svg viewBox="0 0 40 40" width="26" height="26"><path d="M6 10c5-2 10-2 14 1v21c-4-3-9-3-14-1V10z" fill="none" stroke="currentColor" stroke-width="2"/><path d="M34 10c-5-2-10-2-14 1v21c4-3 9-3 14-1V10z" fill="none" stroke="currentColor" stroke-width="2"/><path d="M29 4l1 2.4 2.4 1-2.4 1-1 2.4-1-2.4-2.4-1 2.4-1z" fill="currentColor"/></svg>
+      </span>
+      <span class="extra-label" data-i18n="bookCompanionTile">Book Companion</span>
+      <span class="extra-sub" data-i18n="bookCompanionTileSub">The story comes alive</span>
+    </a>
     <button class="extra-tile extra-talk" id="tile-talk" type="button">
       <span class="extra-icon" aria-hidden="true">
         <svg viewBox="0 0 40 40" width="26" height="26"><path d="M8 12h24a2 2 0 012 2v12a2 2 0 01-2 2H16l-6 6V16a2 2 0 012-2z" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="15" cy="20" r="1.6" fill="currentColor"/><circle cx="20" cy="20" r="1.6" fill="currentColor"/><circle cx="25" cy="20" r="1.6" fill="currentColor"/></svg>
@@ -169,6 +196,20 @@
 
 <div class="social-footer" id="social-footer" hidden></div>
 
+<!-- Mare App 5 — the first pages of the book (the rest is in the book itself) -->
+<div class="sample-backdrop" id="sample-modal" hidden>
+  <div class="sample-card" role="dialog" aria-modal="true" aria-labelledby="sample-title">
+    <button type="button" class="sample-close" id="sample-close" aria-label="Close">✕</button>
+    <span class="whisper-label" data-i18n="homeSampleLabel">Read the first pages</span>
+    <h2 id="sample-title" data-i18n="homeSampleTitle">Chapter 1 · The birthday party</h2>
+    <div class="sample-text" id="sample-text"></div>
+    <p class="sample-more" data-i18n="homeSampleMore">What happens with the tenth invitation? Read on in the book, and explore every chapter with the Book Companion.</p>
+    <div class="sample-btns">
+      <a class="btn-primary" href="/merchandise.html" data-i18n="homeSampleGetBook">Get the book</a>
+      <a class="btn-ghost" href="/companion.html" data-i18n="homeSampleCompanion">Explore with the Book Companion</a>
+    </div>
+  </div>
+</div>
 <script src="/js/i18n.js"></script>
 <script src="/js/mare-helper-widget.js"></script>
 <script src="/js/bg-slideshow.js"></script>

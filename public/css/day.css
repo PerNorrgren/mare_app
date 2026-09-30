@@ -1797,3 +1797,21 @@ body.has-viewas-bar { padding-bottom: 70px; }
 .pic-media-state a { margin-left: 6px; }
 .cp-talk-toggle { display: flex; gap: 8px; align-items: flex-start; margin-top: 10px; font-size: 0.9rem; color: rgba(243,236,217,0.9); cursor: pointer; }
 .cp-talk-toggle input { margin-top: 4px; }
+
+/* Mare App 5 — home: first pages of the book, and the Book Companion box */
+.home-companion { max-width: 760px; margin: 8px auto 26px; padding: 0 clamp(12px, 3vw, 20px); }
+.home-companion-card { border-color: rgba(226,190,110,0.85); }
+.home-companion-card h2 { margin: 2px 0 8px; }
+.home-companion-list { list-style: none; margin: 10px 0 16px; padding: 0; display: grid; gap: 10px; }
+.home-companion-list li { color: #F3ECD9; line-height: 1.5; background: rgba(243,236,217,0.06); border-radius: 12px; padding: 10px 14px; }
+.home-companion-cta { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+.extra-companion { background: linear-gradient(135deg, #6B4E1F, #A67C2E); color: #FFF7E3; border-color: rgba(226,190,110,0.8); text-decoration: none; }
+.sample-backdrop { position: fixed; inset: 0; z-index: 1000; background: rgba(5,10,8,0.7); display: flex; align-items: center; justify-content: center; padding: 16px; }
+.sample-backdrop[hidden] { display: none; }
+.sample-card { position: relative; width: min(680px, 96vw); max-height: 90vh; overflow: auto; background: #FFFBF1; color: #16305C; border-radius: 22px; padding: 26px 28px 22px; box-shadow: 0 24px 70px rgba(0,0,0,0.5); }
+.sample-card .whisper-label { color: #9A7A2E; }
+.sample-card h2 { font-family: 'Fraunces', serif; margin: 2px 40px 14px 0; }
+.sample-text p { font-family: 'Fraunces', Georgia, serif; font-size: 1.08rem; line-height: 1.75; margin: 0 0 14px; }
+.sample-more { font-weight: 700; margin: 16px 0 14px; color: #6B4E1F; }
+.sample-btns { display: flex; gap: 10px; flex-wrap: wrap; }
+.sample-close { position: absolute; top: 12px; right: 12px; width: 42px; height: 42px; border-radius: 50%; border: 0; background: rgba(22,48,92,0.08); color: #16305C; font-size: 1.1rem; cursor: pointer; }

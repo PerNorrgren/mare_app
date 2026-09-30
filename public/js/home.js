@@ -87,9 +87,27 @@
     }
   }
 
-  function openBook(book) {
-    // Signed out, the reader itself gates how far a visitor can read.
-    window.location.href = `/reader.html?book=${encodeURIComponent(book.slug)}&lang=${window.MareI18n.locale}`;
+  // Mare App 5 — the book is sold separately (Amazon / the shop), not read
+  // in the app: clicking it opens the first pages of chapter 1, with ways on
+  // to the book and to the Book Companion. The text is editable in the text
+  // editor (homeSampleText, EN + NL).
+  function openBook() {
+    const box = document.getElementById('sample-text');
+    const text = window.MareI18n.t('homeSampleText');
+    box.innerHTML = text.split(/\n{2,}/).map(p => `<p>${p.replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]))}</p>`).join('');
+    const m = document.getElementById('sample-modal');
+    m.hidden = false;
+    box.scrollTop = 0;
+    document.getElementById('sample-close').focus();
+  }
+  {
+    const m = document.getElementById('sample-modal');
+    if (m) {
+      const close = () => { m.hidden = true; };
+      document.getElementById('sample-close').addEventListener('click', close);
+      m.addEventListener('click', (e) => { if (e.target === m) close(); });
+      document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !m.hidden) close(); });
+    }
   }
 
   async function loadBooks() {
