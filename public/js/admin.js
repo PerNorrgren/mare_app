@@ -384,7 +384,7 @@
       <div class="pic-head">
         <input type="text" class="pic-title-en" placeholder="Title (EN, optional)" value="${escapeHtml(scene.title_en)}">
         <input type="text" class="pic-title-nl" placeholder="Titel (NL, optioneel)" value="${escapeHtml(scene.title_nl)}">
-        <label class="pic-upload btn-ghost btn-small">${escapeHtml(t('adminPicUpload'))}<input type="file" accept="image/*,video/mp4,video/quicktime,video/webm" hidden></label>
+        <label class="pic-upload btn-ghost btn-small">${escapeHtml(t('adminPicUpload'))}<input type="file" accept="image/*,video/mp4,.mp4" hidden></label>
         <button type="button" class="btn-ghost btn-small btn-danger pic-del">${escapeHtml(t('adminPicDelete'))}</button>
       </div>
       <div class="admin-form-row pic-notes">
@@ -425,7 +425,8 @@
       const file = e.target.files[0]; if (!file) return;
       const note = el.querySelector('.admin-empty-note'); note.textContent = t('adminUploading');
       try {
-        const isVid = (file.type || '').startsWith('video/');
+        const isVid = (file.type || '').startsWith('video/') || /\.(mov|webm|m4v|avi|mkv)$/i.test(file.name);
+        if (isVid && !/\.mp4$/i.test(file.name)) { note.textContent = t('adminVidMp4Only'); e.target.value = ''; return; }
         const key = await picUpload(file, isVid ? 'scene-videos' : 'scenes');
         await api(`/api/admin/pictures/${scene.id}`, { method: 'PATCH', body: JSON.stringify(isVid ? { videoKey: key, imageKey: null } : { imageKey: key, videoKey: null }) });
         loadPictures(scene.chapter_no);
@@ -512,10 +513,10 @@
         const now = Math.round((video.currentTime || 0) * 10) / 10;
         extra.t_start = now;
         extra.t_end = Math.round(Math.min(video.duration || now + 5, now + 5) * 10) / 10;
-        extra.pause_on_show = false;
+        extra.pause_on_show = true; // default: stop the video, one thing at a time
       }
       const out = await api(`/api/admin/pictures/${scene.id}/spots`, { method: 'POST', body: JSON.stringify({ x, y, type: 'popup', ...extra }) });
-      const sp = { id: out.id, x, y, r: 0.06, type: 'popup', title_en: '', title_nl: '', text_en: '', text_nl: '', ...extra, pause_on_show: 0 };
+      const sp = { id: out.id, x, y, r: 0.06, type: 'popup', title_en: '', title_nl: '', text_en: '', text_nl: '', ...extra, pause_on_show: extra.pause_on_show ? 1 : 0 };
       scene.spots.push(sp); picSelected = sp.id; drawSpots(); drawForm(sp); drawTimeline();
     });
 
@@ -534,11 +535,12 @@
     }
     function quizFields(sp) {
       const q = quizOf(sp);
-      const rows = [0, 1, 2, 3].map(i => { const a = q.answers[i] || {}; return `<div class="quiz-row">
+      const rows = [0, 1, 2, 3].map(i => { const a = q.answers[i] || {}; return `<div class="quiz-row" data-image-key="${escapeHtml(a.image_key || '')}">
         <label class="quiz-ok" title="${escapeHtml(t('adminQuizCorrect'))}"><input type="radio" name="qc-${sp.id}" class="qz-correct" value="${i}"${i === q.correct ? ' checked' : ''}> ✓</label>
         <input type="text" class="qz-a-en" placeholder="${escapeHtml(t('adminQuizAnswer', { n: i + 1 }))} EN" value="${escapeHtml(a.en || '')}">
-        <input type="text" class="qz-a-nl" placeholder="${escapeHtml(t('adminQuizAnswer', { n: i + 1 }))} NL" value="${escapeHtml(a.nl || '')}"></div>`; }).join('');
-      return `<div class="field quiz-box"><label>${escapeHtml(t('adminQuizAnswers'))}</label>${rows}
+        <input type="text" class="qz-a-nl" placeholder="${escapeHtml(t('adminQuizAnswer', { n: i + 1 }))} NL" value="${escapeHtml(a.nl || '')}">
+        <span class="qz-pic">${a.image_key ? `<img class="qz-thumb" alt="" data-key="${escapeHtml(a.image_key)}"><a href="#" class="qz-pic-rm" title="${escapeHtml(t('adminSpotRemove'))}">✕</a>` : `<label class="btn-ghost btn-small qz-pic-add" title="${escapeHtml(t('adminQuizPic'))}">🖼<input type="file" accept="image/*" hidden></label>`}</span></div>`; }).join('');
+      return `<div class="field quiz-box"><label>${escapeHtml(t('adminQuizAnswers'))}</label><p class="admin-empty-note">${escapeHtml(t('adminQuizPicHint'))}</p>${rows}
         <div class="admin-form-row"><div class="field"><label>${escapeHtml(t('adminQuizRight'))} EN</label><input type="text" class="qz-right-en" value="${escapeHtml(q.right_en || '')}" placeholder="${escapeHtml(t('picturesQuizRight'))}"></div>
           <div class="field"><label>${escapeHtml(t('adminQuizRight'))} NL</label><input type="text" class="qz-right-nl" value="${escapeHtml(q.right_nl || '')}"></div></div>
         <div class="admin-form-row"><div class="field"><label>${escapeHtml(t('adminQuizWrong'))} EN</label><input type="text" class="qz-wrong-en" value="${escapeHtml(q.wrong_en || '')}" placeholder="${escapeHtml(t('picturesQuizWrong'))}"></div>
@@ -581,12 +583,12 @@
           b.pause_on_show = q('.sp-pause').checked;
         }
         if (q('.qz-a-en')) {
-          const ens = [...form.querySelectorAll('.qz-a-en')], nls = [...form.querySelectorAll('.qz-a-nl')];
-          const all = ens.map((e, i) => ({ en: e.value.trim(), nl: nls[i].value.trim(), i }));
-          const kept = all.filter(a => a.en || a.nl);
+          const rowsEl = [...form.querySelectorAll('.quiz-row')];
+          const all = rowsEl.map((r, i) => ({ en: r.querySelector('.qz-a-en').value.trim(), nl: r.querySelector('.qz-a-nl').value.trim(), image_key: r.dataset.imageKey || null, i }));
+          const kept = all.filter(a => a.en || a.nl || a.image_key);
           const pick = form.querySelector('.qz-correct:checked');
           const correctIdx = Math.max(0, kept.findIndex(a => a.i === Number(pick ? pick.value : 0)));
-          b.quiz = { answers: kept.map(a => ({ en: a.en, nl: a.nl })), correct: correctIdx,
+          b.quiz = { answers: kept.map(a => ({ en: a.en, nl: a.nl, image_key: a.image_key })), correct: correctIdx,
             right_en: q('.qz-right-en').value, right_nl: q('.qz-right-nl').value, wrong_en: q('.qz-wrong-en').value, wrong_nl: q('.qz-wrong-nl').value };
         }
         return b;
@@ -598,6 +600,26 @@
         if (quiz) sp.quiz_json = JSON.stringify(quiz);
         if (rest.pause_on_show !== undefined) sp.pause_on_show = rest.pause_on_show ? 1 : 0;
       };
+      // v74 — answer pictures: show, add (saved straight away), remove
+      form.querySelectorAll('.qz-thumb').forEach(async (img) => {
+        try { img.src = (await api('/api/playback-url?key=' + encodeURIComponent(img.dataset.key))).url; } catch { /* leave blank */ }
+      });
+      const saveQuizNow = async () => {
+        const body = typed();
+        await api(`/api/admin/picture-spots/${sp.id}`, { method: 'PATCH', body: JSON.stringify(body) });
+        applyLocal(body); drawForm(sp);
+      };
+      form.querySelectorAll('.quiz-row').forEach(row => {
+        const add = row.querySelector('.qz-pic-add input');
+        if (add) add.addEventListener('change', async (e) => {
+          const file = e.target.files[0]; if (!file) return;
+          row.querySelector('.qz-pic').textContent = t('adminUploading');
+          try { row.dataset.imageKey = await picUpload(file, 'quiz'); await saveQuizNow(); }
+          catch (err) { row.querySelector('.qz-pic').textContent = err.message || t('errorGeneric'); }
+        });
+        const rm = row.querySelector('.qz-pic-rm');
+        if (rm) rm.addEventListener('click', async (e) => { e.preventDefault(); row.dataset.imageKey = ''; await saveQuizNow(); });
+      });
       if (q('.sp-now-start')) {
         q('.sp-now-start').addEventListener('click', () => { q('.sp-t-start').value = (Math.round((video.currentTime || 0) * 10) / 10); });
         q('.sp-now-end').addEventListener('click', () => { q('.sp-t-end').value = (Math.round((video.currentTime || 0) * 10) / 10); });

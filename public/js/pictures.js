@@ -77,7 +77,8 @@
     let html = `<h2>${esc(spot.title || '')}</h2>`;
     if (spot.text) html += `<p>${esc(spot.text).replace(/\n/g, '<br>')}</p>`;
     if (spot.image) html += `<img src="${esc(spot.image)}" alt="">`;
-    html += `<div class="px-quiz">${q.answers.map((a, i) => `<button type="button" class="px-answer" data-i="${i}">${esc(a)}</button>`).join('')}</div>
+    const pics = q.answers.some(a => a.image);
+    html += `<div class="px-quiz${pics ? ' pics' : ''}">${q.answers.map((a, i) => `<button type="button" class="px-answer" data-i="${i}"${a.text ? '' : ` aria-label="${esc(t('adminQuizAnswer', { n: i + 1 }))}"`}>${a.image ? `<img src="${esc(a.image)}" alt="${esc(a.text)}" draggable="false">` : ''}${a.text ? `<span>${esc(a.text)}</span>` : ''}</button>`).join('')}</div>
       <p class="px-quiz-msg" id="px-quiz-msg" hidden></p>
       <button type="button" class="px-again px-carry" id="px-carry" hidden>${esc(isVideo ? t('picturesCarryOn') : t('picturesDone'))}</button>`;
     $('px-pop-body').innerHTML = html;
@@ -120,9 +121,13 @@
       const scene = data.scenes[idx];
       const where = `${t('companionChapterN', { n: data.chapter })}${scene && scene.title ? ' · ' + scene.title : ''}${spot.title ? ' · ' + spot.title : ''}`;
       try {
-        const r = await fetch('/api/companion/message', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message: `[${where}]\n${text}` }) });
+        const body = JSON.stringify({ message: `[${where}]\n${text}` });
+        const post = (u) => fetch(u, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body });
+        let r = await post('/api/companion/message');
+        let test = false;
+        if (r.status === 403) { r = await post('/api/pictures/test-message'); test = true; } // staff/teacher preview → Mare team email
         const out = await r.json().catch(() => ({}));
-        if (r.status === 403) { msg.textContent = t('picturesWritePreview'); msg.className = 'px-quiz-msg'; }
+        if (test && r.ok) { msg.textContent = t('picturesWriteTestSent'); msg.className = 'px-quiz-msg right'; }
         else if (!r.ok) { msg.textContent = out.error || t('errorGeneric'); msg.className = 'px-quiz-msg wrong'; msg.hidden = false; return; }
         else { msg.textContent = t('picturesWriteSent'); msg.className = 'px-quiz-msg right'; }
         msg.hidden = false;

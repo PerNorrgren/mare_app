@@ -11,7 +11,7 @@
 const TYPES = ['sound', 'voice', 'popup', 'video', 'quiz', 'write']; // v74: + quiz, write to Mare
 const KEY_OK = /^pictures\/[A-Za-z0-9._\/-]+$/;
 
-function register(app, { db, auth, media }) {
+function register(app, { db, auth, media, email, publicUrl }) {
   const family = auth.requireAuthApi(['parent', 'teacher', 'admin', 'support', 'editor']); // v71: teachers preview too
   const staff = auth.requireAuthApi(['admin', 'support']);
 
@@ -34,10 +34,16 @@ function register(app, { db, auth, media }) {
     try { const q = JSON.parse(j || '{}'); return { answers: Array.isArray(q.answers) ? q.answers : [], correct: Number(q.correct) || 0, right_en: q.right_en || '', right_nl: q.right_nl || '', wrong_en: q.wrong_en || '', wrong_nl: q.wrong_nl || '' }; }
     catch { return { answers: [], correct: 0, right_en: '', right_nl: '', wrong_en: '', wrong_nl: '' }; }
   }
-  function publicQuiz(j, nl) {
+  // v74 — an answer can be words, a small picture, or both (pick the dog, the cat…)
+  async function publicQuiz(j, nl) {
     const q = parseQuiz(j);
     const pick = (en, nlv) => (nl && nlv) || en || nlv || '';
-    const answers = q.answers.map(a => pick(a.en, a.nl)).filter(Boolean);
+    const answers = [];
+    for (const a of q.answers) {
+      const text = pick(a.en, a.nl);
+      const image = a.image_key ? await url(a.image_key) : null;
+      if (text || image) answers.push({ text, image });
+    }
     return { answers, correct: Math.min(q.correct, Math.max(0, answers.length - 1)), right: pick(q.right_en, q.right_nl), wrong: pick(q.wrong_en, q.wrong_nl) };
   }
 
@@ -59,7 +65,7 @@ function register(app, { db, auth, media }) {
           tStart: p.t_start == null ? null : p.t_start,
           tEnd: p.t_end == null ? null : p.t_end,
           pause: !!p.pause_on_show,
-          quiz: p.type === 'quiz' ? publicQuiz(p.quiz_json, nl) : null,
+          quiz: p.type === 'quiz' ? await publicQuiz(p.quiz_json, nl) : null,
         });
       }
       out.push({ id: s.id, title: (nl && s.title_nl) || s.title_en || '', image: await url(s.image_key), video: s.video_key ? await url(s.video_key) : null, spots });
@@ -95,6 +101,26 @@ function register(app, { db, auth, media }) {
     res.json({ chapter: (parent && parent.companion_chapter) || 1 });
   });
 
+  // v74 — 'Write to Mare' while testing (staff or teacher preview): there is
+  // no family to file it under, so it goes to the Mare team's email,
+  // clearly marked as a test. Families' messages use /api/companion/message.
+  const tester = auth.requireAuthApi(['teacher', 'admin', 'support', 'editor']);
+  app.post('/api/pictures/test-message', tester, async (req, res) => {
+    const message = String((req.body && req.body.message) || '').trim().slice(0, 1500);
+    if (!message) return res.status(400).json({ error: 'Write a message first' });
+    const config = db.getAppConfig() || {};
+    if (!config.contact_email || !email) return res.status(503).json({ error: 'No Mare team email is set up.' });
+    const who = req.user.role === 'teacher' ? db.getTeacherById(req.user.id) : db.getAdminById(req.user.id);
+    const esc = (s) => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+    try {
+      const sent = await email.sendEmail(config.contact_email, `TEST: message to Mare from the pictures`,
+        `<p><strong>Test</strong> from the picture explorer, sent while previewing by ${esc(who ? who.name || '' : '')} (${esc(who ? who.email || '' : '')}, ${esc(req.user.role)}). No family will see this.</p><blockquote>${esc(message).replace(/\n/g, '<br>')}</blockquote><p><a href="${publicUrl}/admin.html">${publicUrl}/admin.html</a></p>`,
+        { kind: 'mare_message_test' });
+      if (sent && sent.ok === false) return res.status(502).json({ error: 'The email could not be sent.' });
+      res.json({ ok: true, to: config.contact_email });
+    } catch (e) { res.status(502).json({ error: 'The email could not be sent.' }); }
+  });
+
   // ── Staff ──
   app.get('/api/admin/pictures', staff, async (req, res) => {
     const scenes = db.pictureScenes(null);
@@ -112,7 +138,10 @@ function register(app, { db, auth, media }) {
     const b = req.body || {};
     const f = {};
     if (b.imageKey !== undefined) { if (b.imageKey && !KEY_OK.test(b.imageKey)) return res.status(400).json({ error: 'Bad key' }); f.imageKey = b.imageKey || null; }
-    if (b.videoKey !== undefined) { if (b.videoKey && !KEY_OK.test(b.videoKey)) return res.status(400).json({ error: 'Bad key' }); f.videoKey = b.videoKey || null; }
+    if (b.videoKey !== undefined) {
+      if (b.videoKey && (!KEY_OK.test(b.videoKey) || !/\.mp4$/i.test(b.videoKey))) return res.status(400).json({ error: 'Please upload the video as an mp4.' });
+      f.videoKey = b.videoKey || null;
+    }
     if (b.titleEn !== undefined) f.titleEn = String(b.titleEn).slice(0, 120);
     if (b.titleNl !== undefined) f.titleNl = String(b.titleNl).slice(0, 120);
     if (b.contextEn !== undefined) f.contextEn = String(b.contextEn).slice(0, 1500);
@@ -141,7 +170,10 @@ function register(app, { db, auth, media }) {
     if (b.quiz !== undefined) {
       const q = b.quiz || {};
       const s = (v, n) => String(v || '').slice(0, n);
-      const answers = (Array.isArray(q.answers) ? q.answers : []).slice(0, 4).map(a => ({ en: s(a && a.en, 160), nl: s(a && a.nl, 160) }));
+      const answers = (Array.isArray(q.answers) ? q.answers : []).slice(0, 4).map(a => {
+        const k = a && a.image_key && KEY_OK.test(a.image_key) ? a.image_key : null;
+        return { en: s(a && a.en, 160), nl: s(a && a.nl, 160), image_key: k };
+      });
       f.quiz_json = JSON.stringify({ answers, correct: Math.max(0, Math.min(answers.length - 1, Math.round(Number(q.correct) || 0))),
         right_en: s(q.right_en, 300), right_nl: s(q.right_nl, 300), wrong_en: s(q.wrong_en, 300), wrong_nl: s(q.wrong_nl, 300) });
     }

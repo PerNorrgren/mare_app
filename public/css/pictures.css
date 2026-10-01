@@ -92,3 +92,8 @@ html, body { margin: 0; height: 100%; background: #0B1712; overflow: hidden; ove
 .px-write { display: block; width: 100%; margin-top: 12px; font: 1.15rem 'Quicksand', sans-serif; padding: 12px 14px; border-radius: 14px; border: 2px solid rgba(22,48,92,0.2); resize: vertical; -webkit-user-select: text; user-select: text; }
 .px-write-btns { display: flex; gap: 10px; flex-wrap: wrap; }
 .px-has-video .px-hint { bottom: calc(104px + env(safe-area-inset-bottom, 0px)); }
+/* v74 — picture answers: tiles in a row (2 per row on a narrow screen) */
+.px-quiz.pics { grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); }
+.px-quiz.pics .px-answer { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 10px; text-align: center; }
+.px-quiz.pics .px-answer img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 12px; margin: 0; pointer-events: none; }
+.px-quiz.pics .px-answer.right { box-shadow: 0 0 0 4px #3FA466; }

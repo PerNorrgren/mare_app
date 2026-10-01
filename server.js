@@ -619,7 +619,7 @@ app.post('/api/view-as/exit', (req, res) => {
 // Mare App 5 — The Book Companion (parent home after sign-in).
 require('./bookcompanion').register(app, { db, auth, email, anthropic, model: TALK_MODEL, publicUrl: PUBLIC_URL });
 // Mare App 5 — Picture explorer (interactive pictures per chapter; the book itself is on Amazon).
-require('./explorer').register(app, { db, auth, media });
+require('./explorer').register(app, { db, auth, media, email, publicUrl: PUBLIC_URL });
 // Mare's monthly post — Club Mare step 4 (Mare App 4). Links in the
 // letters use PUBLIC_URL (the live site; see email.js).
 require('./marepost').register(app, { db, auth, email, anthropic, model: TALK_MODEL,
