@@ -82,13 +82,17 @@
     try {
       data = await api('/api/companion');
     } catch (e) {
-      if (e.status === 401 || e.status === 403) { window.location.href = '/login.html'; return; }
+      // v71 — signed out → log in. Signed in with an account that can't
+      // open this page → say so here, never bounce through the login page.
+      if (e.status === 401) { window.location.href = '/login.html'; return; }
+      if (e.status === 403) { $('cp-hello').textContent = t('companionNotForAccount'); return; }
       $('cp-hello').textContent = e.message;
       return;
     }
     $('cp-hello').textContent = t('companionHello', { name: data.name || '' });
     if (data.preview) {
       $('cp-preview').hidden = false;
+      if (data.role === 'teacher') $('cp-preview').textContent = t('companionPreviewTeacher');
       document.querySelectorAll('#cp-msg-form button, #cp-msg-form textarea, #cp-msg-form select, #cp-rate-btn, #cp-rate-comment').forEach(el => { el.disabled = true; });
       $('cp-read-btn').href = `/pictures.html?chapter=${data.chapter}`;
       document.querySelector('.topbar-actions a[href="/account.html"]').setAttribute('href', '/admin.html');

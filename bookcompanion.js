@@ -13,7 +13,12 @@ function register(app, { db, auth, email, anthropic, model, publicUrl }) {
   const parentOnly = auth.requireAuthApi(['parent']);
   // Staff may open the page too ("View the page" in Admin): they see a
   // preview with the real practices; sending and rating stay off.
-  const parentOrStaff = auth.requireAuthApi(['parent', 'admin', 'support', 'editor']);
+  // Mare App 6 (v71) — teachers too: someone signed in as a teacher who
+  // clicked "Open the Book Companion" got a 403, the page sent them to
+  // log in, and the login page sent them straight back to the teacher
+  // hub ("kicked out"). Teachers now get the same read-only preview as
+  // staff (isStaff below is simply "not a parent").
+  const parentOrStaff = auth.requireAuthApi(['parent', 'teacher', 'admin', 'support', 'editor']);
   const isStaff = (req) => req.user.role !== 'parent';
   const staff = auth.requireAuthApi(['admin', 'support']);
   const adminOnly = auth.requireAuthApi(['admin']);
@@ -53,6 +58,7 @@ function register(app, { db, auth, email, anthropic, model, publicUrl }) {
       const chapterNo = Number(req.query.chapter) || 1;
       return res.json({
         preview: true,
+        role: req.user.role,
         name: String(req.user.name || '').split(/\s+/)[0],
         book: book ? { slug: book.slug, title: book.title } : null,
         hasProgress: false,

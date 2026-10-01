@@ -1128,6 +1128,8 @@
   "adminCompanionPercentHint": "Every family that rates the book (any score) gets a personal code for this discount, valid for 3 months.",
   "adminCompanionNoRatings": "No ratings yet.",
   "companionPreview": "Preview for staff: this is what parents see. Sending messages and rating are switched off here.",
+  "companionPreviewTeacher": "Preview for teachers: this is what parents see at home. Sending messages and rating are switched off here.",
+  "companionNotForAccount": "The Book Companion isn't available for the account you're signed in with. Sign out and sign in as a parent to use it.",
   "companionBackToAdmin": "Back to admin",
   "adminTryAgain": "Try again",
   "adminCompanionSlow": "The Book Companion is taking too long to load.",

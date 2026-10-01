@@ -13,7 +13,7 @@
 
   async function getJson(url) {
     const r = await fetch(url, { cache: 'no-store' });
-    if (r.status === 401 || r.status === 403) { location.href = '/login.html'; throw new Error('auth'); }
+    if (r.status === 401) { location.href = '/login.html'; throw new Error('auth'); } // v71: 403 no longer bounces through login
     return r.json();
   }
 

@@ -12,7 +12,7 @@ const TYPES = ['sound', 'voice', 'popup', 'video'];
 const KEY_OK = /^pictures\/[A-Za-z0-9._\/-]+$/;
 
 function register(app, { db, auth, media }) {
-  const family = auth.requireAuthApi(['parent', 'admin', 'support', 'editor']);
+  const family = auth.requireAuthApi(['parent', 'teacher', 'admin', 'support', 'editor']); // v71: teachers preview too
   const staff = auth.requireAuthApi(['admin', 'support']);
 
   async function url(key) {

@@ -1128,6 +1128,8 @@
   "adminCompanionPercentHint": "Elk gezin dat het boek beoordeelt (elke score) krijgt een persoonlijke code voor deze korting, 3 maanden geldig.",
   "adminCompanionNoRatings": "Nog geen beoordelingen.",
   "companionPreview": "Voorbeeld voor medewerkers: zo zien ouders deze pagina. Berichten sturen en beoordelen staan hier uit.",
+  "companionPreviewTeacher": "Voorbeeld voor leerkrachten: zo zien ouders deze pagina thuis. Berichten sturen en beoordelen staan hier uit.",
+  "companionNotForAccount": "De Boekgids is niet beschikbaar voor het account waarmee je bent ingelogd. Log uit en log in als ouder om hem te gebruiken.",
   "companionBackToAdmin": "Terug naar beheer",
   "adminTryAgain": "Opnieuw proberen",
   "adminCompanionSlow": "Het laden van de Boekgids duurt te lang.",
