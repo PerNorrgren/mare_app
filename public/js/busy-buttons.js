@@ -1,6 +1,7 @@
-// ── busy-buttons.js (Mare App 5) — every button on the admin and editor
-// pages answers at once and says when it's finished, without each
-// handler having to do it.
+// ── busy-buttons.js (Mare App 5) — every button on every page answers at
+// once and says when it's finished, without each handler having to do
+// it. (First admin + editor only; from v70 loaded on every page except
+// the child's Picture Explorer, whose buttons never talk to the server.)
 //
 //   click        → the button dips (instant, even if nothing is sent)
 //   request out  → spinner, and further clicks are ignored (no doubles)
@@ -8,6 +9,14 @@
 //                  ✕ if a request failed; just back to normal after a
 //                  plain load. If the button was replaced while working
 //                  (lists re-render), a small "Done" note shows instead.
+//
+//   leaves page  → if the click ends in going to another page (checkout
+//                  to Stripe, log in, a button-style link), the spinner
+//                  stays until that page opens, so it can't be clicked
+//                  twice. Coming back with Back clears it.
+//
+// Per button:  data-no-busy     → left alone entirely
+//              data-busy-quiet  → spinner only, no ✓ (page turns, play)
 //
 // How: a click "arms" that button; every fetch() started while it is
 // armed (including follow-on requests in the same chain, e.g. save then
@@ -17,7 +26,11 @@
   const ARM_MS = 2500;      // a request this soon after the click belongs to it
   const SETTLE_MS = 150;    // wait this long after the last reply for a follow-on
   const MARK_MS = 1600;     // how long ✓ / ✕ stays
+  const NAV_MS = 10000;     // longest a "going to the next page" spinner stays
   const SKIP = '.lang-btn, [data-no-busy]';
+  // Links that look like buttons get the dip and, if they open another
+  // page in this tab, the leaving spinner.
+  const LINK_BTN = 'a.btn-primary, a.btn-ghost';
   const st = new WeakMap(); // button -> { pending, wrote, failed, timer }
   let armed = null;         // { btn, t }
 
@@ -62,10 +75,10 @@
     if (s.pending) return;
     clearTimeout(s.timer);
     s.timer = setTimeout(() => {
-      if (s.pending) return;
+      if (s.pending || s.leaving) return; // leaving: keep turning
       btn.classList.remove('is-busy');
       btn.removeAttribute('aria-busy');
-      const show = s.failed || s.wrote;
+      const show = s.failed || (s.wrote && !btn.hasAttribute('data-busy-quiet'));
       if (!show) return;
       if (!document.contains(btn)) { toast(!s.failed); return; }
       btn.classList.add(s.failed ? 'is-failed' : 'is-done');
@@ -81,13 +94,22 @@
     armed = { btn, t: Date.now() };
   }
 
+  function sameTabLink(a, e) {
+    const href = a.getAttribute('href') || '';
+    if (!href || href.startsWith('#') || href.startsWith('javascript:') || href.startsWith('mailto:') || href.startsWith('tel:')) return false;
+    if (a.hasAttribute('download') || (a.target && a.target !== '_self')) return false;
+    if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button) return false;
+    return true;
+  }
+
   // Capture phase: runs before the page's own handlers, and swallows
   // clicks on a button that is still working.
   document.addEventListener('click', (e) => {
-    const btn = e.target.closest && e.target.closest('button, input[type="submit"], input[type="button"]');
-    if (!btn || btn.disabled) return;
-    if (btn.classList.contains('is-busy')) { e.preventDefault(); e.stopImmediatePropagation(); return; }
-    arm(btn);
+    const t = e.target.closest && e.target.closest('button, input[type="submit"], input[type="button"], ' + LINK_BTN);
+    if (!t || t.disabled) return;
+    if (t.classList.contains('is-busy')) { e.preventDefault(); e.stopImmediatePropagation(); return; }
+    if (t.tagName === 'A' && !sameTabLink(t, e)) return;
+    arm(t);
   }, true);
   // Pressing Enter in a form "clicks" its submit button.
   document.addEventListener('submit', (e) => {
@@ -105,6 +127,35 @@
     if (!ok) armed = null;
     return ok;
   };
+
+  // The click led to another page (location change, form post, link):
+  // keep that button turning until the new page is up. beforeunload
+  // fires for real page changes only — not for downloads — and a safety
+  // timer brings it back if the page somehow stays.
+  window.addEventListener('beforeunload', () => {
+    const a = armed;
+    if (!a || !document.contains(a.btn) || Date.now() - a.t > NAV_MS) return;
+    const s = state(a.btn);
+    s.leaving = true;
+    clearTimeout(s.timer);
+    a.btn.classList.remove('is-done', 'is-failed');
+    a.btn.classList.add('is-busy');
+    a.btn.setAttribute('aria-busy', 'true');
+    setTimeout(() => clear(a.btn), NAV_MS);
+  });
+  function clear(btn) {
+    const s = state(btn);
+    s.leaving = false; s.pending = 0;
+    btn.classList.remove('is-busy', 'is-done', 'is-failed');
+    btn.removeAttribute('aria-busy');
+  }
+  // Back button from Stripe or another page restores this one as it was
+  // left: take every leftover spinner down.
+  window.addEventListener('pageshow', (e) => {
+    if (!e.persisted) return;
+    armed = null;
+    document.querySelectorAll('.is-busy').forEach(clear);
+  });
 
   const realFetch = window.fetch.bind(window);
   window.fetch = function (input, init) {

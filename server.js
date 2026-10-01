@@ -1394,9 +1394,46 @@ app.put('/api/admin/shipping', auth.requireAuthApi(['admin']), (req, res) => {
   res.json({ ok: true, options: clean });
 });
 
+// Mare App 5 (v70) — the same tab pressing Checkout again for the same
+// cart (double press, or Back from Stripe and press again) gets the
+// same Stripe page back while it is still open, instead of a new
+// pending order each time. In memory: a restart simply forgets.
+const checkoutAttempts = new Map(); // attemptKey -> { sessionId, url, at }
+const CHECKOUT_REUSE_MS = 30 * 60 * 1000;
+
 app.post('/api/checkout', async (req, res) => {
   try {
     if (!stripe) return res.status(503).json({ error: 'Payments not configured' });
+    const attemptKey = typeof (req.body && req.body.attemptKey) === 'string' ? req.body.attemptKey.slice(0, 2000) : '';
+    if (attemptKey) {
+      for (const [k, v] of checkoutAttempts) if (Date.now() - v.at > CHECKOUT_REUSE_MS) checkoutAttempts.delete(k);
+      const prev = checkoutAttempts.get(attemptKey);
+      if (prev) {
+        // A press still waiting for Stripe: wait for it rather than start another.
+        const done = prev.pending ? await prev.pending.catch(() => null) : prev;
+        if (done && done.sessionId) {
+          try {
+            const s = await stripe.checkout.sessions.retrieve(done.sessionId);
+            if (s && s.status === 'open') return res.json({ url: done.url, reused: true });
+          } catch { /* fall through to a fresh session */ }
+        }
+        checkoutAttempts.delete(attemptKey);
+      }
+    }
+    let settle = null;
+    if (attemptKey) {
+      const entry = { at: Date.now() };
+      entry.pending = new Promise(r => { settle = r; });
+      checkoutAttempts.set(attemptKey, entry);
+    }
+    const finishAttempt = (v) => {
+      if (!settle) return;
+      const entry = checkoutAttempts.get(attemptKey);
+      if (v && entry) { entry.sessionId = v.sessionId; entry.url = v.url; delete entry.pending; }
+      else checkoutAttempts.delete(attemptKey);
+      settle(v || null); settle = null;
+    };
+    res.on('finish', () => finishAttempt(null)); // any early return: forget it
     const payload = auth.verifyToken(req.cookies?.[auth.COOKIE_NAME]);
     const parentId = payload && payload.role === 'parent' ? payload.id : null;
     const { items, offerCode, shippingCountry } = req.body || {};
@@ -1499,6 +1536,7 @@ app.post('/api/checkout', async (req, res) => {
       metadata: { orderId, offerCode: offer ? offer.code : '' },
     });
     db.setOrderStripeSession(orderId, session.id);
+    finishAttempt({ sessionId: session.id, url: session.url });
     res.json({ url: session.url });
   } catch (e) {
     console.error('checkout failed', e);

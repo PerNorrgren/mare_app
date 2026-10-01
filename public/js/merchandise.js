@@ -398,6 +398,15 @@
       wait.hidden = false;
       try {
         const offerCode = document.getElementById('cart-offer-code').value.trim();
+        // Mare App 5 (v70) — one key per tab and per exact cart, so a second
+        // press (or Back from Stripe and press again) reuses the same
+        // payment page instead of making another order.
+        const sig = JSON.stringify([cart.map(i => [i.productId, i.qty, i.variant || '']), offerCode, shippingCountry]);
+        let tabKey = '';
+        try {
+          tabKey = sessionStorage.getItem('mare_checkout_tab') || '';
+          if (!tabKey) { tabKey = Math.random().toString(36).slice(2) + Date.now().toString(36); sessionStorage.setItem('mare_checkout_tab', tabKey); }
+        } catch { /* private mode: no reuse, still works */ }
         const res = await fetch('/api/checkout', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -406,6 +415,7 @@
             offerCode: offerCode || undefined,
             shippingCountry,
             locale: isNl() ? 'nl' : 'en',
+            attemptKey: tabKey ? tabKey + ':' + sig : undefined,
           }),
         });
         const data = await res.json();

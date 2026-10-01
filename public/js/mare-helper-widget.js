@@ -58,7 +58,7 @@
     const root = document.createElement('div');
     root.id = 'mare-helper-root';
     root.innerHTML = `
-      <button type="button" id="mh-launcher" aria-label="Mare">
+      <button type="button" id="mh-launcher" aria-label="Mare" data-no-busy>
         <span id="mh-launcher-avatar"></span>
       </button>
       <div id="mh-greeting-bubble" hidden></div>

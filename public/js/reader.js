@@ -110,6 +110,7 @@
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.className = 'reader-toc-item';
+      btn.setAttribute('data-busy-quiet', ''); // page turn: spinner, no ✓
       btn.textContent = ch.title;
       btn.dataset.chapterId = ch.id;
       btn.addEventListener('click', () => {
@@ -220,6 +221,7 @@
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.className = 'reader-hotspot';
+      btn.setAttribute('data-no-busy', ''); // invisible tap area: no spinner
       btn.style.left = `${h.x * 100}%`;
       btn.style.top = `${h.y * 100}%`;
       btn.style.width = `${h.w * 100}%`;
