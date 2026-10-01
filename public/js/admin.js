@@ -371,15 +371,132 @@
   }
   function renderPictures() {
     const ch = Number(document.getElementById('pic-chapter').value) || 1;
+    renderFlow(ch);
     document.getElementById('pic-preview').href = `/pictures.html?chapter=${ch}`;
     const list = document.getElementById('pic-list');
     const scenes = picData.scenes.filter(s => s.chapter_no === ch);
     list.innerHTML = scenes.length ? '' : `<p class="admin-empty-note">${escapeHtml(t('adminPicNone'))}</p>`;
     scenes.forEach(scene => list.appendChild(pictureCard(scene)));
   }
+  // ── Mare App 6 (v75) — the chapter as a flow, top to bottom (view only).
+  // Each step (picture or video) is a box; its spots branch off to the
+  // right. Click a spot or a step to try it here; "Edit this step" opens
+  // that step in the editor on this same page.
+  const FLOW_ICON = { popup: '💬', sound: '🔊', voice: '🗣️', video: '🎬', quiz: '❓', write: '✉️' };
+  const flowT = (s) => { s = Math.max(0, Number(s) || 0); const m = Math.floor(s / 60); return `${m}:${String(Math.floor(s - m * 60)).padStart(2, '0')}`; };
+  function setPicView(view) {
+    document.querySelectorAll('.pic-view').forEach(b => b.classList.toggle('on', b.dataset.view === view));
+    document.getElementById('pic-flow').hidden = view !== 'flow';
+    document.getElementById('pic-list').hidden = view !== 'edit';
+    if (view === 'flow' && picData) renderFlow(Number(document.getElementById('pic-chapter').value) || 1);
+  }
+  function renderFlow(ch) {
+    const box = document.getElementById('pic-flow');
+    if (!box || !picData) return;
+    const scenes = picData.scenes.filter(s => s.chapter_no === ch).sort((a, b) => (a.sort_order - b.sort_order) || String(a.created_at).localeCompare(String(b.created_at)));
+    const chapter = picData.chapters.find(c => c.no === ch);
+    if (!scenes.length) { box.innerHTML = `<p class="admin-empty-note">${escapeHtml(t('adminFlowNone'))}</p>`; return; }
+    let html = `<p class="admin-empty-note">${escapeHtml(t('adminFlowHint'))}</p>
+      <div class="flow-head">${escapeHtml(t('companionChapterN', { n: ch }))}${chapter ? ' · ' + escapeHtml(chapter.title) : ''}</div><div class="flow">`;
+    scenes.forEach((s, i) => {
+      const isVid = !!s.videoUrl;
+      const spots = s.spots.slice().sort((a, b) => isVid ? ((a.t_start || 0) - (b.t_start || 0)) : 0);
+      const media = isVid ? `<video src="${escapeHtml(s.videoUrl)}#t=0.5" preload="metadata" muted playsinline></video><span class="flow-play">▶</span>`
+        : s.imageUrl ? `<img src="${escapeHtml(s.imageUrl)}" alt="" loading="lazy">` : `<span class="flow-nomedia">${escapeHtml(t('adminFlowNoMedia'))}</span>`;
+      html += `${i ? '<div class="flow-down" aria-hidden="true">↓</div>' : ''}
+        <div class="flow-row">
+          <div class="flow-step${s.active ? '' : ' off'}">
+            <div class="flow-tag">${escapeHtml(t('adminFlowStep', { n: i + 1 }))} · ${escapeHtml(t(isVid ? 'adminFlowVideo' : 'adminFlowPicture'))}${s.active ? '' : ' · ' + escapeHtml(t('adminFlowHidden'))}</div>
+            <button type="button" class="flow-thumb" data-scene="${s.id}" data-no-busy ${(s.videoUrl || s.imageUrl) ? '' : 'disabled'}>${media}</button>
+            <div class="flow-title">${escapeHtml(s.title_en || '')}</div>
+            <button type="button" class="btn-ghost btn-small flow-edit" data-scene="${s.id}" data-no-busy>✏️ ${escapeHtml(t('adminFlowEdit'))}</button>
+          </div>
+          <div class="flow-branches">${spots.length ? spots.map(sp => `
+            <button type="button" class="flow-spot" data-scene="${s.id}" data-spot="${sp.id}" data-no-busy>
+              <span class="flow-ico">${FLOW_ICON[sp.type] || '•'}</span>
+              <span class="flow-name">${escapeHtml(sp.title_en || t('adminSpotType_' + sp.type))}</span>
+              ${isVid ? `<span class="flow-time">${flowT(sp.t_start)}${sp.pause_on_show ? ` · <b class="flow-stops">${escapeHtml(t('adminFlowStops'))}</b>` : ''}</span>` : ''}
+            </button>`).join('') : `<span class="admin-empty-note">${escapeHtml(t('adminFlowNoSpots'))}</span>`}</div>
+        </div>`;
+    });
+    box.innerHTML = html + '</div>';
+    box.querySelectorAll('.flow-thumb').forEach(b => b.addEventListener('click', () => flowPreviewStep(b.dataset.scene)));
+    box.querySelectorAll('.flow-spot').forEach(b => b.addEventListener('click', () => flowPreviewSpot(b.dataset.scene, b.dataset.spot)));
+    box.querySelectorAll('.flow-edit').forEach(b => b.addEventListener('click', () => {
+      setPicView('edit');
+      const card = document.querySelector(`.pic-card[data-scene="${b.dataset.scene}"]`);
+      if (card) { card.scrollIntoView({ behavior: 'smooth', block: 'start' }); card.classList.add('flash'); setTimeout(() => card.classList.remove('flash'), 1600); }
+    }));
+  }
+  // preview modal (stops any sound or video when closed)
+  let flowAudio = null;
+  function flowOpen(html) {
+    document.getElementById('flow-modal-body').innerHTML = html;
+    document.getElementById('flow-modal').hidden = false;
+  }
+  function flowClose() {
+    if (flowAudio) { flowAudio.pause(); flowAudio = null; }
+    document.querySelectorAll('#flow-modal-body video, #flow-modal-body audio').forEach(m => m.pause());
+    document.getElementById('flow-modal-body').innerHTML = '';
+    document.getElementById('flow-modal').hidden = true;
+  }
+  if (document.getElementById('flow-modal')) {
+    document.getElementById('flow-modal-close').addEventListener('click', flowClose);
+    document.getElementById('flow-modal').addEventListener('click', (e) => { if (e.target.id === 'flow-modal') flowClose(); });
+    document.querySelectorAll('.pic-view').forEach(b => b.addEventListener('click', () => setPicView(b.dataset.view)));
+  }
+  async function mediaUrl(key) {
+    if (!key) return null;
+    try { return (await api('/api/playback-url?key=' + encodeURIComponent(key))).url; } catch { return null; }
+  }
+  function flowPreviewStep(sceneId) {
+    const s = picData.scenes.find(x => x.id === sceneId); if (!s) return;
+    flowOpen(`${s.title_en ? `<h3>${escapeHtml(s.title_en)}</h3>` : ''}${s.videoUrl ? `<video src="${escapeHtml(s.videoUrl)}" controls autoplay playsinline></video>` : `<img src="${escapeHtml(s.imageUrl)}" alt="">`}`);
+  }
+  async function flowPreviewSpot(sceneId, spotId) {
+    const s = picData.scenes.find(x => x.id === sceneId); if (!s) return;
+    const sp = s.spots.find(x => x.id === spotId); if (!sp) return;
+    if (flowAudio) { flowAudio.pause(); flowAudio = null; }
+    const [img, audio, video] = await Promise.all([mediaUrl(sp.image_key), mediaUrl(sp.audio_key_en || sp.audio_key_nl), mediaUrl(sp.video_key)]);
+    const tag = `<div class="flow-tag">${FLOW_ICON[sp.type] || ''} ${escapeHtml(t('adminSpotType_' + sp.type))}${s.videoUrl ? ` · ${flowT(sp.t_start)}–${sp.t_end == null ? escapeHtml(t('adminVidEnd')) : flowT(sp.t_end)}` : ''}</div>`;
+    let html = tag + (sp.title_en ? `<h3>${escapeHtml(sp.title_en)}</h3>` : '');
+    if (sp.type === 'video') {
+      if (video) html += `<video src="${escapeHtml(video)}" controls autoplay playsinline></video>`;
+      else if (sp.video_url) html += `<p><a href="${escapeHtml(sp.video_url)}" target="_blank" rel="noopener">${escapeHtml(sp.video_url)}</a></p>`;
+    }
+    if (img && sp.type !== 'quiz') html += `<img src="${escapeHtml(img)}" alt="">`;
+    if (sp.text_en && sp.type !== 'sound') html += `<p>${escapeHtml(sp.text_en).replace(/\n/g, '<br>')}</p>`;
+    if (sp.type === 'quiz') {
+      let q = {}; try { q = JSON.parse(sp.quiz_json || '{}'); } catch { q = {}; }
+      const answers = (q.answers || []).filter(a => a.en || a.nl || a.image_key);
+      const urls = await Promise.all(answers.map(a => mediaUrl(a.image_key)));
+      if (img) html += `<img src="${escapeHtml(img)}" alt="">`;
+      html += `<div class="flow-quiz${urls.some(Boolean) ? ' pics' : ''}">${answers.map((a, i) => `<button type="button" class="flow-ans" data-i="${i}" data-no-busy>${urls[i] ? `<img src="${escapeHtml(urls[i])}" alt="">` : ''}<span>${escapeHtml(a.en || a.nl || '')}</span></button>`).join('')}</div>
+        <p class="flow-quiz-msg" id="flow-quiz-msg"></p>`;
+      flowOpen(html);
+      document.querySelectorAll('#flow-modal-body .flow-ans').forEach(b => b.addEventListener('click', () => {
+        const right = Number(b.dataset.i) === (q.correct || 0);
+        b.classList.add(right ? 'right' : 'wrong');
+        const m = document.getElementById('flow-quiz-msg');
+        m.textContent = right ? (q.right_en || t('picturesQuizRight')) : (q.wrong_en || t('picturesQuizWrong'));
+        m.className = 'flow-quiz-msg ' + (right ? 'right' : 'wrong');
+      }));
+      return;
+    }
+    if (sp.type === 'write') html += `<textarea rows="3" disabled placeholder="${escapeHtml(t('picturesWritePlaceholder'))}"></textarea><p class="admin-empty-note">${escapeHtml(t('adminFlowWriteNote'))}</p>`;
+    if (audio) html += `<button type="button" class="btn-ghost btn-small" id="flow-again" data-no-busy>🔊 ${escapeHtml(t('picturesPlayAgain'))}</button>`;
+    flowOpen(html);
+    if (audio) {
+      const play = () => { if (flowAudio) flowAudio.pause(); flowAudio = new Audio(audio); flowAudio.play().catch(() => {}); };
+      play();
+      document.getElementById('flow-again').addEventListener('click', play);
+    }
+  }
+
   function pictureCard(scene) {
     const el = document.createElement('div');
     el.className = 'pic-card';
+    el.dataset.scene = scene.id;
     el.innerHTML = `
       <div class="pic-head">
         <input type="text" class="pic-title-en" placeholder="Title (EN, optional)" value="${escapeHtml(scene.title_en)}">

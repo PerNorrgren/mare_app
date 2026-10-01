@@ -1879,3 +1879,54 @@ html { scroll-behavior: smooth; }
 .quiz-box .quiz-row input[type=text] { width: 100%; font: inherit; padding: 7px 10px; border-radius: 8px; border: 1.5px solid rgba(22,48,92,0.2); }
 .quiz-ok { white-space: nowrap; font-weight: 700; color: #237A47; }
 .pic-spot-quiz { border-color: #FFD36E; } .pic-spot-write { border-color: #C9B8FF; }
+
+/* Mare App 6 (v75) — the chapter flow: steps top to bottom, spots branch right */
+.pic-views { display: inline-flex; margin-left: auto; border: 1.5px solid rgba(22,48,92,0.2); border-radius: 999px; overflow: hidden; }
+.pic-view { font: inherit; font-weight: 700; font-size: 0.85rem; padding: 6px 16px; border: 0; background: transparent; color: var(--navy); cursor: pointer; }
+.pic-view.on { background: var(--navy); color: #fff; }
+#pic-flow[hidden], #pic-list[hidden] { display: none; }
+.flow-head { font-weight: 700; color: var(--navy); margin: 6px 0 12px; }
+.flow { display: flex; flex-direction: column; }
+.flow-row { display: grid; grid-template-columns: minmax(200px, 300px) minmax(0, 1fr); gap: 0; align-items: center; }
+.flow-step { position: relative; background: #fff; border: 1.5px solid rgba(22,48,92,0.18); border-radius: 14px; padding: 10px; display: flex; flex-direction: column; gap: 6px; }
+.flow-step.off { opacity: 0.6; border-style: dashed; }
+.flow-tag { font-size: 0.75rem; font-weight: 700; color: #6B5320; background: rgba(226,190,110,0.25); border-radius: 999px; padding: 2px 10px; align-self: flex-start; }
+.flow-thumb { position: relative; display: block; width: 100%; aspect-ratio: 4 / 3; padding: 0; border: 0; border-radius: 10px; overflow: hidden; background: #0B1712; cursor: pointer; }
+.flow-thumb img, .flow-thumb video { width: 100%; height: 100%; object-fit: cover; display: block; pointer-events: none; }
+.flow-play { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 46px; height: 46px; border-radius: 50%; background: rgba(226,190,110,0.95); color: var(--navy); display: flex; align-items: center; justify-content: center; font-size: 1.1rem; padding-left: 3px; }
+.flow-nomedia { color: rgba(243,236,217,0.7); font-size: 0.85rem; }
+.flow-title { font-weight: 700; color: var(--navy); font-size: 0.9rem; min-height: 0; }
+.flow-title:empty { display: none; }
+.flow-edit { align-self: flex-start; }
+.flow-down { width: 300px; max-width: 100%; text-align: center; font-size: 1.4rem; color: rgba(22,48,92,0.45); line-height: 1; padding: 6px 0; }
+.flow-branches { position: relative; display: flex; flex-direction: column; gap: 6px; padding-left: 34px; }
+.flow-branches::before { content: ''; position: absolute; left: 0; top: 50%; width: 18px; border-top: 2px solid rgba(22,48,92,0.25); }
+.flow-branches::after { content: ''; position: absolute; left: 18px; top: 16px; bottom: 16px; border-left: 2px solid rgba(22,48,92,0.25); }
+.flow-spot { position: relative; display: flex; align-items: center; gap: 8px; text-align: left; font: inherit; font-size: 0.88rem; padding: 7px 12px; border-radius: 10px; border: 1.5px solid rgba(22,48,92,0.16); background: #fff; color: var(--navy); cursor: pointer; max-width: 420px; }
+.flow-spot::before { content: ''; position: absolute; left: -16px; top: 50%; width: 14px; border-top: 2px solid rgba(22,48,92,0.25); }
+.flow-spot:hover { border-color: var(--gold); background: #FFFBF1; }
+.flow-ico { font-size: 1rem; }
+.flow-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.flow-time { font-size: 0.78rem; color: rgba(22,48,92,0.6); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.flow-branches > .admin-empty-note { margin: 0; }
+.pic-card.flash { box-shadow: 0 0 0 3px var(--gold); transition: box-shadow 0.3s; }
+.flow-modal-card { position: relative; max-width: 640px; }
+.flow-modal-card h3 { margin: 6px 36px 8px 0; }
+.flow-modal-card img, .flow-modal-card video { display: block; width: 100%; border-radius: 12px; margin-top: 8px; background: #0B1712; }
+.flow-modal-card textarea { width: 100%; margin-top: 10px; font: inherit; padding: 10px; border-radius: 10px; }
+.flow-modal-close { position: absolute; top: 10px; right: 10px; width: 38px; height: 38px; border-radius: 50%; border: 0; background: rgba(22,48,92,0.08); color: var(--navy); font-size: 1.1rem; cursor: pointer; }
+.flow-quiz { display: grid; gap: 8px; margin-top: 10px; }
+.flow-quiz.pics { grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); }
+.flow-ans { display: flex; flex-direction: column; align-items: center; gap: 6px; font: inherit; font-weight: 700; padding: 10px 12px; border-radius: 12px; border: 2px solid rgba(22,48,92,0.18); background: #fff; color: var(--navy); cursor: pointer; }
+.flow-quiz:not(.pics) .flow-ans { align-items: flex-start; }
+.flow-ans img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 10px; margin: 0; }
+.flow-ans.right { background: #DDF6E4; border-color: #3FA466; } .flow-ans.wrong { background: #FBE3E0; border-color: #D9786A; }
+.flow-quiz-msg { font-weight: 700; min-height: 1.2em; } .flow-quiz-msg.right { color: #237A47; } .flow-quiz-msg.wrong { color: #A5473A; }
+@media (max-width: 700px) {
+  .flow-row { grid-template-columns: 1fr; }
+  .flow-branches { padding-left: 24px; margin-top: 8px; }
+  .flow-branches::before { display: none; }
+  .flow-branches::after { left: 8px; top: 0; bottom: 16px; }
+  .flow-down { width: 100%; }
+}
+.flow-stops { color: #A5473A; font-weight: 700; }

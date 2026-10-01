@@ -320,6 +320,14 @@
     </div>
 
     <!-- Offer compose modal -->
+    <!-- Mare App 6 (v75): try a step or a spot from the chapter flow -->
+    <div class="admin-modal-backdrop" id="flow-modal" hidden>
+      <div class="admin-modal-card flow-modal-card">
+        <button type="button" class="flow-modal-close" id="flow-modal-close" aria-label="Close" data-no-busy>✕</button>
+        <div id="flow-modal-body"></div>
+      </div>
+    </div>
+
     <div class="admin-modal-backdrop" id="offer-modal" hidden>
       <div class="admin-modal-card">
         <h3 id="offer-modal-title" data-i18n="adminNewOffer">New offer</h3>
@@ -732,8 +740,14 @@
           <select id="pic-chapter"></select>
           <button type="button" class="btn-primary btn-small" id="pic-add" data-i18n="adminPicAdd">+ Add a picture</button>
           <a class="btn-ghost btn-small" id="pic-preview" target="_blank" rel="noopener" data-i18n="adminPicPreview">Preview as a child</a>
+          <!-- Mare App 6 (v75): the chapter as a flow (view only) or the editor -->
+          <div class="pic-views" role="tablist">
+            <button type="button" class="pic-view on" data-view="flow" data-no-busy data-i18n="adminFlowView">Flow</button>
+            <button type="button" class="pic-view" data-view="edit" data-no-busy data-i18n="adminEditView">Edit</button>
+          </div>
         </div>
-        <div id="pic-list"></div>
+        <div id="pic-flow"></div>
+        <div id="pic-list" hidden></div>
       </div>
       <div class="admin-card">
         <h2 data-i18n="adminCompanionMessages">Messages to Mare</h2>
