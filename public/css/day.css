@@ -1856,3 +1856,22 @@ html { scroll-behavior: smooth; }
   .shop-book-buttons { justify-content: center; }
   .shop-book-btn { width: 100%; text-align: center; }
 }
+
+/* Mare App 6 (v74) — video with spots in the picture editor */
+.pic-canvas video { display: block; width: 100%; height: auto; pointer-events: none; }
+.vid-bar { display: flex; align-items: center; gap: 10px; margin-top: 8px; }
+.vid-time { font-variant-numeric: tabular-nums; font-size: 0.85rem; min-width: 112px; }
+.vid-track { position: relative; flex: 1; }
+.vid-seek { width: 100%; }
+.vid-marks { position: relative; height: 8px; margin-top: 2px; }
+.vid-mark { position: absolute; top: 0; height: 8px; border-radius: 3px; background: rgba(226,190,110,0.7); }
+.vid-mark.sel { background: #16305C; }
+.vid-list { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.vid-chip { font: inherit; font-size: 0.8rem; padding: 4px 10px; border-radius: 999px; border: 1.5px solid rgba(22,48,92,0.2); background: #fff; cursor: pointer; }
+.vid-chip.sel { border-color: #16305C; background: #EEF2FA; }
+.vid-tin { display: flex; gap: 6px; } .vid-tin input { width: 100%; font: inherit; padding: 7px 10px; border-radius: 8px; border: 1.5px solid rgba(22,48,92,0.2); }
+.vid-pause { display: flex; gap: 8px; align-items: center; margin: 2px 0 10px; font-size: 0.9rem; }
+.quiz-box .quiz-row { display: grid; grid-template-columns: auto 1fr 1fr; gap: 6px; align-items: center; margin-bottom: 6px; }
+.quiz-box .quiz-row input[type=text] { width: 100%; font: inherit; padding: 7px 10px; border-radius: 8px; border: 1.5px solid rgba(22,48,92,0.2); }
+.quiz-ok { white-space: nowrap; font-weight: 700; color: #237A47; }
+.pic-spot-quiz { border-color: #FFD36E; } .pic-spot-write { border-color: #C9B8FF; }

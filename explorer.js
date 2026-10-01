@@ -8,7 +8,7 @@
 // "chapter 5" on the phone moves the iPad along too.
 // Staff (Admin/Support) add pictures and spots in Admin → Book Companion.
 // ──────────────────────────────────────────────────────────────────────
-const TYPES = ['sound', 'voice', 'popup', 'video'];
+const TYPES = ['sound', 'voice', 'popup', 'video', 'quiz', 'write']; // v74: + quiz, write to Mare
 const KEY_OK = /^pictures\/[A-Za-z0-9._\/-]+$/;
 
 function register(app, { db, auth, media }) {
@@ -29,6 +29,18 @@ function register(app, { db, auth, media }) {
     return null;
   };
 
+  // Quiz: { answers: [{ en, nl }], correct: 0, right_en, right_nl, wrong_en, wrong_nl }
+  function parseQuiz(j) {
+    try { const q = JSON.parse(j || '{}'); return { answers: Array.isArray(q.answers) ? q.answers : [], correct: Number(q.correct) || 0, right_en: q.right_en || '', right_nl: q.right_nl || '', wrong_en: q.wrong_en || '', wrong_nl: q.wrong_nl || '' }; }
+    catch { return { answers: [], correct: 0, right_en: '', right_nl: '', wrong_en: '', wrong_nl: '' }; }
+  }
+  function publicQuiz(j, nl) {
+    const q = parseQuiz(j);
+    const pick = (en, nlv) => (nl && nlv) || en || nlv || '';
+    const answers = q.answers.map(a => pick(a.en, a.nl)).filter(Boolean);
+    return { answers, correct: Math.min(q.correct, Math.max(0, answers.length - 1)), right: pick(q.right_en, q.right_nl), wrong: pick(q.wrong_en, q.wrong_nl) };
+  }
+
   async function publicScenes(chapterNo, nl) {
     const scenes = db.pictureScenes(chapterNo, true);
     const out = [];
@@ -43,9 +55,14 @@ function register(app, { db, auth, media }) {
           audio: await url((nl && p.audio_key_nl) || p.audio_key_en || p.audio_key_nl),
           video: p.video_key ? await url(p.video_key) : null,
           embed: p.video_url ? youtube(p.video_url) : null,
+          // v74 — on a video: when the spot shows, and whether it stops the video
+          tStart: p.t_start == null ? null : p.t_start,
+          tEnd: p.t_end == null ? null : p.t_end,
+          pause: !!p.pause_on_show,
+          quiz: p.type === 'quiz' ? publicQuiz(p.quiz_json, nl) : null,
         });
       }
-      out.push({ id: s.id, title: (nl && s.title_nl) || s.title_en || '', image: await url(s.image_key), spots });
+      out.push({ id: s.id, title: (nl && s.title_nl) || s.title_en || '', image: await url(s.image_key), video: s.video_key ? await url(s.video_key) : null, spots });
     }
     return out;
   }
@@ -82,7 +99,7 @@ function register(app, { db, auth, media }) {
   app.get('/api/admin/pictures', staff, async (req, res) => {
     const scenes = db.pictureScenes(null);
     const out = [];
-    for (const s of scenes) out.push({ ...s, imageUrl: await url(s.image_key), spots: db.pictureSpots(s.id) });
+    for (const s of scenes) out.push({ ...s, imageUrl: await url(s.image_key), videoUrl: s.video_key ? await url(s.video_key) : null, spots: db.pictureSpots(s.id) });
     res.json({ scenes: out, chapters: db.companionPractices().map(p => ({ no: p.chapter_no, title: p.chapter_title_en })) });
   });
   app.post('/api/admin/pictures', staff, (req, res) => {
@@ -95,6 +112,7 @@ function register(app, { db, auth, media }) {
     const b = req.body || {};
     const f = {};
     if (b.imageKey !== undefined) { if (b.imageKey && !KEY_OK.test(b.imageKey)) return res.status(400).json({ error: 'Bad key' }); f.imageKey = b.imageKey || null; }
+    if (b.videoKey !== undefined) { if (b.videoKey && !KEY_OK.test(b.videoKey)) return res.status(400).json({ error: 'Bad key' }); f.videoKey = b.videoKey || null; }
     if (b.titleEn !== undefined) f.titleEn = String(b.titleEn).slice(0, 120);
     if (b.titleNl !== undefined) f.titleNl = String(b.titleNl).slice(0, 120);
     if (b.contextEn !== undefined) f.contextEn = String(b.contextEn).slice(0, 1500);
@@ -114,6 +132,18 @@ function register(app, { db, auth, media }) {
     if (b.type !== undefined) f.type = TYPES.includes(b.type) ? b.type : 'popup';
     for (const [k, max] of [['title_en', 120], ['title_nl', 120], ['text_en', 1500], ['text_nl', 1500], ['video_url', 300]]) {
       if (b[k] !== undefined) f[k] = String(b[k] || '').slice(0, max);
+    }
+    // v74 — timing on a video (seconds; empty = from the start / to the end)
+    for (const k of ['t_start', 't_end']) {
+      if (b[k] !== undefined) f[k] = (b[k] === null || b[k] === '') ? null : clamp(b[k], 0, 6 * 3600);
+    }
+    if (b.pause_on_show !== undefined) f.pause_on_show = b.pause_on_show ? 1 : 0;
+    if (b.quiz !== undefined) {
+      const q = b.quiz || {};
+      const s = (v, n) => String(v || '').slice(0, n);
+      const answers = (Array.isArray(q.answers) ? q.answers : []).slice(0, 4).map(a => ({ en: s(a && a.en, 160), nl: s(a && a.nl, 160) }));
+      f.quiz_json = JSON.stringify({ answers, correct: Math.max(0, Math.min(answers.length - 1, Math.round(Number(q.correct) || 0))),
+        right_en: s(q.right_en, 300), right_nl: s(q.right_nl, 300), wrong_en: s(q.wrong_en, 300), wrong_nl: s(q.wrong_nl, 300) });
     }
     for (const k of ['image_key', 'audio_key_en', 'audio_key_nl', 'video_key']) {
       if (b[k] !== undefined) {

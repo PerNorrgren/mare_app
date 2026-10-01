@@ -23,8 +23,11 @@
 <div class="px-stage" id="px-stage">
   <div class="px-frame" id="px-frame">
     <img id="px-img" alt="" draggable="false">
+    <!-- Mare App 6 (v74): a chapter "picture" can be a video with timed spots -->
+    <video id="px-video" playsinline webkit-playsinline preload="metadata" hidden></video>
     <div class="px-spots" id="px-spots"></div>
   </div>
+  <button type="button" class="px-bigplay" id="px-bigplay" hidden aria-label="Play">▶</button>
 </div>
 
 <!-- Mare App 5 — Talk to Mare about this picture (top left, a speech
@@ -43,6 +46,10 @@
 <button type="button" class="px-nav px-prev" id="px-prev" aria-label="Previous picture" hidden>‹</button>
 <button type="button" class="px-nav px-next" id="px-next" aria-label="Next picture" hidden>›</button>
 <div class="px-dots" id="px-dots"></div>
+<div class="px-vbar" id="px-vbar" hidden>
+  <button type="button" class="px-play" id="px-play" aria-label="Play">▶</button>
+  <div class="px-prog" id="px-prog"><i id="px-prog-fill"></i></div>
+</div>
 
 <div class="px-empty" id="px-empty" hidden>
   <div class="px-empty-card">

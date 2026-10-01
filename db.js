@@ -1076,6 +1076,17 @@ Volgende maand verschijnt er een nieuw raadsel uit het Fluisterbos. 🌲🔎', ?
     sort_order INTEGER NOT NULL DEFAULT 0
   )`);
 
+  // ── Mare App 6 (v74) — video with hotspots. A chapter "picture" can be
+  // an mp4 (video_key) instead of an image; a spot on a video appears from
+  // t_start to t_end seconds (empty = from the start / to the end), can
+  // stop the video when it appears, and can be a quiz (quiz_json) or a
+  // "write to Mare" box as well as the earlier popup / sound / video.
+  try { db.run(`ALTER TABLE picture_scenes ADD COLUMN video_key TEXT`); } catch {}
+  try { db.run(`ALTER TABLE picture_spots ADD COLUMN t_start REAL`); } catch {}
+  try { db.run(`ALTER TABLE picture_spots ADD COLUMN t_end REAL`); } catch {}
+  try { db.run(`ALTER TABLE picture_spots ADD COLUMN pause_on_show INTEGER NOT NULL DEFAULT 0`); } catch {}
+  try { db.run(`ALTER TABLE picture_spots ADD COLUMN quiz_json TEXT`); } catch {}
+
   // ── Mare App 5 — Talk to Mare in the pictures: what Mare knows.
   // companion_practices.summary = a short private summary of the chapter
   // (never shown; Mare only gets chapters up to the family's chapter, so
@@ -1920,7 +1931,7 @@ function ensurePreviewAccounts(passwordHash) {
 function pictureScenes(chapterNo, activeOnly) {
   return chapterNo == null
     ? all(`SELECT * FROM picture_scenes ORDER BY chapter_no, sort_order, created_at`)
-    : all(`SELECT * FROM picture_scenes WHERE chapter_no = ? ${activeOnly ? 'AND active = 1 AND image_key IS NOT NULL' : ''} ORDER BY sort_order, created_at`, [chapterNo]);
+    : all(`SELECT * FROM picture_scenes WHERE chapter_no = ? ${activeOnly ? 'AND active = 1 AND (image_key IS NOT NULL OR video_key IS NOT NULL)' : ''} ORDER BY sort_order, created_at`, [chapterNo]);
 }
 function pictureScene(id) { return get(`SELECT * FROM picture_scenes WHERE id = ?`, [id]); }
 function createPictureScene(chapterNo) {
@@ -1932,13 +1943,13 @@ function createPictureScene(chapterNo) {
 function updatePictureScene(id, f) {
   const s = pictureScene(id); if (!s) return;
   const v = (k, d) => (f[k] !== undefined ? f[k] : d);
-  run(`UPDATE picture_scenes SET image_key=?, title_en=?, title_nl=?, sort_order=?, active=?, context_en=?, context_nl=? WHERE id=?`,
-    [v('imageKey', s.image_key), v('titleEn', s.title_en), v('titleNl', s.title_nl), v('sortOrder', s.sort_order), v('active', s.active) ? 1 : 0, v('contextEn', s.context_en || ''), v('contextNl', s.context_nl || ''), id]);
+  run(`UPDATE picture_scenes SET image_key=?, video_key=?, title_en=?, title_nl=?, sort_order=?, active=?, context_en=?, context_nl=? WHERE id=?`,
+    [v('imageKey', s.image_key), v('videoKey', s.video_key), v('titleEn', s.title_en), v('titleNl', s.title_nl), v('sortOrder', s.sort_order), v('active', s.active) ? 1 : 0, v('contextEn', s.context_en || ''), v('contextNl', s.context_nl || ''), id]);
 }
 function deletePictureScene(id) { run(`DELETE FROM picture_spots WHERE scene_id = ?`, [id]); run(`DELETE FROM picture_scenes WHERE id = ?`, [id]); }
 function pictureSpots(sceneId) { return all(`SELECT * FROM picture_spots WHERE scene_id = ? ORDER BY sort_order, rowid`, [sceneId]); }
 function pictureSpot(id) { return get(`SELECT * FROM picture_spots WHERE id = ?`, [id]); }
-const SPOT_FIELDS = ['x', 'y', 'r', 'type', 'title_en', 'title_nl', 'text_en', 'text_nl', 'image_key', 'audio_key_en', 'audio_key_nl', 'video_key', 'video_url'];
+const SPOT_FIELDS = ['x', 'y', 'r', 'type', 'title_en', 'title_nl', 'text_en', 'text_nl', 'image_key', 'audio_key_en', 'audio_key_nl', 'video_key', 'video_url', 't_start', 't_end', 'pause_on_show', 'quiz_json'];
 function savePictureSpot(id, sceneId, f) {
   const cur = id ? pictureSpot(id) : null;
   const val = (k) => (f[k] !== undefined ? f[k] : (cur ? cur[k] : null));
@@ -1947,7 +1958,7 @@ function savePictureSpot(id, sceneId, f) {
     return id;
   }
   const nid = uuid();
-  const defaults = { r: 0.06, type: 'popup', title_en: '', title_nl: '', text_en: '', text_nl: '' };
+  const defaults = { r: 0.06, type: 'popup', title_en: '', title_nl: '', text_en: '', text_nl: '', pause_on_show: 0 };
   run(`INSERT INTO picture_spots (id, scene_id, ${SPOT_FIELDS.join(', ')}) VALUES (?,?,${SPOT_FIELDS.map(() => '?').join(',')})`,
     [nid, sceneId, ...SPOT_FIELDS.map(k => (f[k] !== undefined ? f[k] : (defaults[k] !== undefined ? defaults[k] : null)))]);
   return nid;

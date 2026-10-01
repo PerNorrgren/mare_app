@@ -10,6 +10,13 @@
   const fixedChapter = Number(params.get('chapter')) || 0; // staff preview
   let data = null, idx = 0, audio = null;
   const found = new Set();
+  // v74 — video scenes: spots appear between tStart and tEnd; a spot can
+  // stop the video when it appears (once per pass); opening a spot pauses
+  // the video and closing it carries on.
+  const vid = () => $('px-video');
+  let isVideo = false, resumeAfter = false, raf = 0;
+  const pausedFor = new Set();
+  let spotEls = [];
 
   async function getJson(url) {
     const r = await fetch(url, { cache: 'no-store' });
@@ -19,19 +26,34 @@
 
   function stopSound() { if (audio) { audio.pause(); audio = null; } document.querySelectorAll('.px-spot.playing').forEach(s => s.classList.remove('playing')); }
 
-  function closePop() { $('px-pop').hidden = true; $('px-pop-body').innerHTML = ''; stopSound(); }
+  function closePop() {
+    const wasOpen = !$('px-pop').hidden;
+    $('px-pop').hidden = true; $('px-pop-body').innerHTML = ''; stopSound();
+    if (wasOpen && isVideo && resumeAfter) { resumeAfter = false; playVideo(); }
+  }
 
   function openSpot(spot, el) {
     found.add(spot.id);
     el.classList.add('found');
+    el.classList.remove('beckon');
     updateFound();
     stopSound();
+    if (isVideo) {
+      const v = vid();
+      if (!v.paused || v.dataset.stoppedBySpot) { resumeAfter = true; delete v.dataset.stoppedBySpot; }
+      v.pause();
+    }
+    if (spot.type === 'quiz' && spot.quiz && spot.quiz.answers.length) return openQuiz(spot);
+    if (spot.type === 'write') return openWrite(spot);
     if ((spot.type === 'sound' || spot.type === 'voice') && spot.audio) {
       audio = new Audio(spot.audio);
       el.classList.add('playing');
       audio.onended = () => el.classList.remove('playing');
       audio.play().catch(() => el.classList.remove('playing'));
-      if (spot.type === 'sound' && !spot.text && !spot.image) return; // just the sound
+      if (spot.type === 'sound' && !spot.text && !spot.image) { // just the sound; a video carries on after it
+        audio.onended = () => { el.classList.remove('playing'); if (resumeAfter) { resumeAfter = false; playVideo(); } };
+        return;
+      }
     }
     let html = '';
     if (spot.title) html += `<h2>${esc(spot.title)}</h2>`;
@@ -42,11 +64,138 @@
     if (spot.image) html += `<img src="${esc(spot.image)}" alt="">`;
     if (spot.text) html += `<p>${esc(spot.text).replace(/\n/g, '<br>')}</p>`;
     if (spot.type === 'voice' && spot.audio) html += `<button type="button" class="px-again" id="px-again">🔊 ${esc(t('picturesPlayAgain'))}</button>`;
-    if (!html) return;
+    if (!html) { if (resumeAfter && audio) { audio.onended = () => { el.classList.remove('playing'); if (resumeAfter) { resumeAfter = false; playVideo(); } }; } else if (resumeAfter) { resumeAfter = false; playVideo(); } return; }
     $('px-pop-body').innerHTML = html;
     $('px-pop').hidden = false;
     const again = $('px-again');
     if (again) again.onclick = () => { stopSound(); audio = new Audio(spot.audio); audio.play().catch(() => {}); };
+  }
+
+  // v74 — a little quiz: tap an answer; wrong = try again, right = carry on.
+  function openQuiz(spot) {
+    const q = spot.quiz;
+    let html = `<h2>${esc(spot.title || '')}</h2>`;
+    if (spot.text) html += `<p>${esc(spot.text).replace(/\n/g, '<br>')}</p>`;
+    if (spot.image) html += `<img src="${esc(spot.image)}" alt="">`;
+    html += `<div class="px-quiz">${q.answers.map((a, i) => `<button type="button" class="px-answer" data-i="${i}">${esc(a)}</button>`).join('')}</div>
+      <p class="px-quiz-msg" id="px-quiz-msg" hidden></p>
+      <button type="button" class="px-again px-carry" id="px-carry" hidden>${esc(isVideo ? t('picturesCarryOn') : t('picturesDone'))}</button>`;
+    $('px-pop-body').innerHTML = html;
+    $('px-pop').hidden = false;
+    const msg = $('px-quiz-msg');
+    $('px-pop-body').querySelectorAll('.px-answer').forEach(b => b.addEventListener('click', () => {
+      const right = Number(b.dataset.i) === q.correct;
+      if (right) {
+        $('px-pop-body').querySelectorAll('.px-answer').forEach(x => { x.disabled = true; });
+        b.classList.add('right');
+        msg.textContent = q.right || t('picturesQuizRight');
+        msg.className = 'px-quiz-msg right';
+        $('px-carry').hidden = false;
+      } else {
+        b.classList.add('wrong'); b.disabled = true;
+        msg.textContent = q.wrong || t('picturesQuizWrong');
+        msg.className = 'px-quiz-msg wrong';
+      }
+      msg.hidden = false;
+    }));
+    $('px-carry').onclick = closePop;
+  }
+
+  // v74 — write to Mare from inside the picture or video.
+  function openWrite(spot) {
+    let html = `<h2>${esc(spot.title || t('picturesWriteTitle'))}</h2>`;
+    if (spot.text) html += `<p>${esc(spot.text).replace(/\n/g, '<br>')}</p>`;
+    if (spot.image) html += `<img src="${esc(spot.image)}" alt="">`;
+    html += `<textarea class="px-write" id="px-write" rows="4" maxlength="1200" placeholder="${esc(t('picturesWritePlaceholder'))}"></textarea>
+      <p class="px-quiz-msg" id="px-write-msg" hidden></p>
+      <div class="px-write-btns"><button type="button" class="px-again" id="px-write-send">✉️ ${esc(t('picturesWriteSend'))}</button>
+      <button type="button" class="px-again px-carry" id="px-carry" hidden>${esc(isVideo ? t('picturesCarryOn') : t('picturesDone'))}</button></div>`;
+    $('px-pop-body').innerHTML = html;
+    $('px-pop').hidden = false;
+    $('px-carry').onclick = closePop;
+    $('px-write-send').onclick = async () => {
+      const text = $('px-write').value.trim();
+      const msg = $('px-write-msg');
+      if (!text) { $('px-write').focus(); return; }
+      const scene = data.scenes[idx];
+      const where = `${t('companionChapterN', { n: data.chapter })}${scene && scene.title ? ' · ' + scene.title : ''}${spot.title ? ' · ' + spot.title : ''}`;
+      try {
+        const r = await fetch('/api/companion/message', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message: `[${where}]\n${text}` }) });
+        const out = await r.json().catch(() => ({}));
+        if (r.status === 403) { msg.textContent = t('picturesWritePreview'); msg.className = 'px-quiz-msg'; }
+        else if (!r.ok) { msg.textContent = out.error || t('errorGeneric'); msg.className = 'px-quiz-msg wrong'; msg.hidden = false; return; }
+        else { msg.textContent = t('picturesWriteSent'); msg.className = 'px-quiz-msg right'; }
+        msg.hidden = false;
+        $('px-write').disabled = true; $('px-write-send').hidden = true; $('px-carry').hidden = false;
+      } catch { msg.textContent = t('errorGeneric'); msg.className = 'px-quiz-msg wrong'; msg.hidden = false; }
+    };
+  }
+
+  // ── v74 — video scenes ──
+  function playVideo() {
+    const v = vid();
+    $('px-bigplay').hidden = true;
+    v.play().catch(() => { $('px-bigplay').hidden = false; });
+  }
+  function fmtBtn() {
+    const v = vid();
+    $('px-play').textContent = v.paused ? '▶' : '❚❚';
+    $('px-play').setAttribute('aria-label', v.paused ? t('picturesPlay') : t('picturesPause'));
+  }
+  // Which spots are on screen now; stop the video for a spot that asks to.
+  function tick() {
+    if (!isVideo) return;
+    const v = vid(), now = v.currentTime || 0, dur = v.duration || 0;
+    $('px-prog-fill').style.width = dur ? ((now / dur) * 100) + '%' : '0';
+    const scene = data.scenes[idx];
+    scene.spots.forEach((sp, n) => {
+      const el = spotEls[n]; if (!el) return;
+      const from = sp.tStart == null ? 0 : sp.tStart;
+      const to = sp.tEnd == null ? Infinity : sp.tEnd;
+      const on = now >= from && now < to;
+      if (on && !el.classList.contains('shown')) {
+        el.classList.add('shown');
+        if (sp.pause && !pausedFor.has(sp.id) && !v.paused) {
+          pausedFor.add(sp.id);
+          v.pause(); v.dataset.stoppedBySpot = '1';
+          el.classList.add('beckon');
+        }
+      } else if (!on && el.classList.contains('shown')) {
+        el.classList.remove('shown', 'beckon');
+      }
+      if (now < from - 0.3) pausedFor.delete(sp.id); // rewound: it may stop again
+    });
+  }
+  function loop() { tick(); if (isVideo && !vid().paused) raf = requestAnimationFrame(loop); }
+  function setupVideo() {
+    const v = vid();
+    v.addEventListener('loadedmetadata', () => { layout(); tick(); });
+    v.addEventListener('play', () => { delete v.dataset.stoppedBySpot; $('px-bigplay').hidden = true; fmtBtn(); cancelAnimationFrame(raf); loop(); });
+    v.addEventListener('pause', () => { fmtBtn(); tick(); });
+    v.addEventListener('seeked', tick);
+    v.addEventListener('ended', () => { fmtBtn(); $('px-bigplay').textContent = '↻'; $('px-bigplay').setAttribute('aria-label', t('picturesWatchAgain')); $('px-bigplay').hidden = false; });
+    $('px-bigplay').onclick = () => {
+      if (v.ended) { pausedFor.clear(); v.currentTime = 0; }
+      $('px-bigplay').textContent = '▶';
+      playVideo();
+    };
+    $('px-play').onclick = () => {
+      if (v.paused) { if (v.ended) { pausedFor.clear(); v.currentTime = 0; } delete v.dataset.stoppedBySpot; playVideo(); }
+      else v.pause();
+    };
+    // tap or drag along the bar to jump
+    const seek = (e) => {
+      const r = $('px-prog').getBoundingClientRect();
+      if (!v.duration) return;
+      v.currentTime = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)) * v.duration;
+      tick();
+    };
+    $('px-prog').addEventListener('pointerdown', (e) => {
+      e.preventDefault(); seek(e);
+      const mv = (ev) => seek(ev);
+      const up = () => { window.removeEventListener('pointermove', mv); window.removeEventListener('pointerup', up); };
+      window.addEventListener('pointermove', mv); window.addEventListener('pointerup', up);
+    });
   }
 
   function updateFound() {
@@ -60,27 +209,45 @@
 
   // Fit the picture inside the screen (letterbox), spots sit on top.
   function layout() {
-    const img = $('px-img'), frame = $('px-frame');
-    if (!img.naturalWidth) return;
+    const img = $('px-img'), v = vid(), frame = $('px-frame');
+    const w = isVideo ? v.videoWidth : img.naturalWidth, h = isVideo ? v.videoHeight : img.naturalHeight;
+    if (!w || !h) return;
     const W = window.innerWidth, H = window.innerHeight;
-    const s = Math.min(W / img.naturalWidth, H / img.naturalHeight);
-    frame.style.width = Math.round(img.naturalWidth * s) + 'px';
-    frame.style.height = Math.round(img.naturalHeight * s) + 'px';
+    const s = Math.min(W / w, H / h);
+    frame.style.width = Math.round(w * s) + 'px';
+    frame.style.height = Math.round(h * s) + 'px';
   }
 
   function showScene(i) {
     closePop();
     idx = Math.max(0, Math.min(i, data.scenes.length - 1));
     const scene = data.scenes[idx];
-    const img = $('px-img');
-    img.onload = layout;
-    img.src = scene.image;
+    const img = $('px-img'), v = vid();
+    isVideo = !!scene.video;
+    resumeAfter = false; pausedFor.clear(); cancelAnimationFrame(raf);
+    $('px-vbar').hidden = !isVideo;
+    document.body.classList.toggle('px-has-video', isVideo); // hints sit above the play bar
+    $('px-bigplay').hidden = !isVideo; $('px-bigplay').textContent = '▶';
+    if (isVideo) {
+      img.hidden = true; img.removeAttribute('src');
+      v.hidden = false;
+      if (v.getAttribute('src') !== scene.video) { v.src = scene.video; v.load(); }
+      else { v.currentTime = 0; }
+      fmtBtn();
+    } else {
+      v.pause(); v.hidden = true; v.removeAttribute('src'); v.load();
+      img.hidden = false;
+      img.onload = layout;
+      img.src = scene.image;
+    }
     const spots = $('px-spots');
     spots.innerHTML = '';
+    spotEls = [];
     scene.spots.forEach((sp, n) => {
       const b = document.createElement('button');
       b.type = 'button';
-      b.className = 'px-spot px-' + sp.type + (found.has(sp.id) ? ' found' : '');
+      b.className = 'px-spot px-' + sp.type + (found.has(sp.id) ? ' found' : '') + (isVideo ? ' px-timed' : '');
+      spotEls.push(b);
       b.style.left = (sp.x * 100) + '%';
       b.style.top = (sp.y * 100) + '%';
       b.style.width = (sp.r * 200) + '%'; // r = radius as a share of the picture width
@@ -90,6 +257,7 @@
       b.addEventListener('click', (e) => { e.stopPropagation(); openSpot(sp, b); });
       spots.appendChild(b);
     });
+    if (isVideo) tick();
     $('px-prev').hidden = idx === 0;
     $('px-next').hidden = idx >= data.scenes.length - 1;
     $('px-dots').innerHTML = data.scenes.length > 1 ? data.scenes.map((_, k) => `<i class="${k === idx ? 'on' : ''}"></i>`).join('') : '';
@@ -135,6 +303,7 @@
     const scene = data && data.scenes[idx];
     if (!scene) return;
     closePop();
+    if (isVideo) vid().pause();
     const lang = window.MareI18n ? window.MareI18n.locale : 'en';
     $('px-talk-frame').src = `/talk.html?embed=1&scene=${encodeURIComponent(scene.id)}&lang=${lang}`;
     $('px-talkbox').hidden = false;
@@ -192,7 +361,7 @@
     $('px-pop').addEventListener('click', (e) => { if (e.target.id === 'px-pop') closePop(); });
     // swipe between pictures
     let sx = null;
-    $('px-stage').addEventListener('touchstart', (e) => { sx = e.touches[0].clientX; }, { passive: true });
+    $('px-stage').addEventListener('touchstart', (e) => { sx = e.target.closest('#px-vbar') ? null : e.touches[0].clientX; }, { passive: true });
     $('px-stage').addEventListener('touchend', (e) => {
       if (sx == null || !data) return;
       const dx = e.changedTouches[0].clientX - sx; sx = null;
@@ -201,13 +370,14 @@
     window.addEventListener('resize', layout);
     document.addEventListener('contextmenu', (e) => e.preventDefault());
     setupExit();
+    setupVideo();
     // First tap: go full screen where the browser allows it (not needed
     // when opened from the Home Screen, which is already full screen).
     const standalone = window.navigator.standalone || matchMedia('(display-mode: standalone)').matches;
     if (!standalone && document.documentElement.requestFullscreen) {
       $('px-start-btn').textContent = t('picturesStart');
       $('px-start').hidden = false;
-      $('px-start-btn').onclick = () => { document.documentElement.requestFullscreen().catch(() => {}); $('px-start').hidden = true; };
+      $('px-start-btn').onclick = () => { document.documentElement.requestFullscreen().catch(() => {}); $('px-start').hidden = true; if (isVideo) playVideo(); };
     }
     try { await load(); } catch { return; }
     setInterval(poll, 8000);
