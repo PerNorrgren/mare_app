@@ -1165,6 +1165,8 @@
   "picturesNoneBody": "Mare is ze nog aan het schilderen. Vraag een volwassene om een ander hoofdstuk te kiezen.",
   "picturesHint": "Tik op de lichtjes om Mares geheimen te vinden",
   "picturesExitHint": "Volwassenen: houd de maan 3 seconden vast om te stoppen",
+  "picturesExit": "Stoppen",
+  "picturesExitHolding": "Blijf vasthouden…",
   "picturesStart": "Tik om te beginnen ✨",
   "adminPicTitle": "Platen per hoofdstuk",
   "adminPicDesc": "Het boek zelf staat niet in de app (het is te koop op Amazon). Hier voeg je de platen toe die een kind ontdekt terwijl een volwassene voorleest: upload een plaat, klik erop om een lichtje toe te voegen en kies wat er gebeurt als erop getikt wordt.",

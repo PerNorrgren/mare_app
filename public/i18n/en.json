@@ -1165,6 +1165,8 @@
   "picturesNoneBody": "Mare is still painting them. Ask your grown-up to choose another chapter.",
   "picturesHint": "Tap the glowing spots to find Mare's secrets",
   "picturesExitHint": "Grown-ups: hold the moon for 3 seconds to leave",
+  "picturesExit": "Exit",
+  "picturesExitHolding": "Keep holding…",
   "picturesStart": "Tap to start ✨",
   "adminPicTitle": "Pictures for each chapter",
   "adminPicDesc": "The book itself isn't in the app (it's on Amazon). Here you add the pictures a child explores while a grown-up reads: upload a picture, then click on it to add a glowing spot and choose what happens when it's tapped.",

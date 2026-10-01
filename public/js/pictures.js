@@ -148,21 +148,37 @@
   });
 
   // Grown-ups: hold the moon 3 seconds to leave.
+  // Mare App 6 (v73) — bigger, labelled "Exit"; the label says "Keep
+  // holding…" while the ring fills. The finger is captured so a small
+  // wobble doesn't cancel it, and the long-press menu (iPad) is blocked.
+  // The top bar now sits above "Tap to start", which used to cover it.
   function setupExit() {
-    const btn = $('px-exit'), ring = $('px-exit-ring');
+    const btn = $('px-exit'), ring = $('px-exit-ring'), label = $('px-exit-label');
     let timer = null;
+    const showHint = () => { $('px-hint').textContent = t('picturesExitHint'); $('px-hint').hidden = false; clearTimeout(showHint.t); showHint.t = setTimeout(() => { $('px-hint').hidden = true; }, 2500); };
     const start = (e) => {
       e.preventDefault();
+      try { btn.setPointerCapture(e.pointerId); } catch { /* older browsers */ }
+      clearTimeout(timer);
       ring.classList.add('filling');
+      label.textContent = t('picturesExitHolding');
       timer = setTimeout(() => {
+        timer = null;
         if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
         location.href = fixedChapter ? '/admin.html' : '/companion.html';
       }, 3000);
     };
-    const cancel = () => { clearTimeout(timer); ring.classList.remove('filling'); };
+    const cancel = () => {
+      if (!timer) return;
+      clearTimeout(timer); timer = null;
+      ring.classList.remove('filling');
+      label.textContent = t('picturesExit');
+      showHint(); // let go too early: say how it works
+    };
     btn.addEventListener('pointerdown', start);
-    ['pointerup', 'pointerleave', 'pointercancel'].forEach(ev => btn.addEventListener(ev, cancel));
-    btn.addEventListener('click', () => { $('px-hint').textContent = t('picturesExitHint'); $('px-hint').hidden = false; setTimeout(() => { $('px-hint').hidden = true; }, 2500); });
+    ['pointerup', 'pointercancel', 'lostpointercapture'].forEach(ev => btn.addEventListener(ev, cancel));
+    btn.addEventListener('contextmenu', e => e.preventDefault());
+    btn.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') showHint(); });
   }
 
   (async function init() {
