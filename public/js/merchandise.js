@@ -63,6 +63,39 @@
     document.getElementById('cart-count').textContent = String(count);
   }
 
+  // ── The book, on Amazon (Mare App 6, v72) ──
+  // One card above the products: the cover, and a button per edition
+  // that opens that Amazon page in a new tab. The viewer's own language
+  // comes first. Hidden until an admin has entered at least one link.
+  async function loadBook() {
+    const box = document.getElementById('shop-book');
+    let links = {};
+    try { links = await (await fetch('/api/shop/book', { cache: 'no-store' })).json(); } catch { return; }
+    const editions = [
+      { key: 'uk', url: links.uk, label: t('shopBookUk', 'English edition · Amazon.co.uk'), lang: 'en' },
+      { key: 'nl', url: links.nl, label: t('shopBookNl', 'Dutch edition · Amazon.nl'), lang: 'nl' },
+    ].filter(e => e.url);
+    if (!editions.length) return;
+    if (isNl()) editions.sort((a, b) => (a.lang === 'nl' ? -1 : b.lang === 'nl' ? 1 : 0));
+    const cover = isNl() ? '/images/mare-front-cover-nl.jpg' : '/images/mare-front-cover.jpg';
+    box.innerHTML = `
+      <div class="shop-book-cover-wrap">
+        <img class="shop-book-cover" src="${cover}" alt="${escapeHtml(t('shopBookTitle', 'Mare and the Whispering Woods of Words'))}"
+             onerror="this.onerror=null;this.src='/images/mare-front-cover.jpg'">
+      </div>
+      <div class="shop-book-info">
+        <span class="shop-book-badge">${escapeHtml(t('shopBookBadge', 'Available on Amazon'))}</span>
+        <h2 class="shop-book-title" id="shop-book-title">${escapeHtml(t('shopBookTitle', 'Mare and the Whispering Woods of Words'))}</h2>
+        <p class="shop-book-by">${escapeHtml(t('shopBookBy', 'by Patricia Vuijk & Per Norrgren'))}</p>
+        <p class="shop-book-body">${escapeHtml(t('shopBookBody', ''))}</p>
+        <div class="shop-book-buttons">
+          ${editions.map((e, i) => `<a class="${i === 0 ? 'btn-primary' : 'btn-ghost'} shop-book-btn" href="${escapeHtml(e.url)}" target="_blank" rel="noopener" lang="${e.lang}">${escapeHtml(e.label)} ↗</a>`).join('')}
+        </div>
+        <p class="shop-book-note">${escapeHtml(t('shopBookNote', 'Opens Amazon in a new tab.'))}</p>
+      </div>`;
+    box.hidden = false;
+  }
+
   // ── Product grid ──
   async function loadProducts() {
     const grid = document.getElementById('shop-grid');
@@ -484,7 +517,7 @@
     setupLoginPrompt();
     await loadShipping();
     await handleCheckoutReturn();
-    await loadProducts();
+    await Promise.all([loadBook(), loadProducts()]);
   }
 
   init();

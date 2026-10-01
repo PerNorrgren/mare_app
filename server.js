@@ -1373,6 +1373,26 @@ function appBaseUrl() {
   return PUBLIC_URL;
 }
 
+// Mare App 6 (v72) — the book, sold on Amazon (English edition on
+// amazon.co.uk, Dutch edition on amazon.nl). Shown first in the shop.
+app.get('/api/shop/book', (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  res.json(db.getAmazonLinks());
+});
+app.put('/api/admin/shop/book', auth.requireAuthApi(['admin']), (req, res) => {
+  const clean = (v) => {
+    const s = String(v || '').trim();
+    if (!s) return '';
+    let u; try { u = new URL(s); } catch { return null; }
+    if (u.protocol !== 'https:' || !/(^|\.)amazon\.[a-z.]+$/i.test(u.hostname) && !/(^|\.)amzn\.(to|eu)$/i.test(u.hostname)) return null;
+    return u.toString();
+  };
+  const uk = clean(req.body && req.body.uk), nl = clean(req.body && req.body.nl);
+  if (uk === null || nl === null) return res.status(400).json({ error: 'Please paste a full Amazon link, starting with https://' });
+  db.setAmazonLinks({ uk, nl });
+  res.json({ ok: true, uk, nl });
+});
+
 app.get('/api/shop/shipping', (req, res) => {
   res.json({ options: db.getShippingOptions() });
 });

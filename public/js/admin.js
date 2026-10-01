@@ -163,6 +163,7 @@
     loadBroadcasts();
     loadWhatsNew();
     loadOffers();
+    loadBookAmazon();
     loadProducts();
     loadShipping();
     loadHomeNotice();
@@ -1820,6 +1821,28 @@
 
   // ── Sales & Marketing: offers ──
   let ofEditingId = null;
+
+  // Mare App 6 (v72) — the book's Amazon pages (admin only; shown first in the shop).
+  async function loadBookAmazon() {
+    if (!document.getElementById('ba-uk')) return;
+    try {
+      const d = await (await fetch('/api/shop/book', { cache: 'no-store' })).json();
+      document.getElementById('ba-uk').value = d.uk || '';
+      document.getElementById('ba-nl').value = d.nl || '';
+    } catch { /* leave empty */ }
+  }
+  document.getElementById('ba-save-btn') && document.getElementById('ba-save-btn').addEventListener('click', async () => {
+    const err = document.getElementById('ba-error');
+    err.hidden = true;
+    try {
+      const out = await api('/api/admin/shop/book', { method: 'PUT', body: JSON.stringify({
+        uk: document.getElementById('ba-uk').value, nl: document.getElementById('ba-nl').value }) });
+      document.getElementById('ba-uk').value = out.uk || '';
+      document.getElementById('ba-nl').value = out.nl || '';
+    } catch (e) {
+      err.textContent = e.message; err.hidden = false; // the button itself shows ✕
+    }
+  });
 
   async function loadOffers() {
     const container = document.getElementById('offers-list');

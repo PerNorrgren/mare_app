@@ -443,6 +443,27 @@
         <div id="offers-list"><p class="admin-empty-note" data-i18n="adminLoading">Loading…</p></div>
       </div>
 
+      <!-- Mare App 6 (v72) — the book's Amazon pages, shown first in the shop -->
+      <div class="admin-card admin-only-tab" id="book-amazon-card" hidden>
+        <h2 data-i18n="adminBookAmazonTitle">The book on Amazon</h2>
+        <p class="admin-card-sub" data-i18n="adminBookAmazonDesc">Shown first in the shop, with the cover and a button for each edition. Paste the full link from the book's page on Amazon. Leave a box empty to hide that button.</p>
+        <div class="admin-form-row">
+          <div class="field" style="flex:1;min-width:240px;">
+            <label for="ba-uk" data-i18n="adminBookAmazonUk">English edition (amazon.co.uk)</label>
+            <input type="url" id="ba-uk" placeholder="https://www.amazon.co.uk/…" autocomplete="off">
+          </div>
+          <div class="field" style="flex:1;min-width:240px;">
+            <label for="ba-nl" data-i18n="adminBookAmazonNl">Dutch edition (amazon.nl)</label>
+            <input type="url" id="ba-nl" placeholder="https://www.amazon.nl/…" autocomplete="off">
+          </div>
+        </div>
+        <p class="form-error" id="ba-error" hidden></p>
+        <div class="admin-form-row" style="justify-content:flex-end;gap:10px;">
+          <a class="btn-ghost btn-small" href="/merchandise.html" target="_blank" rel="noopener" data-i18n="adminBookAmazonView">View in the shop ↗</a>
+          <button type="button" class="btn-primary btn-small" id="ba-save-btn" data-i18n="adminSaveItem">Save</button>
+        </div>
+      </div>
+
       <div class="admin-card">
         <div class="admin-card-header-row">
           <div>
