@@ -150,8 +150,34 @@
           <button type="button" class="btn-primary btn-small" id="an-load" data-i18n="anShow">Show</button>
         </div>
         <p class="admin-empty-note" id="an-note"></p>
+        <button type="button" class="btn-ghost btn-small" id="an-people-btn" data-no-busy>👥 <span data-i18n="anPeopleBtn">People: who visited, by name</span></button>
       </div>
       <div id="an-out"></div>
+      <!-- Mare App 6 (v79) — one row per signed-in person -->
+      <div id="an-people" hidden>
+        <div class="admin-card">
+          <div class="an-block-head">
+            <button type="button" class="btn-ghost btn-small" id="an-people-back" data-no-busy>← <span data-i18n="anBackToReports">Back to the reports</span></button>
+            <button type="button" class="btn-ghost btn-small" id="an-people-csv" data-no-busy>⬇ <span data-i18n="anCsvAll">CSV (all rows)</span></button>
+          </div>
+          <h2 data-i18n="anPeopleTitle">People</h2>
+          <p class="admin-card-sub" id="an-people-sub"></p>
+          <div class="an-people-bar">
+            <input type="search" id="an-people-q" data-i18n-placeholder="anPeopleSearch" placeholder="Search name, email, school or child">
+            <select id="an-people-role">
+              <option value="" data-i18n="anAllPeople">Everyone</option>
+              <option value="parent" data-i18n="anRole_parent">Parent</option>
+              <option value="teacher" data-i18n="anRole_teacher">Teacher</option>
+              <option value="staff" data-i18n="anRole_staff">Staff</option>
+            </select>
+            <label class="an-perpage"><span data-i18n="anRowsPerPage">Rows per page</span>
+              <select id="an-people-size"><option value="20">20</option><option value="50">50</option><option value="100">100</option><option value="0" data-i18n="anAll">All</option></select></label>
+          </div>
+          <div class="stat-detail-scroll"><table class="admin-table an-people-table" id="an-people-table"></table></div>
+          <div class="an-pager" id="an-people-pager"></div>
+          <p class="admin-empty-note" id="an-people-anon"></p>
+        </div>
+      </div>
     </div>
 
     <div class="admin-panel" id="panel-resources">

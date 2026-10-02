@@ -1996,3 +1996,18 @@ html { scroll-behavior: smooth; }
 .an-key-v { background: rgba(226,190,110,0.85); } .an-key-m { background: #16305C; height: 2px !important; }
 .an-privacy { margin: 6px 4px 20px; }
 .an-grid > .an-wide { grid-column: 1 / -1; }
+
+/* v79 — People list */
+#an-people[hidden], #an-out[hidden] { display: none; }
+#an-people-btn { margin-top: 4px; }
+.an-people-bar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin: 10px 0; }
+.an-people-bar input[type=search] { flex: 1; min-width: 220px; font: inherit; padding: 7px 12px; border-radius: 999px; border: 1.5px solid rgba(22,48,92,0.2); }
+.an-people-bar select { font: inherit; padding: 6px 10px; border-radius: 8px; border: 1.5px solid rgba(22,48,92,0.2); }
+.an-perpage { display: inline-flex; gap: 6px; align-items: center; font-size: 0.85rem; }
+.an-sort { font: inherit; font-size: inherit; text-transform: inherit; letter-spacing: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; white-space: nowrap; }
+.an-sort.on { color: var(--navy); }
+.an-people-table td { white-space: nowrap; }
+#an-people .stat-detail-scroll { max-height: none; overflow-x: auto; }
+.an-pager { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 10px; font-size: 0.88rem; }
+.an-card.an-click { cursor: pointer; outline: 1.5px solid transparent; }
+.an-card.an-click:hover { outline-color: var(--gold); }

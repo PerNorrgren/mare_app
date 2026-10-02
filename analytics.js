@@ -228,6 +228,46 @@ function register(app, { db, auth }) {
     res.json(out);
   });
 
+  // ── People (v79): one row per signed-in person in the period, with name
+  // and email from their account. Not-signed-in visits can't be named;
+  // they come back as a count.
+  // GET /api/admin/analytics/people?from&to&staff=1
+  app.get('/api/admin/analytics/people', auth.requireAuthApi(['admin', 'support']), (req, res) => {
+    fresh();
+    const isDay = (d) => /^\d{4}-\d{2}-\d{2}$/.test(d || '');
+    const to = isDay(req.query.to) ? req.query.to : today();
+    const from = isDay(req.query.from) ? req.query.from : new Date(Date.now() - 29 * 864e5).toISOString().slice(0, 10);
+    const roles = req.query.staff === '1' ? ['parent', 'teacher', 'staff'] : ['parent', 'teacher'];
+    const inRoles = `v.role IN (${roles.map(() => '?').join(',')})`;
+    const P = [from, to, ...roles];
+    const rows = db.allRows(`SELECT v.role, v.user_id,
+        COALESCE(p.name, t.name, a.name, '') AS name, COALESCE(p.email, t.email, a.email, '') AS email,
+        COALESCE(t.school, '') AS school,
+        COUNT(DISTINCT v.sid) AS visits, COUNT(*) AS pages, ROUND(SUM(v.seconds) / 60.0, 1) AS minutes,
+        ROUND(SUM(CASE WHEN v.page IN ('/companion.html', '/pictures.html') THEN v.seconds ELSE 0 END) / 60.0, 1) AS companionMinutes,
+        MIN(v.started_at) AS firstSeen, MAX(v.started_at) AS lastSeen
+      FROM a_visits v
+      LEFT JOIN parents p ON v.role = 'parent' AND p.id = v.user_id
+      LEFT JOIN teachers t ON v.role = 'teacher' AND t.id = v.user_id
+      LEFT JOIN admins a ON v.role = 'staff' AND a.id = v.user_id
+      WHERE v.day BETWEEN ? AND ? AND ${inRoles} AND v.user_id IS NOT NULL
+      GROUP BY v.role, v.user_id ORDER BY minutes DESC, visits DESC`, P);
+    // the page each person spent most time on
+    const top = db.allRows(`SELECT v.user_id, v.page, SUM(v.seconds) AS s, COUNT(*) AS n FROM a_visits v
+      WHERE v.day BETWEEN ? AND ? AND ${inRoles} AND v.user_id IS NOT NULL GROUP BY v.user_id, v.page`, P);
+    const best = {};
+    for (const r of top) { const b = best[r.user_id]; if (!b || r.s > b.s || (r.s === b.s && r.n > b.n)) best[r.user_id] = r; }
+    // children's names for parents (helps recognise a family)
+    const kids = {};
+    for (const c of db.allRows(`SELECT parent_id, name FROM children ORDER BY sort_order, created_at`)) (kids[c.parent_id] = kids[c.parent_id] || []).push(c.name);
+    const anon = db.getRow(`SELECT COUNT(DISTINCT sid) AS visits, ROUND(COALESCE(SUM(seconds), 0) / 60.0) AS minutes FROM a_visits WHERE day BETWEEN ? AND ? AND role = 'visitor'`, [from, to]) || {};
+    res.json({
+      from, to,
+      people: rows.map(r => ({ ...r, topPage: best[r.user_id] ? best[r.user_id].page : '', children: r.role === 'parent' ? (kids[r.user_id] || []).join(', ') : '' })),
+      notSignedIn: { visits: anon.visits || 0, minutes: anon.minutes || 0 },
+    });
+  });
+
   return { serverEvent, flush };
 }
 
