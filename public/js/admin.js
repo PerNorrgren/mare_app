@@ -1010,16 +1010,29 @@
   }
 
   // ── Teacher resources ──
+  // Kinds that are an uploaded file (the rest — tool, link — are a URL).
+  const RESOURCE_FILE_TYPES = {
+    document: { label: 'adminFieldDocumentFile', accept: '' },
+    video: { label: 'adminFieldVideoFile', accept: 'video/mp4,.mp4' },
+    audio: { label: 'adminFieldAudioFile', accept: 'audio/*,.mp3,.m4a,.wav' },
+    ebook: { label: 'adminFieldEbookFile', accept: '.epub,.pdf,.mobi,.azw3,application/epub+zip,application/pdf' },
+  };
+  const RESOURCE_LABEL = { document: 'resourceCategoryDocument', tool: 'resourceCategoryTool', link: 'resourceCategoryLink', video: 'resourceCategoryVideo', audio: 'resourceCategoryAudio', ebook: 'resourceCategoryEbook' };
   function setupResourceForm() {
     const categorySelect = document.getElementById('r-category');
     // Show the file picker for Document, the URL box for Tool/Link.
     // Run once at setup too: the form opens on Document, and the HTML's
     // starting state (URL shown, file hidden) used to stay wrong until
     // the type was changed and changed back.
+    // Mare App 6 (v77) — video, audio and ebook are uploaded files too.
     function syncResourceFields() {
-      const isDoc = categorySelect.value === 'document';
-      document.getElementById('r-file-field').hidden = !isDoc;
-      document.getElementById('r-url-field').hidden = isDoc;
+      const f = RESOURCE_FILE_TYPES[categorySelect.value];
+      document.getElementById('r-file-field').hidden = !f;
+      document.getElementById('r-url-field').hidden = !!f;
+      if (f) {
+        document.getElementById('r-file-label').textContent = t(f.label);
+        document.getElementById('r-file').accept = f.accept;
+      }
     }
     categorySelect.addEventListener('change', syncResourceFields);
     syncResourceFields();
@@ -1049,9 +1062,10 @@
         if (!title) throw new Error(t('adminErrorTitleRequired'));
 
         let fileKey = null, externalUrl = null;
-        if (category === 'document') {
+        if (RESOURCE_FILE_TYPES[category]) {
           const fileInput = document.getElementById('r-file');
           if (!fileInput.files[0]) throw new Error(t('adminErrorChooseFile'));
+          if (category === 'video' && !/\.mp4$/i.test(fileInput.files[0].name)) throw new Error(t('adminVidMp4Only'));
           fileKey = await uploadResourceFile(fileInput.files[0]);
         } else {
           externalUrl = document.getElementById('r-url').value.trim();
@@ -1108,7 +1122,7 @@
         const tr = document.createElement('tr');
         tr.innerHTML = `
           <td>${escapeHtml(r.title)}</td>
-          <td>${escapeHtml(t(({ document: 'resourceCategoryDocument', tool: 'resourceCategoryTool', link: 'resourceCategoryLink' })[r.category] || 'resourceCategoryDocument'))}</td>
+          <td>${escapeHtml(t(RESOURCE_LABEL[r.category] || 'resourceCategoryDocument'))}</td>
           <td class="r-lang-cell"></td>
           <td>${r.active ? escapeHtml(t('adminYes')) : escapeHtml(t('adminNo'))}</td>
         `;

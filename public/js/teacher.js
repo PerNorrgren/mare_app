@@ -18,7 +18,9 @@
     });
   }
 
-  const CATEGORY_LABEL_KEY = { document: 'resourceCategoryDocument', tool: 'resourceCategoryTool', link: 'resourceCategoryLink' };
+  const CATEGORY_LABEL_KEY = { document: 'resourceCategoryDocument', tool: 'resourceCategoryTool', link: 'resourceCategoryLink', video: 'resourceCategoryVideo', audio: 'resourceCategoryAudio', ebook: 'resourceCategoryEbook' };
+  // v77 — the button says what happens
+  const OPEN_KEY = { video: 'resourceWatch', audio: 'resourceListen' };
 
   async function renderResources(resources) {
     const grid = document.getElementById('resource-grid');
@@ -53,7 +55,7 @@
 
       const link = document.createElement('a');
       link.className = 'btn-ghost';
-      link.textContent = t('resourceOpen');
+      link.textContent = t(OPEN_KEY[resource.category] || 'resourceOpen');
       link.target = '_blank';
       link.rel = 'noopener';
       // Always via the app, which checks the sign-in and signs a fresh
