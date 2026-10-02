@@ -374,7 +374,7 @@
     renderFlow(ch);
     document.getElementById('pic-preview').href = `/pictures.html?chapter=${ch}`;
     const list = document.getElementById('pic-list');
-    const scenes = picData.scenes.filter(s => s.chapter_no === ch);
+    const scenes = chapterSteps(ch);
     list.innerHTML = scenes.length ? '' : `<p class="admin-empty-note">${escapeHtml(t('adminPicNone'))}</p>`;
     scenes.forEach(scene => list.appendChild(pictureCard(scene)));
   }
@@ -382,8 +382,39 @@
   // Each step (picture or video) is a box; its spots branch off to the
   // right. Click a spot or a step to try it here; "Edit this step" opens
   // that step in the editor on this same page.
-  const FLOW_ICON = { popup: '💬', sound: '🔊', voice: '🗣️', video: '🎬', quiz: '❓', write: '✉️' };
+  const FLOW_ICON = { popup: '💬', sound: '🔊', voice: '🗣️', video: '🎬', quiz: '❓', write: '✉️', mask: '🌫️' };
+  // v76 — a spinner over the picture (or the form) while a click is saved
+  async function working(el, fn) {
+    el.classList.add('pic-working');
+    try { return await fn(); } finally { el.classList.remove('pic-working'); }
+  }
+  // v76 — spot look: { colour, mode, shape, h, reveal }
+  function lookOf(sp) {
+    let o = {}; try { o = JSON.parse(sp.look_json || '{}') || {}; } catch { o = {}; }
+    return { colour: o.colour || '', mode: o.mode === 'colour' ? 'colour' : 'blur', shape: o.shape === 'circle' ? 'circle' : 'rect', h: o.h == null ? null : Number(o.h), reveal: !!o.reveal };
+  }
   const flowT = (s) => { s = Math.max(0, Number(s) || 0); const m = Math.floor(s / 60); return `${m}:${String(Math.floor(s - m * 60)).padStart(2, '0')}`; };
+  // the chapter's steps in their order (as the child meets them)
+  function chapterSteps(ch) {
+    return picData.scenes.filter(s => s.chapter_no === ch).sort((a, b) => (a.sort_order - b.sort_order) || String(a.created_at).localeCompare(String(b.created_at)));
+  }
+  // v76 — move a step up or down: number the chapter's steps 10, 20, 30… and save the ones that changed
+  async function moveStep(ch, sceneId, dir) {
+    const steps = chapterSteps(ch);
+    const i = steps.findIndex(s => s.id === sceneId), j = i + dir;
+    if (i < 0 || j < 0 || j >= steps.length) return;
+    [steps[i], steps[j]] = [steps[j], steps[i]];
+    await working(document.getElementById('pic-flow'), async () => {
+      for (let k = 0; k < steps.length; k++) {
+        const want = (k + 1) * 10;
+        if (steps[k].sort_order !== want) {
+          await api(`/api/admin/pictures/${steps[k].id}`, { method: 'PATCH', body: JSON.stringify({ sortOrder: want }) });
+          steps[k].sort_order = want;
+        }
+      }
+    });
+    renderPictures();
+  }
   function setPicView(view) {
     document.querySelectorAll('.pic-view').forEach(b => b.classList.toggle('on', b.dataset.view === view));
     document.getElementById('pic-flow').hidden = view !== 'flow';
@@ -393,22 +424,28 @@
   function renderFlow(ch) {
     const box = document.getElementById('pic-flow');
     if (!box || !picData) return;
-    const scenes = picData.scenes.filter(s => s.chapter_no === ch).sort((a, b) => (a.sort_order - b.sort_order) || String(a.created_at).localeCompare(String(b.created_at)));
+    const scenes = chapterSteps(ch);
     const chapter = picData.chapters.find(c => c.no === ch);
     if (!scenes.length) { box.innerHTML = `<p class="admin-empty-note">${escapeHtml(t('adminFlowNone'))}</p>`; return; }
     let html = `<p class="admin-empty-note">${escapeHtml(t('adminFlowHint'))}</p>
       <div class="flow-head">${escapeHtml(t('companionChapterN', { n: ch }))}${chapter ? ' · ' + escapeHtml(chapter.title) : ''}</div><div class="flow">`;
     scenes.forEach((s, i) => {
       const isVid = !!s.videoUrl;
-      const spots = s.spots.slice().sort((a, b) => isVid ? ((a.t_start || 0) - (b.t_start || 0)) : 0);
+      const spots = s.spots.filter(sp => sp.type !== 'mask').sort((a, b) => isVid ? ((a.t_start || 0) - (b.t_start || 0)) : 0);
+      const masks = s.spots.length - spots.length; // v76
       const media = isVid ? `<video src="${escapeHtml(s.videoUrl)}#t=0.5" preload="metadata" muted playsinline></video><span class="flow-play">▶</span>`
         : s.imageUrl ? `<img src="${escapeHtml(s.imageUrl)}" alt="" loading="lazy">` : `<span class="flow-nomedia">${escapeHtml(t('adminFlowNoMedia'))}</span>`;
       html += `${i ? '<div class="flow-down" aria-hidden="true">↓</div>' : ''}
         <div class="flow-row">
           <div class="flow-step${s.active ? '' : ' off'}">
-            <div class="flow-tag">${escapeHtml(t('adminFlowStep', { n: i + 1 }))} · ${escapeHtml(t(isVid ? 'adminFlowVideo' : 'adminFlowPicture'))}${s.active ? '' : ' · ' + escapeHtml(t('adminFlowHidden'))}</div>
+            <div class="flow-top"><div class="flow-tag">${escapeHtml(t('adminFlowStep', { n: i + 1 }))} · ${escapeHtml(t(isVid ? 'adminFlowVideo' : 'adminFlowPicture'))}${s.active ? '' : ' · ' + escapeHtml(t('adminFlowHidden'))}</div>
+              <span class="flow-move">
+                <button type="button" class="flow-mv" data-scene="${s.id}" data-dir="-1" data-no-busy ${i === 0 ? 'disabled' : ''} title="${escapeHtml(t('adminFlowUp'))}" aria-label="${escapeHtml(t('adminFlowUp'))}">↑</button>
+                <button type="button" class="flow-mv" data-scene="${s.id}" data-dir="1" data-no-busy ${i === scenes.length - 1 ? 'disabled' : ''} title="${escapeHtml(t('adminFlowDownBtn'))}" aria-label="${escapeHtml(t('adminFlowDownBtn'))}">↓</button>
+              </span></div>
             <button type="button" class="flow-thumb" data-scene="${s.id}" data-no-busy ${(s.videoUrl || s.imageUrl) ? '' : 'disabled'}>${media}</button>
             <div class="flow-title">${escapeHtml(s.title_en || '')}</div>
+            ${masks ? `<div class="flow-masks">🌫️ ${escapeHtml(t('adminFlowMasks', { n: masks }))}</div>` : ''}
             <button type="button" class="btn-ghost btn-small flow-edit" data-scene="${s.id}" data-no-busy>✏️ ${escapeHtml(t('adminFlowEdit'))}</button>
           </div>
           <div class="flow-branches">${spots.length ? spots.map(sp => `
@@ -421,6 +458,7 @@
     });
     box.innerHTML = html + '</div>';
     box.querySelectorAll('.flow-thumb').forEach(b => b.addEventListener('click', () => flowPreviewStep(b.dataset.scene)));
+    box.querySelectorAll('.flow-mv').forEach(b => b.addEventListener('click', () => moveStep(ch, b.dataset.scene, Number(b.dataset.dir))));
     box.querySelectorAll('.flow-spot').forEach(b => b.addEventListener('click', () => flowPreviewSpot(b.dataset.scene, b.dataset.spot)));
     box.querySelectorAll('.flow-edit').forEach(b => b.addEventListener('click', () => {
       setPicView('edit');
@@ -430,15 +468,27 @@
   }
   // preview modal (stops any sound or video when closed)
   let flowAudio = null;
-  function flowOpen(html) {
+  // Opens in the modal, or (v76) as an overlay over the picture in the editor.
+  function flowOpen(html, host) {
+    flowClose();
+    if (host) {
+      const ov = document.createElement('div');
+      ov.className = 'pic-try';
+      ov.innerHTML = `<div class="pic-try-card"><button type="button" class="flow-modal-close" data-no-busy aria-label="Close">✕</button><div class="pic-try-body">${html}</div></div>`;
+      ov.addEventListener('click', (e) => { if (e.target === ov || e.target.closest('.flow-modal-close')) flowClose(); });
+      host.appendChild(ov);
+      return ov.querySelector('.pic-try-body');
+    }
     document.getElementById('flow-modal-body').innerHTML = html;
     document.getElementById('flow-modal').hidden = false;
+    return document.getElementById('flow-modal-body');
   }
   function flowClose() {
     if (flowAudio) { flowAudio.pause(); flowAudio = null; }
-    document.querySelectorAll('#flow-modal-body video, #flow-modal-body audio').forEach(m => m.pause());
-    document.getElementById('flow-modal-body').innerHTML = '';
-    document.getElementById('flow-modal').hidden = true;
+    document.querySelectorAll('#flow-modal-body video, #flow-modal-body audio, .pic-try video').forEach(m => m.pause());
+    document.querySelectorAll('.pic-try').forEach(o => o.remove());
+    const mb = document.getElementById('flow-modal-body');
+    if (mb) { mb.innerHTML = ''; document.getElementById('flow-modal').hidden = true; }
   }
   if (document.getElementById('flow-modal')) {
     document.getElementById('flow-modal-close').addEventListener('click', flowClose);
@@ -453,9 +503,9 @@
     const s = picData.scenes.find(x => x.id === sceneId); if (!s) return;
     flowOpen(`${s.title_en ? `<h3>${escapeHtml(s.title_en)}</h3>` : ''}${s.videoUrl ? `<video src="${escapeHtml(s.videoUrl)}" controls autoplay playsinline></video>` : `<img src="${escapeHtml(s.imageUrl)}" alt="">`}`);
   }
-  async function flowPreviewSpot(sceneId, spotId) {
+  async function flowPreviewSpot(sceneId, spotId, host, draft) {
     const s = picData.scenes.find(x => x.id === sceneId); if (!s) return;
-    const sp = s.spots.find(x => x.id === spotId); if (!sp) return;
+    const sp = draft || s.spots.find(x => x.id === spotId); if (!sp) return;
     if (flowAudio) { flowAudio.pause(); flowAudio = null; }
     const [img, audio, video] = await Promise.all([mediaUrl(sp.image_key), mediaUrl(sp.audio_key_en || sp.audio_key_nl), mediaUrl(sp.video_key)]);
     const tag = `<div class="flow-tag">${FLOW_ICON[sp.type] || ''} ${escapeHtml(t('adminSpotType_' + sp.type))}${s.videoUrl ? ` · ${flowT(sp.t_start)}–${sp.t_end == null ? escapeHtml(t('adminVidEnd')) : flowT(sp.t_end)}` : ''}</div>`;
@@ -472,24 +522,24 @@
       const urls = await Promise.all(answers.map(a => mediaUrl(a.image_key)));
       if (img) html += `<img src="${escapeHtml(img)}" alt="">`;
       html += `<div class="flow-quiz${urls.some(Boolean) ? ' pics' : ''}">${answers.map((a, i) => `<button type="button" class="flow-ans" data-i="${i}" data-no-busy>${urls[i] ? `<img src="${escapeHtml(urls[i])}" alt="">` : ''}<span>${escapeHtml(a.en || a.nl || '')}</span></button>`).join('')}</div>
-        <p class="flow-quiz-msg" id="flow-quiz-msg"></p>`;
-      flowOpen(html);
-      document.querySelectorAll('#flow-modal-body .flow-ans').forEach(b => b.addEventListener('click', () => {
+        <p class="flow-quiz-msg"></p>`;
+      const root = flowOpen(html, host);
+      root.querySelectorAll('.flow-ans').forEach(b => b.addEventListener('click', () => {
         const right = Number(b.dataset.i) === (q.correct || 0);
         b.classList.add(right ? 'right' : 'wrong');
-        const m = document.getElementById('flow-quiz-msg');
+        const m = root.querySelector('.flow-quiz-msg');
         m.textContent = right ? (q.right_en || t('picturesQuizRight')) : (q.wrong_en || t('picturesQuizWrong'));
         m.className = 'flow-quiz-msg ' + (right ? 'right' : 'wrong');
       }));
       return;
     }
     if (sp.type === 'write') html += `<textarea rows="3" disabled placeholder="${escapeHtml(t('picturesWritePlaceholder'))}"></textarea><p class="admin-empty-note">${escapeHtml(t('adminFlowWriteNote'))}</p>`;
-    if (audio) html += `<button type="button" class="btn-ghost btn-small" id="flow-again" data-no-busy>🔊 ${escapeHtml(t('picturesPlayAgain'))}</button>`;
-    flowOpen(html);
+    if (audio) html += `<button type="button" class="btn-ghost btn-small flow-again" data-no-busy>🔊 ${escapeHtml(t('picturesPlayAgain'))}</button>`;
+    const root = flowOpen(html, host);
     if (audio) {
       const play = () => { if (flowAudio) flowAudio.pause(); flowAudio = new Audio(audio); flowAudio.play().catch(() => {}); };
       play();
-      document.getElementById('flow-again').addEventListener('click', play);
+      root.querySelector('.flow-again').addEventListener('click', play);
     }
   }
 
@@ -598,6 +648,12 @@
         const d = document.createElement('div');
         d.className = 'pic-spot pic-spot-' + sp.type + (sp.id === picSelected ? ' sel' : '');
         d.style.left = (sp.x * 100) + '%'; d.style.top = (sp.y * 100) + '%'; d.style.width = (sp.r * 200) + '%';
+        const lk = lookOf(sp);
+        if (lk.colour) d.style.setProperty('--spot', lk.colour);
+        if (sp.type === 'mask') { // v76: shown as the child will see it
+          d.classList.add('pic-mask-' + lk.mode, 'pic-shape-' + lk.shape);
+          if (lk.shape === 'rect') { d.style.aspectRatio = 'auto'; d.style.height = ((lk.h || sp.r * 2) * 100) + '%'; }
+        }
         d.title = sp.title_en || sp.type;
         // drag to move; click to edit
         d.addEventListener('pointerdown', (e) => {
@@ -612,7 +668,7 @@
           };
           const up = async () => {
             window.removeEventListener('pointermove', mv); window.removeEventListener('pointerup', up);
-            if (moved) await api(`/api/admin/picture-spots/${sp.id}`, { method: 'PATCH', body: JSON.stringify({ x: sp.x, y: sp.y }) });
+            if (moved) await working(canvas, () => api(`/api/admin/picture-spots/${sp.id}`, { method: 'PATCH', body: JSON.stringify({ x: sp.x, y: sp.y }) }));
             picSelected = sp.id; drawSpots(); drawForm(sp); drawTimeline();
           };
           window.addEventListener('pointermove', mv); window.addEventListener('pointerup', up);
@@ -632,7 +688,7 @@
         extra.t_end = Math.round(Math.min(video.duration || now + 5, now + 5) * 10) / 10;
         extra.pause_on_show = true; // default: stop the video, one thing at a time
       }
-      const out = await api(`/api/admin/pictures/${scene.id}/spots`, { method: 'POST', body: JSON.stringify({ x, y, type: 'popup', ...extra }) });
+      const out = await working(canvas, () => api(`/api/admin/pictures/${scene.id}/spots`, { method: 'POST', body: JSON.stringify({ x, y, type: 'popup', ...extra }) }));
       const sp = { id: out.id, x, y, r: 0.06, type: 'popup', title_en: '', title_nl: '', text_en: '', text_nl: '', ...extra, pause_on_show: extra.pause_on_show ? 1 : 0 };
       scene.spots.push(sp); picSelected = sp.id; drawSpots(); drawForm(sp); drawTimeline();
     });
@@ -667,17 +723,26 @@
       const type = sp.type;
       form.innerHTML = `
         <div class="field"><label>${escapeHtml(t('adminSpotType'))}</label><select class="sp-type">
-          ${['popup', 'sound', 'voice', 'video', 'quiz', 'write'].map(k => `<option value="${k}"${k === type ? ' selected' : ''}>${escapeHtml(t('adminSpotType_' + k))}</option>`).join('')}</select></div>
+          ${['popup', 'sound', 'voice', 'video', 'quiz', 'write', 'mask'].map(k => `<option value="${k}"${k === type ? ' selected' : ''}>${escapeHtml(t('adminSpotType_' + k))}</option>`).join('')}</select></div>
+        ${(() => { const lk = lookOf(sp); return `<div class="admin-form-row look-row">
+          <div class="field"><label>${escapeHtml(t(type === 'mask' ? 'adminMaskColour' : 'adminSpotColour'))}</label><div class="look-colour"><input type="color" class="sp-colour" value="${escapeHtml(lk.colour || (type === 'mask' ? '#16305C' : '#FFE9A8'))}"><a href="#" class="sp-colour-reset">${escapeHtml(t('adminSpotColourReset'))}</a></div></div>
+          ${type === 'mask' ? `<div class="field"><label>${escapeHtml(t('adminMaskMode'))}</label><select class="sp-mask-mode"><option value="blur"${lk.mode === 'blur' ? ' selected' : ''}>${escapeHtml(t('adminMaskBlur'))}</option><option value="colour"${lk.mode === 'colour' ? ' selected' : ''}>${escapeHtml(t('adminMaskSolid'))}</option></select></div>
+          <div class="field"><label>${escapeHtml(t('adminMaskShape'))}</label><select class="sp-mask-shape"><option value="rect"${lk.shape === 'rect' ? ' selected' : ''}>${escapeHtml(t('adminMaskRect'))}</option><option value="circle"${lk.shape === 'circle' ? ' selected' : ''}>${escapeHtml(t('adminMaskCircle'))}</option></select></div>` : ''}
+        </div>
+        ${type === 'mask' ? `<label class="vid-pause"><input type="checkbox" class="sp-mask-reveal"${lk.reveal ? ' checked' : ''}> ${escapeHtml(t('adminMaskReveal'))}</label>` : ''}`; })()}
         ${video ? `<div class="admin-form-row vid-times">
           <div class="field"><label>${escapeHtml(t('adminVidFrom'))}</label><div class="vid-tin"><input type="number" class="sp-t-start" min="0" step="0.1" value="${sp.t_start == null ? '' : sp.t_start}"><button type="button" class="btn-ghost btn-small sp-now-start" data-no-busy>${escapeHtml(t('adminVidNow'))}</button></div></div>
           <div class="field"><label>${escapeHtml(t('adminVidTo'))}</label><div class="vid-tin"><input type="number" class="sp-t-end" min="0" step="0.1" value="${sp.t_end == null ? '' : sp.t_end}" placeholder="${escapeHtml(t('adminVidEnd'))}"><button type="button" class="btn-ghost btn-small sp-now-end" data-no-busy>${escapeHtml(t('adminVidNow'))}</button></div></div>
         </div>
-        <label class="vid-pause"><input type="checkbox" class="sp-pause"${sp.pause_on_show ? ' checked' : ''}> ${escapeHtml(t('adminVidPause'))}</label>` : ''}
-        <div class="field"><label>${escapeHtml(t('adminSpotSize'))}</label><input type="range" class="sp-r" min="0.03" max="0.2" step="0.005" value="${sp.r}"></div>
-        <div class="admin-form-row"><div class="field"><label>${escapeHtml(t(type === 'quiz' ? 'adminQuizQuestion' : type === 'write' ? 'adminWritePrompt' : 'adminSpotTitle'))} EN</label><input type="text" class="sp-title-en" value="${escapeHtml(sp.title_en || '')}"></div>
+        ${type === 'mask' ? '' : `<label class="vid-pause"><input type="checkbox" class="sp-pause"${sp.pause_on_show ? ' checked' : ''}> ${escapeHtml(t('adminVidPause'))}</label>`}` : ''}
+        <div class="field"><label>${escapeHtml(t(type === 'mask' ? 'adminMaskWidth' : 'adminSpotSize'))}</label><input type="range" class="sp-r" min="0.03" max="${type === 'mask' ? '0.5' : '0.2'}" step="0.005" value="${sp.r}"></div>
+        ${type === 'mask' && lookOf(sp).shape === 'rect' ? `<div class="field"><label>${escapeHtml(t('adminMaskHeight'))}</label><input type="range" class="sp-mask-h" min="0.03" max="1" step="0.005" value="${lookOf(sp).h || Math.min(1, sp.r * 2)}"></div>` : ''}
+        ${type === 'mask' ? '' : `<button type="button" class="btn-ghost btn-small sp-try" data-no-busy>▶ ${escapeHtml(t('adminSpotTry'))}</button>`}
+        ${type === 'mask' ? `<p class="admin-empty-note">${escapeHtml(t('adminMaskNote'))}</p>` : ''}
+        <div class="admin-form-row"${type === 'mask' ? ' hidden' : ''}><div class="field"><label>${escapeHtml(t(type === 'quiz' ? 'adminQuizQuestion' : type === 'write' ? 'adminWritePrompt' : 'adminSpotTitle'))} EN</label><input type="text" class="sp-title-en" value="${escapeHtml(sp.title_en || '')}"></div>
           <div class="field"><label>${escapeHtml(t(type === 'quiz' ? 'adminQuizQuestion' : type === 'write' ? 'adminWritePrompt' : 'adminSpotTitle'))} NL</label><input type="text" class="sp-title-nl" value="${escapeHtml(sp.title_nl || '')}"></div></div>
         ${type === 'quiz' ? quizFields(sp) : ''}
-        ${type !== 'sound' ? `<div class="admin-form-row"><div class="field"><label>${escapeHtml(t('adminSpotText'))} EN</label><textarea data-editor="plain" class="sp-text-en" rows="3">${escapeHtml(sp.text_en || '')}</textarea></div>
+        ${type !== 'sound' && type !== 'mask' ? `<div class="admin-form-row"><div class="field"><label>${escapeHtml(t('adminSpotText'))} EN</label><textarea data-editor="plain" class="sp-text-en" rows="3">${escapeHtml(sp.text_en || '')}</textarea></div>
           <div class="field"><label>${escapeHtml(t('adminSpotText'))} NL</label><textarea data-editor="plain" class="sp-text-nl" rows="3">${escapeHtml(sp.text_nl || '')}</textarea></div></div>` : ''}
         ${type === 'popup' || type === 'voice' || type === 'quiz' || type === 'write' ? mediaField(t('adminSpotImage'), 'image_key', 'image/*', 'spots', sp) : ''}
         ${type === 'sound' || type === 'voice' ? mediaField(t('adminSpotAudioEn'), 'audio_key_en', 'audio/*', 'sounds', sp) + mediaField(t('adminSpotAudioNl'), 'audio_key_nl', 'audio/*', 'sounds', sp) : ''}
@@ -694,6 +759,13 @@
         const b = { r: sp.r, title_en: q('.sp-title-en').value, title_nl: q('.sp-title-nl').value };
         if (q('.sp-text-en')) { b.text_en = q('.sp-text-en').value; b.text_nl = q('.sp-text-nl').value; }
         if (q('.sp-video-url')) b.video_url = q('.sp-video-url').value;
+        if (q('.sp-colour')) { // v76
+          const lk = lookOf(sp);
+          const look = { colour: q('.sp-colour').dataset.cleared ? null : q('.sp-colour').value, mode: lk.mode, shape: lk.shape, h: lk.h, reveal: lk.reveal };
+          if (q('.sp-mask-mode')) { look.mode = q('.sp-mask-mode').value; look.shape = q('.sp-mask-shape').value; look.reveal = q('.sp-mask-reveal').checked; look.h = q('.sp-mask-h') ? Number(q('.sp-mask-h').value) : lk.h; }
+          if (!q('.sp-colour').dataset.touched && !lk.colour && sp.type !== 'mask') look.colour = null; // untouched: keep the standard gold
+          b.look = look;
+        }
         if (q('.sp-t-start')) { // v74
           const num = (v) => (String(v).trim() === '' ? null : Math.max(0, Number(v) || 0));
           b.t_start = num(q('.sp-t-start').value); b.t_end = num(q('.sp-t-end').value);
@@ -712,9 +784,10 @@
       };
       // keep the local copy in step with what was saved (quiz is stored as quiz_json)
       const applyLocal = (body) => {
-        const { quiz, ...rest } = body;
+        const { quiz, look, ...rest } = body;
         Object.assign(sp, rest);
         if (quiz) sp.quiz_json = JSON.stringify(quiz);
+        if (look) sp.look_json = JSON.stringify(look);
         if (rest.pause_on_show !== undefined) sp.pause_on_show = rest.pause_on_show ? 1 : 0;
       };
       // v74 — answer pictures: show, add (saved straight away), remove
@@ -743,11 +816,27 @@
       }
       q('.sp-type').addEventListener('change', async () => {
         const body = { ...typed(), type: q('.sp-type').value };
-        await api(`/api/admin/picture-spots/${sp.id}`, { method: 'PATCH', body: JSON.stringify(body) });
+        if (body.type === 'mask') { body.pause_on_show = false; if (!sp.look_json) body.look = { mode: 'blur', shape: 'rect', h: Math.min(1, sp.r * 2), reveal: false }; }
+        await working(form, () => api(`/api/admin/picture-spots/${sp.id}`, { method: 'PATCH', body: JSON.stringify(body) }));
         applyLocal(body);
         drawSpots(); drawForm(sp);
       });
       q('.sp-r').addEventListener('input', () => { sp.r = Number(q('.sp-r').value); drawSpots(); });
+      // v76 — colour and mask settings show on the picture straight away (Save keeps them)
+      const liveLook = () => { const b = typed(); if (b.look) sp.look_json = JSON.stringify(b.look); drawSpots(); };
+      if (q('.sp-colour')) {
+        q('.sp-colour').addEventListener('input', () => { q('.sp-colour').dataset.touched = '1'; delete q('.sp-colour').dataset.cleared; liveLook(); });
+        q('.sp-colour-reset').addEventListener('click', (e) => { e.preventDefault(); q('.sp-colour').dataset.cleared = '1'; q('.sp-colour').dataset.touched = '1'; liveLook(); });
+      }
+      ['.sp-mask-mode', '.sp-mask-reveal', '.sp-mask-h'].forEach(sel => { if (q(sel)) q(sel).addEventListener('input', liveLook); });
+      if (q('.sp-mask-shape')) q('.sp-mask-shape').addEventListener('change', () => { liveLook(); drawForm(sp); });
+      if (q('.sp-try')) q('.sp-try').addEventListener('click', () => {
+        // try it on top of this picture/video, with what is typed now
+        const b = typed(); const copy = { ...sp, ...b };
+        if (b.quiz) copy.quiz_json = JSON.stringify(b.quiz);
+        if (video) video.pause();
+        flowPreviewSpot(scene.id, sp.id, canvas.parentElement, copy);
+      });
       form.querySelectorAll('.pic-media').forEach(box => {
         const key = box.dataset.key;
         box.querySelector('input[type=file]').addEventListener('change', async (e) => {

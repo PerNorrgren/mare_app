@@ -97,3 +97,14 @@ html, body { margin: 0; height: 100%; background: #0B1712; overflow: hidden; ove
 .px-quiz.pics .px-answer { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 10px; text-align: center; }
 .px-quiz.pics .px-answer img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 12px; margin: 0; pointer-events: none; }
 .px-quiz.pics .px-answer.right { box-shadow: 0 0 0 4px #3FA466; }
+
+/* v76 — spot colour (--spot) and masks: a blurred or coloured patch. */
+.px-spot[style*="--spot"] { border-color: var(--spot); background: radial-gradient(circle, color-mix(in srgb, var(--spot) 40%, transparent) 0%, color-mix(in srgb, var(--spot) 12%, transparent) 55%, transparent 72%); box-shadow: 0 0 18px 6px color-mix(in srgb, var(--spot) 40%, transparent); }
+.px-spot.px-mask, .px-spot[class*="px-mask-"] { animation: none !important; opacity: 1; min-width: 0; min-height: 0; border: 0; box-shadow: none; cursor: default; transition: opacity 0.5s; }
+.px-spot.px-shape-rect { border-radius: 14px; }
+.px-spot.px-mask-blur { background: color-mix(in srgb, var(--spot, #ffffff) 12%, transparent); -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px); }
+.px-spot.px-mask-colour { background: var(--spot, #16305C); }
+.px-spot[class*="px-mask-"]:not(:disabled) { cursor: pointer; }
+.px-spot[class*="px-mask-"].revealed { opacity: 0; pointer-events: none; }
+.px-spot.px-timed.shown[class*="px-mask-"] { animation: px-fadein 0.4s ease-out both !important; }
+@keyframes px-fadein { from { opacity: 0; } to { opacity: 1; } }

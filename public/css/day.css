@@ -1930,3 +1930,42 @@ html { scroll-behavior: smooth; }
   .flow-down { width: 100%; }
 }
 .flow-stops { color: #A5473A; font-weight: 700; }
+
+/* v76 — spinner while a click on the picture saves; colours; masks; Try it over the picture */
+.pic-body > div:first-child { position: relative; }
+.pic-canvas.pic-working::after, .pic-form.pic-working::after {
+  content: ''; position: absolute; left: 50%; top: 50%; width: 34px; height: 34px; margin: -17px 0 0 -17px;
+  border-radius: 50%; border: 3px solid rgba(255,255,255,0.9); border-right-color: transparent;
+  box-shadow: 0 0 0 9999px rgba(11,23,18,0.25); animation: busy-spin 0.8s linear infinite; z-index: 5; pointer-events: none;
+}
+.pic-form { position: relative; }
+.pic-form.pic-working::after { border-color: #16305C; border-right-color: transparent; box-shadow: 0 0 0 9999px rgba(255,255,255,0.5); }
+.pic-canvas.pic-working, .pic-form.pic-working { pointer-events: none; }
+@keyframes busy-spin { to { transform: rotate(360deg); } }
+.pic-spot[style*="--spot"] { border-color: var(--spot); background: color-mix(in srgb, var(--spot) 30%, transparent); box-shadow: 0 0 10px color-mix(in srgb, var(--spot) 60%, transparent); }
+.pic-spot.pic-spot-mask { border: 1.5px dashed rgba(255,255,255,0.8); box-shadow: none; }
+.pic-spot.pic-shape-rect { border-radius: 10px; }
+.pic-spot.pic-mask-blur { background: color-mix(in srgb, var(--spot, #ffffff) 12%, transparent); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); }
+.pic-spot.pic-mask-colour { background: var(--spot, #16305C); }
+.pic-spot.pic-spot-mask.sel { border: 2px solid #fff; box-shadow: 0 0 0 3px #16305C; }
+.look-row { align-items: flex-end; }
+.look-colour { display: flex; align-items: center; gap: 8px; }
+.look-colour input[type=color] { width: 46px; height: 34px; padding: 0; border: 1.5px solid rgba(22,48,92,0.2); border-radius: 8px; background: none; cursor: pointer; }
+.look-colour a { font-size: 0.8rem; }
+.sp-try { margin: 4px 0 10px; }
+.pic-try { position: absolute; inset: 0; z-index: 6; background: rgba(11,23,18,0.55); border-radius: 12px; display: flex; align-items: center; justify-content: center; padding: 12px; min-height: 260px; }
+.pic-try-card { position: relative; width: min(460px, 100%); max-height: 100%; overflow: auto; background: #FFFBF1; border-radius: 16px; padding: 16px; box-shadow: 0 14px 40px rgba(0,0,0,0.4); }
+.pic-try-card h3 { margin: 4px 36px 8px 0; }
+.pic-try-card img, .pic-try-card video { display: block; width: 100%; border-radius: 10px; margin-top: 8px; }
+.pic-try-card textarea { width: 100%; margin-top: 8px; font: inherit; padding: 8px; border-radius: 10px; }
+.flow-masks { font-size: 0.78rem; color: rgba(22,48,92,0.65); }
+/* v76 — move steps up/down in the flow (spinner over the flow while saving) */
+.flow-top { display: flex; align-items: center; gap: 8px; }
+.flow-move { margin-left: auto; display: inline-flex; gap: 4px; }
+.flow-mv { width: 32px; height: 32px; border-radius: 8px; border: 1.5px solid rgba(22,48,92,0.2); background: #fff; color: var(--navy); font-weight: 700; cursor: pointer; }
+.flow-mv:hover:not(:disabled) { border-color: var(--gold); background: #FFFBF1; }
+.flow-mv:disabled { opacity: 0.3; cursor: default; }
+#pic-flow { position: relative; }
+#pic-flow.pic-working { pointer-events: none; }
+#pic-flow.pic-working::after { content: ''; position: absolute; left: 50%; top: 120px; width: 34px; height: 34px; margin-left: -17px; border-radius: 50%; border: 3px solid #16305C; border-right-color: transparent; animation: busy-spin 0.8s linear infinite; }
+#pic-flow.pic-working .flow { opacity: 0.5; }

@@ -8,7 +8,7 @@
 // "chapter 5" on the phone moves the iPad along too.
 // Staff (Admin/Support) add pictures and spots in Admin → Book Companion.
 // ──────────────────────────────────────────────────────────────────────
-const TYPES = ['sound', 'voice', 'popup', 'video', 'quiz', 'write']; // v74: + quiz, write to Mare
+const TYPES = ['sound', 'voice', 'popup', 'video', 'quiz', 'write', 'mask']; // v74: + quiz, write to Mare; v76: + mask
 const KEY_OK = /^pictures\/[A-Za-z0-9._\/-]+$/;
 
 function register(app, { db, auth, media, email, publicUrl }) {
@@ -47,6 +47,18 @@ function register(app, { db, auth, media, email, publicUrl }) {
     return { answers, correct: Math.min(q.correct, Math.max(0, answers.length - 1)), right: pick(q.right_en, q.right_nl), wrong: pick(q.wrong_en, q.wrong_nl) };
   }
 
+  // v76 — { colour, mode: 'blur'|'colour', shape: 'circle'|'rect', h, reveal }
+  function parseLook(j) {
+    let o = {}; try { o = JSON.parse(j || '{}') || {}; } catch { o = {}; }
+    return {
+      colour: /^#[0-9a-f]{6}$/i.test(o.colour || '') ? o.colour : null,
+      mode: o.mode === 'colour' ? 'colour' : 'blur',
+      shape: o.shape === 'circle' ? 'circle' : 'rect',
+      h: o.h == null ? null : clamp(o.h, 0.02, 1),
+      reveal: !!o.reveal,
+    };
+  }
+
   async function publicScenes(chapterNo, nl) {
     const scenes = db.pictureScenes(chapterNo, true);
     const out = [];
@@ -66,6 +78,7 @@ function register(app, { db, auth, media, email, publicUrl }) {
           tEnd: p.t_end == null ? null : p.t_end,
           pause: !!p.pause_on_show,
           quiz: p.type === 'quiz' ? await publicQuiz(p.quiz_json, nl) : null,
+          look: parseLook(p.look_json),
         });
       }
       out.push({ id: s.id, title: (nl && s.title_nl) || s.title_en || '', image: await url(s.image_key), video: s.video_key ? await url(s.video_key) : null, spots });
@@ -157,7 +170,8 @@ function register(app, { db, auth, media, email, publicUrl }) {
     const f = {};
     if (b.x !== undefined) f.x = clamp(b.x, 0, 1);
     if (b.y !== undefined) f.y = clamp(b.y, 0, 1);
-    if (b.r !== undefined) f.r = clamp(b.r, 0.02, 0.3);
+    if (b.r !== undefined) f.r = clamp(b.r, 0.02, 0.5); // v76: masks can be wide
+    if (b.look !== undefined) { const l = parseLook(JSON.stringify(b.look || {})); f.look_json = JSON.stringify(l); }
     if (b.type !== undefined) f.type = TYPES.includes(b.type) ? b.type : 'popup';
     for (const [k, max] of [['title_en', 120], ['title_nl', 120], ['text_en', 1500], ['text_nl', 1500], ['video_url', 300]]) {
       if (b[k] !== undefined) f[k] = String(b[k] || '').slice(0, max);

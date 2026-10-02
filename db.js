@@ -1086,6 +1086,9 @@ Volgende maand verschijnt er een nieuw raadsel uit het Fluisterbos. 🌲🔎', ?
   try { db.run(`ALTER TABLE picture_spots ADD COLUMN t_end REAL`); } catch {}
   try { db.run(`ALTER TABLE picture_spots ADD COLUMN pause_on_show INTEGER NOT NULL DEFAULT 0`); } catch {}
   try { db.run(`ALTER TABLE picture_spots ADD COLUMN quiz_json TEXT`); } catch {}
+  // v76 — look of a spot: its colour; for a mask also blur/colour, shape,
+  // height and whether a tap takes it away. { colour, mode, shape, h, reveal }
+  try { db.run(`ALTER TABLE picture_spots ADD COLUMN look_json TEXT`); } catch {}
 
   // ── Mare App 5 — Talk to Mare in the pictures: what Mare knows.
   // companion_practices.summary = a short private summary of the chapter
@@ -1936,7 +1939,8 @@ function pictureScenes(chapterNo, activeOnly) {
 function pictureScene(id) { return get(`SELECT * FROM picture_scenes WHERE id = ?`, [id]); }
 function createPictureScene(chapterNo) {
   const id = uuid();
-  const n = get(`SELECT COUNT(*) AS c FROM picture_scenes WHERE chapter_no = ?`, [chapterNo]).c;
+  // v76 — a new step goes last, also after steps renumbered 10, 20, 30… in the flow
+  const n = get(`SELECT COALESCE(MAX(sort_order), -1) + 10 AS c FROM picture_scenes WHERE chapter_no = ?`, [chapterNo]).c;
   run(`INSERT INTO picture_scenes (id, chapter_no, sort_order) VALUES (?,?,?)`, [id, chapterNo, n]);
   return id;
 }
@@ -1949,7 +1953,7 @@ function updatePictureScene(id, f) {
 function deletePictureScene(id) { run(`DELETE FROM picture_spots WHERE scene_id = ?`, [id]); run(`DELETE FROM picture_scenes WHERE id = ?`, [id]); }
 function pictureSpots(sceneId) { return all(`SELECT * FROM picture_spots WHERE scene_id = ? ORDER BY sort_order, rowid`, [sceneId]); }
 function pictureSpot(id) { return get(`SELECT * FROM picture_spots WHERE id = ?`, [id]); }
-const SPOT_FIELDS = ['x', 'y', 'r', 'type', 'title_en', 'title_nl', 'text_en', 'text_nl', 'image_key', 'audio_key_en', 'audio_key_nl', 'video_key', 'video_url', 't_start', 't_end', 'pause_on_show', 'quiz_json'];
+const SPOT_FIELDS = ['x', 'y', 'r', 'type', 'title_en', 'title_nl', 'text_en', 'text_nl', 'image_key', 'audio_key_en', 'audio_key_nl', 'video_key', 'video_url', 't_start', 't_end', 'pause_on_show', 'quiz_json', 'look_json'];
 function savePictureSpot(id, sceneId, f) {
   const cur = id ? pictureSpot(id) : null;
   const val = (k) => (f[k] !== undefined ? f[k] : (cur ? cur[k] : null));

@@ -160,7 +160,7 @@
       const on = now >= from && now < to;
       if (on && !el.classList.contains('shown')) {
         el.classList.add('shown');
-        if (sp.pause && !pausedFor.has(sp.id) && !v.paused) {
+        if (sp.pause && sp.type !== 'mask' && !pausedFor.has(sp.id) && !v.paused) {
           pausedFor.add(sp.id);
           v.pause(); v.dataset.stoppedBySpot = '1';
           el.classList.add('beckon');
@@ -205,11 +205,12 @@
 
   function updateFound() {
     const scene = data && data.scenes[idx];
-    if (!scene || !scene.spots.length) { $('px-found').hidden = true; return; }
-    const n = scene.spots.filter(s => found.has(s.id)).length;
+    const secrets = scene ? scene.spots.filter(s => s.type !== 'mask') : []; // v76: masks aren't secrets
+    if (!secrets.length) { $('px-found').hidden = true; return; }
+    const n = secrets.filter(s => found.has(s.id)).length;
     $('px-found').hidden = false;
-    $('px-found').textContent = n === scene.spots.length ? t('picturesAllFound') : t('picturesFound', { n, total: scene.spots.length });
-    $('px-found').classList.toggle('all', n === scene.spots.length);
+    $('px-found').textContent = n === secrets.length ? t('picturesAllFound') : t('picturesFound', { n, total: secrets.length });
+    $('px-found').classList.toggle('all', n === secrets.length);
   }
 
   // Fit the picture inside the screen (letterbox), spots sit on top.
@@ -257,6 +258,17 @@
       b.style.top = (sp.y * 100) + '%';
       b.style.width = (sp.r * 200) + '%'; // r = radius as a share of the picture width
       b.style.aspectRatio = '1';
+      const look = sp.look || {};
+      if (look.colour) b.style.setProperty('--spot', look.colour); // v76: chosen colour
+      if (sp.type === 'mask') { // v76: a blurred or coloured patch, not a secret
+        b.classList.add('px-mask-' + look.mode, 'px-shape-' + look.shape);
+        if (look.shape === 'rect') { b.style.aspectRatio = ''; b.style.height = ((look.h || sp.r * 2) * 100) + '%'; }
+        b.setAttribute('aria-hidden', 'true'); b.tabIndex = -1;
+        if (look.reveal) b.addEventListener('click', (e) => { e.stopPropagation(); b.classList.add('revealed'); });
+        else b.disabled = true;
+        spots.appendChild(b);
+        return;
+      }
       b.style.animationDelay = (n * 0.37) + 's';
       b.setAttribute('aria-label', sp.title || t('picturesSecret'));
       b.addEventListener('click', (e) => { e.stopPropagation(); openSpot(sp, b); });
