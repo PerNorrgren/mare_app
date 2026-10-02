@@ -2011,3 +2011,11 @@ html { scroll-behavior: smooth; }
 .an-pager { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 10px; font-size: 0.88rem; }
 .an-card.an-click { cursor: pointer; outline: 1.5px solid transparent; }
 .an-card.an-click:hover { outline-color: var(--gold); }
+.an-vid { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 0.85rem; letter-spacing: 0.02em; }
+/* v80 — boxes are buttons */
+button.an-card { font: inherit; text-align: left; border: 0; width: 100%; display: flex; flex-direction: column; }
+.an-card.an-click { cursor: pointer; outline: 1.5px solid transparent; transition: outline-color 0.15s, transform 0.15s; }
+.an-card.an-click:hover, .an-card.an-click:focus-visible { outline-color: var(--gold); transform: translateY(-1px); }
+.an-go { margin-top: auto; padding-top: 6px; font-size: 0.75rem; font-weight: 700; color: #6B5320; }
+.an-filter { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; background: rgba(226,190,110,0.18); border-radius: 10px; padding: 6px 10px; font-size: 0.88rem; }
+.an-filter[hidden], #an-people-names-wrap[hidden], #an-people-role[hidden] { display: none; }

@@ -16,6 +16,12 @@
 //
 // Tables: a_visits  — one row per page opened (seconds grow with pings)
 //         a_events  — things done (step viewed, spot opened, quiz answer…)
+//         a_devices — v80: one row per visitor ID (a random code kept in
+//                     that browser), linked to the account once it signs in
+//         a_bots    — v80: visits refused as bots, counted per day and reason
+// v80 — no tracking at all when the visitor switched it off, or the
+// browser sends 'do not track' / Global Privacy Control; a visit only
+// counts once a person is clearly there (5 s in view, or a tap/scroll/key).
 // Raw rows older than 400 days are removed each night.
 
 const crypto = require('crypto');
@@ -43,13 +49,19 @@ function register(app, { db, auth }) {
   }
 
   // ── buffer ──
-  let newVisits = [], newEvents = [];
+  let newVisits = [], newEvents = [], deviceSeen = new Map(), bots = new Map();
   const addSeconds = new Map(); // visit id -> seconds to add
   function flush() {
-    if (!newVisits.length && !newEvents.length && !addSeconds.size) return;
+    if (!newVisits.length && !newEvents.length && !addSeconds.size && !deviceSeen.size && !bots.size) return;
     const list = [];
-    for (const v of newVisits) list.push([`INSERT OR IGNORE INTO a_visits (id, sid, day, started_at, page, role, user_id, lang, device, ref, seconds) VALUES (?,?,?,?,?,?,?,?,?,?,0)`,
-      [v.id, v.sid, v.day, v.at, v.page, v.role, v.userId, v.lang, v.device, v.ref]]);
+    for (const v of newVisits) list.push([`INSERT OR IGNORE INTO a_visits (id, sid, day, started_at, page, role, user_id, lang, device, ref, seconds, did) VALUES (?,?,?,?,?,?,?,?,?,?,0,?)`,
+      [v.id, v.sid, v.day, v.at, v.page, v.role, v.userId, v.lang, v.device, v.ref, v.did]]);
+    for (const [did, d] of deviceSeen) {
+      list.push([`INSERT INTO a_devices (did, first_seen, last_seen) VALUES (?,?,?) ON CONFLICT(did) DO UPDATE SET last_seen = excluded.last_seen`, [did, d.first || d.at, d.at]]);
+      if (d.userId && d.role !== 'preview') list.push([`UPDATE a_devices SET role = ?, user_id = ?, linked_at = COALESCE(linked_at, ?) WHERE did = ?`, [d.role, d.userId, d.at, did]]);
+    }
+    for (const [k, n] of bots) { const [day, reason] = k.split('|'); list.push([`INSERT INTO a_bots (day, reason, n) VALUES (?,?,?) ON CONFLICT(day, reason) DO UPDATE SET n = n + excluded.n`, [day, reason, n]]); }
+    deviceSeen = new Map(); bots = new Map();
     for (const [id, s] of addSeconds) list.push([`UPDATE a_visits SET seconds = MIN(seconds + ?, 14400) WHERE id = ?`, [s, id]]);
     for (const e of newEvents) list.push([`INSERT INTO a_events (ts, day, sid, role, user_id, page, name, detail, value) VALUES (?,?,?,?,?,?,?,?,?)`,
       [e.at, e.day, e.sid, e.role, e.userId, e.page, e.name, e.detail, e.value]]);
@@ -83,15 +95,28 @@ function register(app, { db, auth }) {
   };
   const textParser = require('express').text({ type: '*/*', limit: '4kb' });
 
-  // A page opened. -> { vid }
+  // v80 — bots: names crawlers, preview fetchers and test tools give themselves
+  const BOT_UA = /bot|crawl|spider|slurp|preview|fetch|scrape|headless|lighthouse|pagespeed|gtmetrix|pingdom|uptime|monitor|curl|wget|python-requests|axios|go-http|java\/|phantom|selenium|puppeteer|playwright|facebookexternalhit|whatsapp|telegram|discord|slack|embedly|bingpreview/i;
+  function countBot(reason) { const k = `${today()}|${reason}`; bots.set(k, (bots.get(k) || 0) + 1); }
+
+  // A page opened (sent once a person is clearly there). -> { vid }
   app.post('/api/a/v', textParser, (req, res) => {
     const b = body(req);
     const sid = clip(b.sid, 40), page = clip(b.page, 60);
     if (!/^[a-z0-9]{8,40}$/i.test(sid) || !PAGES.has(page) || tooMany(sid)) return res.status(204).end();
+    const ua = String(req.headers['user-agent'] || '');
+    if (!ua || BOT_UA.test(ua)) { countBot('name'); return res.status(204).end(); }
+    if (b.bot) { countBot('automated'); return res.status(204).end(); }
+    const did = /^[0-9A-Z]{8}$/.test(String(b.did || '')) ? String(b.did) : null;
     const w = who(req);
     const vid = crypto.randomUUID();
-    newVisits.push({ id: vid, sid, day: today(), at: new Date().toISOString(), page: page === '/index.html' ? '/' : page, role: w.role, userId: w.userId,
-      lang: b.lang === 'nl' ? 'nl' : 'en', device: ['phone', 'tablet', 'desktop'].includes(b.device) ? b.device : 'desktop',
+    const at = new Date().toISOString();
+    if (did) {
+      const prev = deviceSeen.get(did) || {};
+      deviceSeen.set(did, { first: prev.first || at, at, userId: w.userId || prev.userId || null, role: w.userId ? w.role : prev.role });
+    }
+    newVisits.push({ id: vid, did, sid, day: today(), at, page: page === '/index.html' ? '/' : page, role: w.role, userId: w.userId,
+      lang: b.lang === 'nl' ? 'nl' : 'en', device: ['phone', 'tablet', 'desktop'].includes(b.device) ? b.device : 'desktop', // device type
       ref: clip((String(b.ref || '').match(/^https?:\/\/([^/]+)/) || [])[1] || '', 80) });
     res.json({ vid });
   });
@@ -109,6 +134,8 @@ function register(app, { db, auth }) {
     const b = body(req);
     const sid = clip(b.sid, 40), name = clip(b.name, 30), page = clip(b.page, 60);
     if (!/^[a-z0-9]{8,40}$/i.test(sid) || !EVENTS.has(name) || tooMany(sid)) return res.status(204).end();
+    const ua = String(req.headers['user-agent'] || '');
+    if (!ua || BOT_UA.test(ua) || b.bot) return res.status(204).end();
     const w = who(req);
     newEvents.push({ at: new Date().toISOString(), day: today(), sid, role: w.role, userId: w.userId, page: PAGES.has(page) ? page : '', name,
       detail: clip(b.detail, 80), value: b.value == null || b.value === '' ? null : Number(b.value) || 0 });
@@ -153,7 +180,30 @@ function register(app, { db, auth }) {
       newTeachers: db.getRow(`SELECT COUNT(*) AS n FROM teachers WHERE ${at('created_at')} AND ${notPreview}`, [from, to]).n,
       paidOrders: db.getRow(`SELECT COUNT(*) AS n FROM orders WHERE status = 'paid' AND ${at('created_at')}`, [from, to]).n,
     };
-    out.daily = all(`SELECT day, COUNT(DISTINCT sid) AS visits, ROUND(SUM(seconds)/60.0) AS minutes, COUNT(*) AS views ${V} GROUP BY day ORDER BY day`);
+    out.daily = all(`SELECT day, COUNT(DISTINCT sid) AS visits, ROUND(SUM(seconds)/60.0) AS minutes, COUNT(*) AS views, COUNT(DISTINCT did) AS visitors ${V} GROUP BY day ORDER BY day`);
+
+    // v80 — unique and returning visitors (by visitor ID), new ones, bots
+    const perVisitor = all(`SELECT did, COUNT(DISTINCT day) AS days FROM a_visits WHERE day BETWEEN ? AND ? AND ${inRoles} AND did IS NOT NULL GROUP BY did`);
+    const days = perVisitor.map(r => r.days);
+    out.visitors = {
+      unique: days.length,
+      returning: days.filter(n => n >= 2).length,
+      new: db.getRow(`SELECT COUNT(*) AS n FROM a_devices WHERE substr(first_seen,1,10) BETWEEN ? AND ? AND did IN (SELECT DISTINCT did FROM a_visits WHERE day BETWEEN ? AND ? AND ${inRoles})`, [from, to, ...P]).n,
+      comeBack: [['1', 1, 1], ['2-3', 2, 3], ['4-7', 4, 7], ['8+', 8, 1e9]].map(([label, lo, hi]) => ({ days: label, visitors: days.filter(n => n >= lo && n <= hi).length })),
+      since: (db.getRow(`SELECT MIN(day) AS d FROM a_visits WHERE did IS NOT NULL`) || {}).d || null,
+    };
+    out.bots = { total: (db.getRow(`SELECT COALESCE(SUM(n),0) AS n FROM a_bots WHERE day BETWEEN ? AND ?`, [from, to]) || {}).n || 0,
+      byReason: db.allRows(`SELECT reason, SUM(n) AS n FROM a_bots WHERE day BETWEEN ? AND ? GROUP BY reason ORDER BY n DESC`, [from, to]) };
+    // v80 — from first visit to signing up: parents who joined in the period on a browser we already knew
+    const joined = db.allRows(`SELECT p.id, p.created_at,
+        (SELECT COUNT(DISTINCT v.sid) FROM a_visits v JOIN a_devices d ON d.did = v.did WHERE d.user_id = p.id AND substr(replace(v.started_at, 'T', ' '), 1, 19) < substr(replace(p.created_at, 'T', ' '), 1, 19)) AS visitsBefore,
+        (SELECT MIN(d.first_seen) FROM a_devices d WHERE d.user_id = p.id) AS firstSeen
+      FROM parents p WHERE ${at('p.created_at')} AND p.email NOT LIKE '%@preview.mare.invalid'`, [from, to]);
+    const ms = (s) => Date.parse(String(s).replace(' ', 'T') + (/[zZ]|[+-]\d\d:?\d\d$/.test(s) ? '' : 'Z'));
+    const known = joined.filter(j => j.firstSeen && ms(j.firstSeen) < ms(j.created_at));
+    out.signups = { parents: joined.length, knownBefore: known.length,
+      avgVisitsBefore: known.length ? Math.round(known.reduce((s, j) => s + j.visitsBefore, 0) / known.length * 10) / 10 : 0,
+      avgDaysBefore: known.length ? Math.round(known.reduce((s, j) => s + (ms(j.created_at) - ms(j.firstSeen)) / 864e5, 0) / known.length * 10) / 10 : 0 };
 
     // Who
     out.byRole = all(`SELECT role, COUNT(DISTINCT sid) AS visits, ROUND(SUM(seconds)/60.0) AS minutes, COUNT(DISTINCT user_id) AS accounts ${V} GROUP BY role ORDER BY visits DESC`);
@@ -228,44 +278,85 @@ function register(app, { db, auth }) {
     res.json(out);
   });
 
-  // ── People (v79): one row per signed-in person in the period, with name
-  // and email from their account. Not-signed-in visits can't be named;
-  // they come back as a count.
-  // GET /api/admin/analytics/people?from&to&staff=1
+  // ── People (v79, v80) — one row per person: a signed-in account (all its
+  // browsers together, including visits from before it signed in) or an
+  // anonymous visitor ID. Names and emails are only sent when asked for
+  // (names=1); otherwise the list is by visitor ID.
+  // GET /api/admin/analytics/people?from&to&staff=1&names=1
   app.get('/api/admin/analytics/people', auth.requireAuthApi(['admin', 'support']), (req, res) => {
     fresh();
     const isDay = (d) => /^\d{4}-\d{2}-\d{2}$/.test(d || '');
     const to = isDay(req.query.to) ? req.query.to : today();
     const from = isDay(req.query.from) ? req.query.from : new Date(Date.now() - 29 * 864e5).toISOString().slice(0, 10);
-    const roles = req.query.staff === '1' ? ['parent', 'teacher', 'staff'] : ['parent', 'teacher'];
-    const inRoles = `v.role IN (${roles.map(() => '?').join(',')})`;
-    const P = [from, to, ...roles];
-    const rows = db.allRows(`SELECT v.role, v.user_id,
-        COALESCE(p.name, t.name, a.name, '') AS name, COALESCE(p.email, t.email, a.email, '') AS email,
-        COALESCE(t.school, '') AS school,
-        COUNT(DISTINCT v.sid) AS visits, COUNT(*) AS pages, ROUND(SUM(v.seconds) / 60.0, 1) AS minutes,
-        ROUND(SUM(CASE WHEN v.page IN ('/companion.html', '/pictures.html') THEN v.seconds ELSE 0 END) / 60.0, 1) AS companionMinutes,
-        MIN(v.started_at) AS firstSeen, MAX(v.started_at) AS lastSeen
-      FROM a_visits v
-      LEFT JOIN parents p ON v.role = 'parent' AND p.id = v.user_id
-      LEFT JOIN teachers t ON v.role = 'teacher' AND t.id = v.user_id
-      LEFT JOIN admins a ON v.role = 'staff' AND a.id = v.user_id
-      WHERE v.day BETWEEN ? AND ? AND ${inRoles} AND v.user_id IS NOT NULL
-      GROUP BY v.role, v.user_id ORDER BY minutes DESC, visits DESC`, P);
-    // the page each person spent most time on
-    const top = db.allRows(`SELECT v.user_id, v.page, SUM(v.seconds) AS s, COUNT(*) AS n FROM a_visits v
-      WHERE v.day BETWEEN ? AND ? AND ${inRoles} AND v.user_id IS NOT NULL GROUP BY v.user_id, v.page`, P);
-    const best = {};
-    for (const r of top) { const b = best[r.user_id]; if (!b || r.s > b.s || (r.s === b.s && r.n > b.n)) best[r.user_id] = r; }
-    // children's names for parents (helps recognise a family)
+    const roles = req.query.staff === '1' ? ['visitor', 'parent', 'teacher', 'staff'] : ['visitor', 'parent', 'teacher'];
+    const names = req.query.names === '1';
+    const visits = db.allRows(`SELECT v.sid, v.did, v.role, v.user_id, v.day, v.page, v.seconds, v.started_at, d.user_id AS dUser, d.role AS dRole
+      FROM a_visits v LEFT JOIN a_devices d ON d.did = v.did
+      WHERE v.day BETWEEN ? AND ? AND v.role IN (${roles.map(() => '?').join(',')})`, [from, to, ...roles]);
+    const people = new Map(); let unknown = 0;
+    const blank = (key, role, uid, at) => ({ key, role, userId: uid || null, dids: new Set(), sids: new Set(), sidsAnon: new Set(), days: new Set(), pages: 0, seconds: 0, compSeconds: 0,
+      byPage: {}, pagesSeen: new Set(), events: {}, talk: 0, firstSeen: at || null, lastSeen: at || null, signedUpAt: null });
+    const getP = (key, role, uid, at) => { let p = people.get(key); if (!p) { p = blank(key, role, uid, at); people.set(key, p); } return p; };
+    const sidKey = new Map();
+    for (const v of visits) {
+      let role, uid;
+      if (v.user_id) { role = v.role; uid = v.user_id; }
+      else if (v.dUser && v.dRole && roles.includes(v.dRole)) { role = v.dRole; uid = v.dUser; }
+      const key = uid ? `${role}:${uid}` : (v.did ? `D:${v.did}` : null);
+      if (!key) { unknown++; continue; } // from before visitor IDs existed
+      const p = getP(key, uid ? role : 'visitor', uid, v.started_at);
+      sidKey.set(v.sid, key);
+      if (v.did) p.dids.add(v.did);
+      p.sids.add(v.sid); if (uid && !v.user_id) p.sidsAnon.add(v.sid);
+      p.days.add(v.day); p.pages++; p.seconds += v.seconds || 0; p.pagesSeen.add(v.page);
+      if (v.page === '/companion.html' || v.page === '/pictures.html') p.compSeconds += v.seconds || 0;
+      p.byPage[v.page] = (p.byPage[v.page] || 0) + (v.seconds || 0) + 0.001;
+      if (!p.firstSeen || v.started_at < p.firstSeen) p.firstSeen = v.started_at;
+      if (!p.lastSeen || v.started_at > p.lastSeen) p.lastSeen = v.started_at;
+    }
+    // v80 — what each person did (events), talks with Mare, and accounts made in the period
+    for (const e of db.allRows(`SELECT sid, user_id, role, name FROM a_events WHERE day BETWEEN ? AND ? AND role IN (${roles.map(() => '?').join(',')})`, [from, to, ...roles])) {
+      const key = e.user_id ? `${e.role}:${e.user_id}` : sidKey.get(e.sid);
+      const p = key && people.get(key); if (!p) continue;
+      p.events[e.name] = (p.events[e.name] || 0) + 1;
+    }
+    for (const r of db.allRows(`SELECT parent_id, COUNT(*) AS n FROM talk_sessions WHERE substr(started_at,1,10) BETWEEN ? AND ? AND parent_id IN (SELECT id FROM parents WHERE email NOT LIKE '%@preview.mare.invalid') GROUP BY parent_id`, [from, to])) {
+      getP(`parent:${r.parent_id}`, 'parent', r.parent_id).talk = r.n;
+    }
+    for (const [role, table] of [['parent', 'parents'], ['teacher', 'teachers']]) {
+      for (const r of db.allRows(`SELECT id, created_at FROM ${table} WHERE substr(created_at,1,10) BETWEEN ? AND ? AND email NOT LIKE '%@preview.mare.invalid'`, [from, to])) {
+        getP(`${role}:${r.id}`, role, r.id).signedUpAt = r.created_at;
+      }
+    }
+    const firstSeenOf = {};
+    for (const r of db.allRows(`SELECT did, first_seen FROM a_devices`)) firstSeenOf[r.did] = r.first_seen;
     const kids = {};
-    for (const c of db.allRows(`SELECT parent_id, name FROM children ORDER BY sort_order, created_at`)) (kids[c.parent_id] = kids[c.parent_id] || []).push(c.name);
-    const anon = db.getRow(`SELECT COUNT(DISTINCT sid) AS visits, ROUND(COALESCE(SUM(seconds), 0) / 60.0) AS minutes FROM a_visits WHERE day BETWEEN ? AND ? AND role = 'visitor'`, [from, to]) || {};
-    res.json({
-      from, to,
-      people: rows.map(r => ({ ...r, topPage: best[r.user_id] ? best[r.user_id].page : '', children: r.role === 'parent' ? (kids[r.user_id] || []).join(', ') : '' })),
-      notSignedIn: { visits: anon.visits || 0, minutes: anon.minutes || 0 },
-    });
+    if (names) for (const c of db.allRows(`SELECT parent_id, name FROM children ORDER BY sort_order, created_at`)) (kids[c.parent_id] = kids[c.parent_id] || []).push(c.name);
+    const account = (role, id) => {
+      if (role === 'parent') return db.getRow(`SELECT name, email, created_at FROM parents WHERE id = ?`, [id]);
+      if (role === 'teacher') return db.getRow(`SELECT name, email, school, created_at FROM teachers WHERE id = ?`, [id]);
+      if (role === 'staff') return db.getRow(`SELECT name, email, created_at FROM admins WHERE id = ?`, [id]);
+      return null;
+    };
+    const rows = [...people.values()].map(p => {
+      const ids = [...p.dids].sort();
+      const top = Object.entries(p.byPage).sort((a, b) => b[1] - a[1])[0];
+      const r = {
+        visitorId: ids.length ? `V-${ids[0]}` : '', otherIds: Math.max(0, ids.length - 1), role: p.role,
+        days: p.days.size, visits: p.sids.size, visitsBeforeSignIn: p.sidsAnon.size, pages: p.pages,
+        minutes: Math.round(p.seconds / 6) / 10, companionMinutes: Math.round(p.compSeconds / 6) / 10,
+        topPage: top ? top[0] : '', firstSeen: p.firstSeen, lastSeen: p.lastSeen,
+        pagesSeen: [...p.pagesSeen], events: p.events, talk: p.talk, signedUpAt: p.signedUpAt,
+        isNew: ids.some(d => firstSeenOf[d] && firstSeenOf[d].slice(0, 10) >= from && firstSeenOf[d].slice(0, 10) <= to),
+      };
+      if (names && p.userId) {
+        const a = account(p.role, p.userId) || {};
+        r.name = a.name || ''; r.email = a.email || '';
+        r.detail = p.role === 'parent' ? (kids[p.userId] || []).join(', ') : (a.school || '');
+      }
+      return r;
+    }).sort((a, b) => b.minutes - a.minutes || b.visits - a.visits);
+    res.json({ from, to, names, people: rows, olderVisits: unknown });
   });
 
   return { serverEvent, flush };

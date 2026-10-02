@@ -1013,6 +1013,8 @@
 
   // ── Mare App 6 (v78) — Reports (usage analytics) ──────────────────────
   const anDay = (d) => d.toISOString().slice(0, 10);
+  const anRange = { from: '', to: '' };
+  const anInRange = (iso) => { const d = String(iso || '').replace(' ', 'T').slice(0, 10); return d >= anRange.from && d <= anRange.to; };
   let anDays = 30, anData = null;
   function anSetPeriod(days) {
     anDays = days;
@@ -1042,8 +1044,21 @@
       ${noteKey ? `<p class="admin-empty-note">${escapeHtml(t(noteKey))}</p>` : ''}
       <div class="stat-detail-scroll"><table class="admin-table" data-csv="${id}"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div></div>`;
   }
+  // v80 — a box with an action is a button: it opens the people (or
+  // accounts / orders) behind that number. Actions are kept by index.
+  const anActions = [];
   function anCards(items) {
-    return `<div class="an-cards">${items.map(([k, v, sub]) => `<div class="an-card"><div class="an-val">${escapeHtml(String(v))}</div><div class="an-lab">${escapeHtml(t(k))}</div>${sub ? `<div class="an-sub">${escapeHtml(sub)}</div>` : ''}</div>`).join('')}</div>`;
+    return `<div class="an-cards">${items.map(([k, v, sub, act]) => {
+      const inner = `<div class="an-val">${escapeHtml(String(v))}</div><div class="an-lab">${escapeHtml(t(k))}</div>${sub ? `<div class="an-sub">${escapeHtml(sub)}</div>` : ''}`;
+      if (!act) return `<div class="an-card">${inner}</div>`;
+      anActions.push({ ...act, label: t(k) });
+      return `<button type="button" class="an-card an-click" data-act="${anActions.length - 1}" data-no-busy>${inner}<div class="an-go">${escapeHtml(t('anClickToView'))} ›</div></button>`;
+    }).join('')}</div>`;
+  }
+  function anRunAction(a) {
+    if (a.scroll) { const el = document.querySelector(`table[data-csv="${a.scroll}"]`); if (el) el.closest('.an-block').scrollIntoView({ behavior: 'smooth', block: 'center' }); return; }
+    if (a.detail) { openDetail(a.detail, a.label, a.fn); return; }
+    openPeople({ label: a.label, fn: a.fn, sort: a.sort });
   }
   // Daily visits (bars) and minutes (line), plain SVG
   function anChart(daily, from, to) {
@@ -1067,24 +1082,38 @@
   async function loadAnalytics() {
     const out = document.getElementById('an-out');
     if (!out) return;
-    if (!document.getElementById('an-people').hidden) { openPeople(); return; } // period changed while looking at People
+    if (!document.getElementById('an-people').hidden) { // period changed while looking at a list
+      if (anPeople.mode === 'detail') { closePeople(); } else { openPeople({}); return; }
+    }
     const from = document.getElementById('an-from').value, to = document.getElementById('an-to').value;
     const staff = document.getElementById('an-staff').checked ? '1' : '0';
     out.innerHTML = `<p class="admin-empty-note">${escapeHtml(t('adminLoading'))}</p>`;
+    anActions.length = 0;
     let d;
     try { d = await api(`/api/admin/analytics?from=${from}&to=${to}&staff=${staff}`); }
     catch (e) { out.innerHTML = `<p class="form-error">${escapeHtml(e.message || t('errorGeneric'))}</p>`; return; }
-    anData = d;
+    anData = d; anRange.from = d.from; anRange.to = d.to;
     document.getElementById('an-note').textContent = d.totals.trackingSince ? t('anTrackingSince', { day: d.totals.trackingSince }) : t('anTrackingNew');
     const o = d.overview, c = d.companion, money = (cents) => `€${(Number(cents || 0) / 100).toFixed(2)}`;
     const role = (r) => t('anRole_' + r);
     let html = '';
+    const vv = d.visitors || { unique: 0, returning: 0, new: 0, comeBack: [] };
     html += `<div class="admin-card"><h2>${escapeHtml(t('anOverview'))}</h2>${anCards([
-      ['anVisits', anNum(o.visits)], ['anTimeOnline', anMin(o.minutes)], ['anAvgVisit', `${o.avgMinutesPerVisit} min`], ['anPageViews', anNum(o.pageViews)],
-      ['anActiveAccounts', anNum(o.activeAccounts)], ['anNewParents', anNum(o.newParents)], ['anNewTeachers', anNum(o.newTeachers)], ['anPaidOrders', anNum(o.paidOrders)],
-    ])}${anChart(d.daily, d.from, d.to)}</div>`;
+      ['anUnique', anNum(vv.unique), '', { sort: 'days' }], ['anReturning', anNum(vv.returning), vv.unique ? `${Math.round(vv.returning / vv.unique * 100)}%` : '', { fn: (r) => r.days >= 2, sort: 'days' }], ['anNewVisitors', anNum(vv.new), '', { fn: (r) => r.isNew }],
+      ['anVisits', anNum(o.visits), '', { fn: (r) => r.visits > 0, sort: 'visits' }], ['anTimeOnline', anMin(o.minutes), '', { fn: (r) => r.visits > 0, sort: 'minutes' }], ['anAvgVisit', `${o.avgMinutesPerVisit} min`, '', { fn: (r) => r.visits > 0, sort: 'minutes' }], ['anPageViews', anNum(o.pageViews), '', { fn: (r) => r.pages > 0, sort: 'pages' }],
+      ['anActiveAccounts', anNum(o.activeAccounts), '', { fn: (r) => r.role !== 'visitor' && r.visits > 0 }], ['anNewParents', anNum(o.newParents), '', { fn: (r) => r.role === 'parent' && r.signedUpAt }], ['anNewTeachers', anNum(o.newTeachers), '', { fn: (r) => r.role === 'teacher' && r.signedUpAt }], ['anPaidOrders', anNum(o.paidOrders), '', { detail: 'orders', fn: (r) => r.status === 'paid' && anInRange(r.created_at) }],
+      ['anBots', anNum(d.bots ? d.bots.total : 0), '', { scroll: 'bots' }],
+    ])}${vv.since ? `<p class="admin-empty-note">${escapeHtml(t('anVisitorsSince', { day: vv.since }))}</p>` : ''}${anChart(d.daily, d.from, d.to)}
+    <div class="an-grid">
+      ${anTable('comeback', 'anComeBack', [['anColDaysVisited', 'days'], ['anColVisitors', 'visitors', anNum]], vv.comeBack.filter(r => r.visitors), 'anComeBackNote')}
+      ${anTable('bots', 'anBotsTable', [['anColReason', 'reason', (v) => t('anBot_' + v)], ['anColCount', 'n', anNum]], d.bots ? d.bots.byReason : [], 'anBotsNote')}
+    </div>
+    ${d.signups ? `<div class="an-block"><h3>${escapeHtml(t('anSignupTitle'))}</h3>${anCards([
+      ['anSignupParents', anNum(d.signups.parents), '', { fn: (r) => r.role === 'parent' && r.signedUpAt }], ['anSignupKnown', anNum(d.signups.knownBefore), '', { fn: (r) => r.role === 'parent' && r.signedUpAt && r.visitsBeforeSignIn > 0 }],
+      ['anSignupVisits', String(d.signups.avgVisitsBefore)], ['anSignupDays', String(d.signups.avgDaysBefore)],
+    ])}<p class="admin-empty-note">${escapeHtml(t('anSignupNote'))}</p></div>` : ''}</div>`;
     html += `<div class="admin-card"><h2>${escapeHtml(t('anWho'))}</h2>${anCards([
-      ['anTotParents', anNum(d.totals.parents)], ['anTotChildren', anNum(d.totals.children)], ['anTotTeachers', anNum(d.totals.teachers)], ['anTotClub', anNum(d.totals.clubMembers)],
+      ['anTotParents', anNum(d.totals.parents), '', { detail: 'parents' }], ['anTotChildren', anNum(d.totals.children), '', { detail: 'children' }], ['anTotTeachers', anNum(d.totals.teachers), '', { detail: 'teachers' }], ['anTotClub', anNum(d.totals.clubMembers), '', { detail: 'club' }],
     ])}<div class="an-grid">
       ${anTable('role', 'anByRole', [['anColWho', 'role', role], ['anVisits', 'visits', anNum], ['anMinutes', 'minutes', anNum], ['anColAccounts', 'accounts', anNum]], d.byRole)}
       ${anTable('device', 'anByDevice', [['anColDevice', 'device', (v) => t('anDev_' + v)], ['anVisits', 'visits', anNum], ['anMinutes', 'minutes', anNum]], d.byDevice)}
@@ -1093,32 +1122,31 @@
     </div></div>`;
     html += `<div class="admin-card"><h2>${escapeHtml(t('anPages'))}</h2>${anTable('pages', 'anPagesTable', [['anColPage', 'page', pageName], ['anPageViews', 'views', anNum], ['anVisits', 'visits', anNum], ['anMinutes', 'minutes', anNum], ['anColAvg', 'avgMinutes', (v) => `${v} min`]], d.pages)}</div>`;
     html += `<div class="admin-card"><h2>${escapeHtml(t('anCompanion'))}</h2>${anCards([
-      ['anCompVisits', anNum(c.companion.visits), t('anFamilies', { n: c.companion.accounts || 0 })], ['anCompTime', anMin(c.companion.minutes)],
-      ['anPicVisits', anNum(c.pictures.visits)], ['anPicTime', anMin(c.pictures.minutes)],
-      ['anRatings', anNum(c.ratings && c.ratings.n), c.ratings && c.ratings.n ? t('anAvgStars', { n: c.ratings.avg }) : ''], ['anMessages', anNum(c.messages)],
+      ['anCompVisits', anNum(c.companion.visits), t('anFamilies', { n: c.companion.accounts || 0 }), { fn: (r) => r.pagesSeen.includes('/companion.html'), sort: 'companionMinutes' }], ['anCompTime', anMin(c.companion.minutes), '', { fn: (r) => r.pagesSeen.includes('/companion.html'), sort: 'companionMinutes' }],
+      ['anPicVisits', anNum(c.pictures.visits), '', { fn: (r) => r.pagesSeen.includes('/pictures.html'), sort: 'companionMinutes' }], ['anPicTime', anMin(c.pictures.minutes), '', { fn: (r) => r.pagesSeen.includes('/pictures.html'), sort: 'companionMinutes' }],
+      ['anRatings', anNum(c.ratings && c.ratings.n), c.ratings && c.ratings.n ? t('anAvgStars', { n: c.ratings.avg }) : '', { fn: (r) => r.events.rate_book }], ['anMessages', anNum(c.messages), '', { fn: (r) => r.events.mare_message || r.events.write_sent }],
     ])}<div class="an-grid">
       ${anTable('chapters', 'anPerChapter', [['anColChapter', 'chapter'], ['anColSteps', 'stepViews', anNum], ['anColSpots', 'spotsOpened', anNum], ['anColQuizRight', 'quizRight', anNum], ['anColQuizWrong', 'quizWrong', anNum], ['anColVidStart', 'videosStarted', anNum], ['anColVidEnd', 'videosFinished', anNum], ['anColWrites', 'writes', anNum]], c.perChapter)}
       ${anTable('kinds', 'anSpotKinds', [['anColKind', 'kind', (v) => t('adminSpotType_' + v)], ['anColOpened', 'opened', anNum]], c.spotKinds)}
       ${anTable('reading', 'anReadingNow', [['anColChapter', 'chapter', (v) => (Number(v) ? String(v) : t('anNotStarted'))], ['anColParents', 'parents', anNum]], c.readingNow, 'anReadingNowNote')}
     </div></div>`;
     html += `<div class="admin-card"><h2>${escapeHtml(t('anTalk'))}</h2>${anCards([
-      ['anTalkSessions', anNum(d.talk.sessions)], ['anTalkFamilies', anNum(d.talk.families)], ['anTalkMinutes', anMin(d.talk.minutes)], ['anTalkTurns', String(d.talk.avgTurns || 0)], ['anTalkPictures', anNum(d.talk.inPictures)],
+      ['anTalkSessions', anNum(d.talk.sessions), '', { detail: 'talk', fn: (r) => anInRange(r.started_at) }], ['anTalkFamilies', anNum(d.talk.families), '', { fn: (r) => r.talk > 0 }], ['anTalkMinutes', anMin(d.talk.minutes), '', { detail: 'talk', fn: (r) => anInRange(r.started_at) }], ['anTalkTurns', String(d.talk.avgTurns || 0), '', { detail: 'talk', fn: (r) => anInRange(r.started_at) }], ['anTalkPictures', anNum(d.talk.inPictures), '', { fn: (r) => r.events.picture_talk }],
     ])}${anTable('talkage', 'anTalkAge', [['anColAge', 'ageBand'], ['anTalkSessions', 'sessions', anNum]], d.talk.byAge)}</div>`;
     html += `<div class="admin-card"><h2>${escapeHtml(t('anClub'))}</h2>${anCards([
-      ['anClubMembers', anNum(d.club.membersTotal), t('anNewN', { n: d.club.newMembers })], ['anClubVisits', anNum(d.club.clubVisits.visits), anMin(d.club.clubVisits.minutes)],
-      ['anForestVisits', anNum(d.club.forestVisits.visits)], ['anRiddleVisits', anNum(d.club.riddleVisits.visits)],
+      ['anClubMembers', anNum(d.club.membersTotal), t('anNewN', { n: d.club.newMembers }), { detail: 'club' }], ['anClubVisits', anNum(d.club.clubVisits.visits), anMin(d.club.clubVisits.minutes), { fn: (r) => r.pagesSeen.includes('/club-mare.html') }],
+      ['anForestVisits', anNum(d.club.forestVisits.visits), '', { fn: (r) => r.pagesSeen.includes('/forest.html') }], ['anRiddleVisits', anNum(d.club.riddleVisits.visits), '', { fn: (r) => r.pagesSeen.includes('/riddle.html') }],
     ])}${anTable('subs', 'anSubmissions', [['anColKind', 'kind', (v) => t('anKind_' + (v || 'other'))], ['anColCount', 'n', anNum]], d.club.submissions)}</div>`;
     const s = d.shop;
     html += `<div class="admin-card"><h2>${escapeHtml(t('anShop'))}</h2>${anCards([
-      ['anShopVisits', anNum(s.visits)], ['anAddToCart', anNum(s.addToCart)], ['anCheckouts', anNum(s.checkoutsStarted)], ['anPaid', anNum(s.paid)],
-      ...(s.revenueCents != null ? [['anRevenue', money(s.revenueCents)]] : []),
+      ['anShopVisits', anNum(s.visits), '', { fn: (r) => r.pagesSeen.includes('/merchandise.html') }], ['anAddToCart', anNum(s.addToCart), '', { fn: (r) => r.events.add_to_cart }], ['anCheckouts', anNum(s.checkoutsStarted), '', { detail: 'orders', fn: (r) => anInRange(r.created_at) }], ['anPaid', anNum(s.paid), '', { detail: 'orders', fn: (r) => r.status === 'paid' && anInRange(r.created_at) }],
+      ...(s.revenueCents != null ? [['anRevenue', money(s.revenueCents), '', { detail: 'orders', fn: (r) => r.status === 'paid' && anInRange(r.created_at) }]] : []),
     ])}${s.topProducts ? anTable('products', 'anTopProducts', [['anColProduct', 'product'], ['anColQty', 'qty', anNum], ['anColSales', 'cents', money]], s.topProducts) : ''}</div>`;
-    html += `<div class="admin-card"><h2>${escapeHtml(t('anTeachers'))}</h2>${anCards([['anTotTeachers', anNum(d.teachers.total)], ['anActiveTeachers', anNum(d.teachers.active)]])}
+    html += `<div class="admin-card"><h2>${escapeHtml(t('anTeachers'))}</h2>${anCards([['anTotTeachers', anNum(d.teachers.total), '', { detail: 'teachers' }], ['anActiveTeachers', anNum(d.teachers.active), '', { fn: (r) => r.role === 'teacher' && r.visits > 0 }]])}
       ${anTable('resources', 'anResourceOpens', [['anColResource', 'resource'], ['anColOpens', 'opens', anNum]], d.teachers.resourceOpens)}</div>`;
     html += `<p class="admin-empty-note an-privacy">${escapeHtml(t('anPrivacy'))}</p>`;
     out.innerHTML = html;
-    const cardPeople = [...out.querySelectorAll('.an-card')].find(c => c.querySelector('.an-lab') && c.querySelector('.an-lab').textContent === t('anActiveAccounts'));
-    if (cardPeople) { cardPeople.classList.add('an-click'); cardPeople.title = t('anPeopleBtn'); cardPeople.addEventListener('click', openPeople); }
+    out.querySelectorAll('.an-card[data-act]').forEach(b => b.addEventListener('click', () => anRunAction(anActions[Number(b.dataset.act)])));
     out.querySelectorAll('.an-csv').forEach(b => b.addEventListener('click', () => {
       const table = out.querySelector(`table[data-csv="${b.dataset.id}"]`);
       const csv = [...table.rows].map(r => [...r.cells].map(c => `"${c.textContent.replace(/"/g, '""')}"`).join(',')).join('\n');
@@ -1131,21 +1159,32 @@
 
 
   // ── Mare App 6 (v79) — People: one row per signed-in person ──
-  const anPeople = { rows: [], q: '', role: '', size: 20, page: 1, sort: 'minutes', dir: -1 };
-  const PEOPLE_COLS = [
-    ['anColName', 'name'], ['anColEmail', 'email'], ['anColWho', 'role', (v) => t('anRole_' + v)], ['anColDetail', 'detail'],
-    ['anVisits', 'visits', (v) => anNum(v)], ['anPageViews', 'pages', (v) => anNum(v)], ['anTimeOnline', 'minutes', (v) => anMin(v)],
+  const anPeople = { rows: [], q: '', role: '', size: 20, page: 1, sort: 'minutes', dir: -1, names: false };
+  // v80 — by visitor ID; name, email and children/school only with "Show names"
+  const PEOPLE_NAME_COLS = [['anColName', 'name'], ['anColEmail', 'email'], ['anColDetail', 'detail']];
+  const PEOPLE_BASE_COLS = [
+    ['anColVisitorId', 'visitorId', (v, r) => (v ? v + (r.otherIds ? ` ${t('anOtherIds', { n: r.otherIds })}` : '') : '–')], ['anColWho', 'role', (v) => t('anRole_' + v)],
+    ['anColDays', 'days', (v) => anNum(v)], ['anVisits', 'visits', (v) => anNum(v)], ['anColBeforeSignIn', 'visitsBeforeSignIn', (v, r) => (r.role === 'visitor' ? '' : anNum(v))],
+    ['anPageViews', 'pages', (v) => anNum(v)], ['anTimeOnline', 'minutes', (v) => anMin(v)],
     ['anColCompanionTime', 'companionMinutes', (v) => anMin(v)], ['anColTopPage', 'topPage', (v) => (v ? pageName(v) : '')],
     ['anColFirst', 'firstSeen', (v) => anWhen(v)], ['anColLast', 'lastSeen', (v) => anWhen(v)],
   ];
+  let PEOPLE_COLS = PEOPLE_BASE_COLS;
   const anWhen = (iso) => { if (!iso) return ''; const d = new Date(iso); return d.toLocaleString(window.MareI18n.locale === 'nl' ? 'nl-NL' : 'en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }); };
   function anPeopleFiltered() {
     const q = anPeople.q.toLowerCase();
-    let rows = anPeople.rows.filter(r => (!anPeople.role || r.role === anPeople.role)
-      && (!q || [r.name, r.email, r.school, r.children].some(x => String(x || '').toLowerCase().includes(q))));
+    // without a box's filter: people who visited (others show only under their own box)
+    const f = anPeople.filter ? anPeople.filter.fn : (anPeople.mode === 'detail' ? null : (r) => r.visits > 0);
+    const text = (r) => (anPeople.mode === 'detail' ? PEOPLE_COLS.map(c => c[2] ? c[2](r[c[1]], r) : r[c[1]]) : [r.visitorId, r.name, r.email, r.detail]);
+    let rows = anPeople.rows.filter(r => (anPeople.mode === 'detail' || !anPeople.role || r.role === anPeople.role)
+      && (!f || f(r))
+      && (!q || text(r).some(x => String(x || '').toLowerCase().includes(q))));
     const k = anPeople.sort, dir = anPeople.dir;
+    if (!k) return rows;
+    const col = k.startsWith('_') ? PEOPLE_COLS.find(c => c[1] === k) : null;
+    const val = (r) => (col ? col[2](null, r) : r[k]);
     rows = rows.slice().sort((a, b) => {
-      const x = a[k], y = b[k];
+      const x = val(a), y = val(b);
       if (typeof x === 'number' || typeof y === 'number') return ((Number(x) || 0) - (Number(y) || 0)) * dir;
       return String(x || '').localeCompare(String(y || '')) * dir;
     });
@@ -1158,7 +1197,7 @@
     anPeople.page = Math.min(Math.max(1, anPeople.page), pages);
     const shown = anPeople.size ? rows.slice((anPeople.page - 1) * size, anPeople.page * size) : rows;
     const head = PEOPLE_COLS.map(c => `<th><button type="button" class="an-sort${anPeople.sort === c[1] ? ' on' : ''}" data-k="${c[1]}" data-no-busy>${escapeHtml(t(c[0]))}${anPeople.sort === c[1] ? (anPeople.dir < 0 ? ' ↓' : ' ↑') : ''}</button></th>`).join('');
-    const body = shown.length ? shown.map(r => `<tr>${PEOPLE_COLS.map(c => `<td>${escapeHtml(c[2] ? c[2](r[c[1]], r) : String(r[c[1]] == null ? '' : r[c[1]]))}</td>`).join('')}</tr>`).join('')
+    const body = shown.length ? shown.map(r => `<tr>${PEOPLE_COLS.map(c => `<td${c[1] === 'visitorId' ? ' class="an-vid"' : ''}>${escapeHtml(c[2] ? c[2](r[c[1]], r) : String(r[c[1]] == null ? '' : r[c[1]]))}</td>`).join('')}</tr>`).join('')
       : `<tr><td colspan="${PEOPLE_COLS.length}" class="admin-empty-note">${escapeHtml(t('anNone'))}</td></tr>`;
     document.getElementById('an-people-table').innerHTML = `<thead><tr>${head}</tr></thead><tbody>${body}</tbody>`;
     const from = rows.length ? (anPeople.size ? (anPeople.page - 1) * size + 1 : 1) : 0;
@@ -1169,26 +1208,65 @@
       <button type="button" class="btn-ghost btn-small" data-go="${anPeople.page + 1}" data-no-busy ${anPeople.page === pages ? 'disabled' : ''}>${escapeHtml(t('anNext'))} ›</button>` : ''}`;
     document.querySelectorAll('#an-people-pager [data-go]').forEach(b => b.addEventListener('click', () => { anPeople.page = Number(b.dataset.go); anPeopleRender(); }));
     document.querySelectorAll('#an-people-table .an-sort').forEach(b => b.addEventListener('click', () => {
-      if (anPeople.sort === b.dataset.k) anPeople.dir = -anPeople.dir; else { anPeople.sort = b.dataset.k; anPeople.dir = ['name', 'email', 'role', 'detail', 'topPage'].includes(b.dataset.k) ? 1 : -1; }
+      if (anPeople.sort === b.dataset.k) anPeople.dir = -anPeople.dir; else { anPeople.sort = b.dataset.k; anPeople.dir = ['name', 'email', 'role', 'detail', 'topPage', 'visitorId'].includes(b.dataset.k) ? 1 : -1; }
       anPeopleRender();
     }));
   }
-  async function openPeople() {
+  // the "Showing: …" line with a way back to everyone
+  function anFilterLine() {
+    const el = document.getElementById('an-people-filter');
+    const f = anPeople.filter;
+    el.hidden = !f || anPeople.mode === 'detail';
+    if (el.hidden) return;
+    el.innerHTML = `${escapeHtml(t('anShowingOnly'))} <b>${escapeHtml(f.label)}</b> <button type="button" class="btn-ghost btn-small" data-no-busy>✕ ${escapeHtml(t('anShowEveryone'))}</button>`;
+    el.querySelector('button').addEventListener('click', () => { anPeople.filter = null; anPeople.page = 1; document.getElementById('an-people-title').textContent = t('anPeopleTitle'); anFilterLine(); anPeopleRender(); });
+  }
+  function anPeopleMode(detail) {
+    anPeople.mode = detail ? 'detail' : 'people';
+    ['an-people-role', 'an-people-names-wrap', 'an-people-anon'].forEach(id => { document.getElementById(id).hidden = detail; });
+  }
+  // v80 — accounts, children, Club members, Talk to Mare or orders behind a box
+  async function openDetail(kind, label, fn) {
     document.getElementById('an-out').hidden = true;
     document.getElementById('an-people').hidden = false;
+    anPeopleMode(true);
+    const def = STAT_COLUMNS[kind];
+    PEOPLE_COLS = def.cols.map((c, i) => [c[0], '_' + i, (v, r) => c[1](r)]);
+    anPeople.filter = fn ? { label, fn } : null; anPeople.sort = ''; anPeople.q = ''; anPeople.page = 1;
+    document.getElementById('an-people-q').value = '';
+    document.getElementById('an-people-title').textContent = label;
+    document.getElementById('an-people-sub').textContent = fn ? t('anPeopleSubDetail', { from: anRange.from, to: anRange.to }) : t('anAllTime');
+    document.getElementById('an-people-table').innerHTML = `<tbody><tr><td class="admin-empty-note">${escapeHtml(t('adminLoading'))}</td></tr></tbody>`;
+    try { anPeople.rows = (await api(`/api/admin/report/detail/${kind}`)).rows || []; }
+    catch (e) { document.getElementById('an-people-table').innerHTML = `<tbody><tr><td class="form-error">${escapeHtml(e.message || t('errorGeneric'))}</td></tr></tbody>`; return; }
+    anPeople.data = { from: anRange.from, to: anRange.to, kind };
+    anFilterLine(); anPeopleRender();
+    document.getElementById('an-people').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+  async function openPeople(opts) {
+    if (!opts || opts instanceof Event) opts = {};
+    document.getElementById('an-out').hidden = true;
+    document.getElementById('an-people').hidden = false;
+    anPeopleMode(false);
+    if (opts.fn !== undefined || opts.label) { anPeople.filter = opts.fn ? { label: opts.label, fn: opts.fn } : null; anPeople.role = ''; anPeople.q = ''; document.getElementById('an-people-q').value = ''; }
+    if (opts.sort) { anPeople.sort = opts.sort; anPeople.dir = -1; } else if (!anPeople.sort || anPeople.sort.startsWith('_')) { anPeople.sort = 'minutes'; anPeople.dir = -1; }
+    document.getElementById('an-people-title').textContent = anPeople.filter ? anPeople.filter.label : t('anPeopleTitle');
     document.getElementById('an-people-table').innerHTML = `<tbody><tr><td class="admin-empty-note">${escapeHtml(t('adminLoading'))}</td></tr></tbody>`;
     const from = document.getElementById('an-from').value, to = document.getElementById('an-to').value;
     const staff = document.getElementById('an-staff').checked ? '1' : '0';
     if (staff !== '1' && anPeople.role === 'staff') anPeople.role = '';
     document.getElementById('an-people-q').placeholder = t('anPeopleSearch');
     let d;
-    try { d = await api(`/api/admin/analytics/people?from=${from}&to=${to}&staff=${staff}`); }
+    anPeople.names = document.getElementById('an-people-names').checked;
+    PEOPLE_COLS = anPeople.names ? [PEOPLE_BASE_COLS[0], ...PEOPLE_NAME_COLS, ...PEOPLE_BASE_COLS.slice(1)] : PEOPLE_BASE_COLS;
+    try { d = await api(`/api/admin/analytics/people?from=${from}&to=${to}&staff=${staff}&names=${anPeople.names ? 1 : 0}`); }
     catch (e) { document.getElementById('an-people-table').innerHTML = `<tbody><tr><td class="form-error">${escapeHtml(e.message || t('errorGeneric'))}</td></tr></tbody>`; return; }
-    anPeople.rows = d.people.map(r => ({ ...r, detail: r.role === 'parent' ? r.children : (r.school || '') }));
+    anPeople.rows = d.people;
     anPeople.page = 1;
     anPeople.data = d;
     document.getElementById('an-people-sub').textContent = t('anPeopleSub', { from: d.from, to: d.to });
-    document.getElementById('an-people-anon').textContent = t('anNotSignedIn', { n: anNum(d.notSignedIn.visits), time: anMin(d.notSignedIn.minutes) });
+    anFilterLine();
+    document.getElementById('an-people-anon').textContent = d.olderVisits ? t('anOlderVisits', { n: anNum(d.olderVisits) }) : '';
     document.getElementById('an-people-role').value = anPeople.role;
     document.querySelector('#an-people-role option[value="staff"]').hidden = staff !== '1';
     anPeopleRender();
@@ -1199,22 +1277,23 @@
     document.getElementById('an-out').hidden = false;
   }
   if (document.getElementById('an-people-btn')) {
-    document.getElementById('an-people-btn').addEventListener('click', openPeople);
+    document.getElementById('an-people-btn').addEventListener('click', () => openPeople({ fn: null, label: '' }));
     document.getElementById('an-people-back').addEventListener('click', closePeople);
     document.getElementById('an-people-q').addEventListener('input', (e) => { anPeople.q = e.target.value.trim(); anPeople.page = 1; anPeopleRender(); });
     document.getElementById('an-people-role').addEventListener('change', (e) => { anPeople.role = e.target.value; anPeople.page = 1; anPeopleRender(); });
     document.getElementById('an-people-size').addEventListener('change', (e) => { anPeople.size = Number(e.target.value); anPeople.page = 1; anPeopleRender(); });
+    document.getElementById('an-people-names').addEventListener('change', () => openPeople({})); // v80: names fetched only when asked
     // CSV: every row that matches the search and filter, not just this page; plain numbers
     document.getElementById('an-people-csv').addEventListener('click', () => {
       const rows = anPeopleFiltered();
-      const cols = [['anColName', 'name'], ['anColEmail', 'email'], ['anColWho', 'role', (v) => t('anRole_' + v)], ['anColDetail', 'detail'],
-        ['anVisits', 'visits'], ['anPageViews', 'pages'], ['anCsvMinutes', 'minutes'], ['anCsvCompanionMinutes', 'companionMinutes'],
+      const cols = anPeople.mode === 'detail' ? PEOPLE_COLS : [['anColVisitorId', 'visitorId'], ['anCsvOtherIds', 'otherIds'], ...(anPeople.names ? PEOPLE_NAME_COLS : []), ['anColWho', 'role', (v) => t('anRole_' + v)],
+        ['anColDays', 'days'], ['anVisits', 'visits'], ['anColBeforeSignIn', 'visitsBeforeSignIn'], ['anPageViews', 'pages'], ['anCsvMinutes', 'minutes'], ['anCsvCompanionMinutes', 'companionMinutes'],
         ['anColTopPage', 'topPage', (v) => (v ? pageName(v) : '')], ['anColFirst', 'firstSeen'], ['anColLast', 'lastSeen']];
       const cell = (v) => `"${String(v == null ? '' : v).replace(/"/g, '""')}"`;
       const csv = [cols.map(c => cell(t(c[0]))).join(','), ...rows.map(r => cols.map(c => cell(c[2] ? c[2](r[c[1]], r) : r[c[1]])).join(','))].join('\n');
       const a = document.createElement('a');
       a.href = URL.createObjectURL(new Blob(['\ufeff' + csv], { type: 'text/csv' }));
-      a.download = `mare-people-${anPeople.data ? anPeople.data.from : ''}-${anPeople.data ? anPeople.data.to : ''}.csv`;
+      a.download = `mare-${anPeople.mode === 'detail' ? anPeople.data.kind : 'people'}-${anPeople.data ? anPeople.data.from : ''}-${anPeople.data ? anPeople.data.to : ''}.csv`;
       a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
     });
   }

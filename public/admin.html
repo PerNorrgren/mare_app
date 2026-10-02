@@ -160,16 +160,19 @@
             <button type="button" class="btn-ghost btn-small" id="an-people-back" data-no-busy>← <span data-i18n="anBackToReports">Back to the reports</span></button>
             <button type="button" class="btn-ghost btn-small" id="an-people-csv" data-no-busy>⬇ <span data-i18n="anCsvAll">CSV (all rows)</span></button>
           </div>
-          <h2 data-i18n="anPeopleTitle">People</h2>
+          <h2 id="an-people-title">People</h2>
           <p class="admin-card-sub" id="an-people-sub"></p>
+          <p class="an-filter" id="an-people-filter" hidden></p>
           <div class="an-people-bar">
             <input type="search" id="an-people-q" data-i18n-placeholder="anPeopleSearch" placeholder="Search name, email, school or child">
             <select id="an-people-role">
               <option value="" data-i18n="anAllPeople">Everyone</option>
+              <option value="visitor" data-i18n="anRole_visitor">Visitor (not signed in)</option>
               <option value="parent" data-i18n="anRole_parent">Parent</option>
               <option value="teacher" data-i18n="anRole_teacher">Teacher</option>
               <option value="staff" data-i18n="anRole_staff">Staff</option>
             </select>
+            <label class="an-staff" id="an-people-names-wrap"><input type="checkbox" id="an-people-names"> <span data-i18n="anShowNames">Show names and emails</span></label>
             <label class="an-perpage"><span data-i18n="anRowsPerPage">Rows per page</span>
               <select id="an-people-size"><option value="20">20</option><option value="50">50</option><option value="100">100</option><option value="0" data-i18n="anAll">All</option></select></label>
           </div>

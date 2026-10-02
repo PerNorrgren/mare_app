@@ -1099,6 +1099,12 @@ Volgende maand verschijnt er een nieuw raadsel uit het Fluisterbos. 🌲🔎', ?
     id INTEGER PRIMARY KEY AUTOINCREMENT, ts TEXT, day TEXT, sid TEXT, role TEXT, user_id TEXT,
     page TEXT, name TEXT, detail TEXT, value REAL)`);
   db.run(`CREATE INDEX IF NOT EXISTS a_events_day ON a_events (day, name)`);
+  // v80 — an anonymous visitor ID per browser (kept in the browser), linked
+  // to the account once that browser signs in; and a count of bots refused.
+  try { db.run(`ALTER TABLE a_visits ADD COLUMN did TEXT`); } catch {}
+  db.run(`CREATE INDEX IF NOT EXISTS a_visits_did ON a_visits (did)`);
+  db.run(`CREATE TABLE IF NOT EXISTS a_devices (did TEXT PRIMARY KEY, first_seen TEXT, last_seen TEXT, role TEXT, user_id TEXT, linked_at TEXT)`);
+  db.run(`CREATE TABLE IF NOT EXISTS a_bots (day TEXT, reason TEXT, n INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (day, reason))`);
 
   // ── Mare App 5 — Talk to Mare in the pictures: what Mare knows.
   // companion_practices.summary = a short private summary of the chapter
