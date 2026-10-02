@@ -202,6 +202,7 @@
         if (target === 'backups' && currentUser && currentUser.role === 'admin') loadBackups();
         if (target === 'directory') { loadDirectory(); loadAdminSettings(); }
         if (target === 'companion') { loadCompanionAdmin(); loadPictures(); }
+        if (target === 'analytics') loadAnalytics();
       });
     });
   }
@@ -1007,6 +1008,122 @@
         await api('/api/admin/companion/rating-percent', { method: 'PUT', body: JSON.stringify({ percent: Number(document.getElementById('cpa-percent').value) }) });
       } catch (err) { alert(err.message || t('errorGeneric')); }
     });
+  }
+
+
+  // ── Mare App 6 (v78) — Reports (usage analytics) ──────────────────────
+  const anDay = (d) => d.toISOString().slice(0, 10);
+  let anDays = 30, anData = null;
+  function anSetPeriod(days) {
+    anDays = days;
+    document.querySelectorAll('.an-period').forEach(b => b.classList.toggle('on', Number(b.dataset.days) === days));
+    const to = new Date(), from = new Date(Date.now() - (days - 1) * 864e5);
+    document.getElementById('an-from').value = anDay(from);
+    document.getElementById('an-to').value = anDay(to);
+  }
+  if (document.getElementById('an-load')) {
+    anSetPeriod(30);
+    document.querySelectorAll('.an-period').forEach(b => b.addEventListener('click', () => { anSetPeriod(Number(b.dataset.days)); loadAnalytics(); }));
+    document.getElementById('an-load').addEventListener('click', () => { document.querySelectorAll('.an-period').forEach(b => b.classList.remove('on')); loadAnalytics(); });
+    document.getElementById('an-staff').addEventListener('change', loadAnalytics);
+  }
+  const anNum = (n) => (n == null ? '0' : Number(n).toLocaleString(window.MareI18n.locale === 'nl' ? 'nl-NL' : 'en-GB'));
+  const anMin = (m) => { m = Number(m) || 0; if (m < 60) return `${anNum(Math.round(m))} min`; const h = Math.floor(m / 60); return `${anNum(h)} h ${Math.round(m - h * 60)} min`; };
+  const PAGE_NAME = { '/': 'anPageHome', '/companion.html': 'anPageCompanion', '/pictures.html': 'anPagePictures', '/talk.html': 'anPageTalk', '/club-mare.html': 'anPageClub', '/forest.html': 'anPageForest',
+    '/riddle.html': 'anPageRiddle', '/merchandise.html': 'anPageShop', '/account.html': 'anPageAccount', '/login.html': 'anPageLogin', '/teacher.html': 'anPageTeacher', '/teacher-login.html': 'anPageTeacherLogin',
+    '/press.html': 'anPagePress', '/reader.html': 'anPageReader', '/reset-password.html': 'anPageReset', '/admin.html': 'anPageAdmin', '/editor.html': 'anPageEditor', '/admin-content.html': 'anPageBookContent' };
+  const pageName = (p) => (PAGE_NAME[p] ? t(PAGE_NAME[p]) : p);
+  // A table with a CSV download. cols: [[labelKey, field, format?]]
+  function anTable(id, titleKey, cols, rows, noteKey) {
+    const head = cols.map(c => `<th>${escapeHtml(t(c[0]))}</th>`).join('');
+    const body = rows.length ? rows.map(r => `<tr>${cols.map(c => `<td>${escapeHtml(c[2] ? c[2](r[c[1]], r) : (r[c[1]] == null ? '' : String(r[c[1]])))}</td>`).join('')}</tr>`).join('')
+      : `<tr><td colspan="${cols.length}" class="admin-empty-note">${escapeHtml(t('anNone'))}</td></tr>`;
+    return `<div class="an-block${cols.length > 5 ? ' an-wide' : ''}"><div class="an-block-head"><h3>${escapeHtml(t(titleKey))}</h3>${rows.length ? `<button type="button" class="btn-ghost btn-small an-csv" data-id="${id}" data-no-busy>⬇ CSV</button>` : ''}</div>
+      ${noteKey ? `<p class="admin-empty-note">${escapeHtml(t(noteKey))}</p>` : ''}
+      <div class="stat-detail-scroll"><table class="admin-table" data-csv="${id}"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div></div>`;
+  }
+  function anCards(items) {
+    return `<div class="an-cards">${items.map(([k, v, sub]) => `<div class="an-card"><div class="an-val">${escapeHtml(String(v))}</div><div class="an-lab">${escapeHtml(t(k))}</div>${sub ? `<div class="an-sub">${escapeHtml(sub)}</div>` : ''}</div>`).join('')}</div>`;
+  }
+  // Daily visits (bars) and minutes (line), plain SVG
+  function anChart(daily, from, to) {
+    const days = []; for (let d = new Date(from + 'T00:00:00Z'); anDay(d) <= to; d = new Date(d.getTime() + 864e5)) days.push(anDay(d));
+    if (days.length < 2) return '';
+    const by = Object.fromEntries(daily.map(r => [r.day, r]));
+    const vis = days.map(d => (by[d] ? by[d].visits : 0)), mins = days.map(d => (by[d] ? by[d].minutes : 0));
+    const W = 900, H = 220, L = 40, R = 40, T = 14, B = 26, iw = W - L - R, ih = H - T - B;
+    const mv = Math.max(1, ...vis), mm = Math.max(1, ...mins), bw = iw / days.length;
+    const bars = vis.map((v, i) => `<rect x="${(L + i * bw + bw * 0.15).toFixed(1)}" y="${(T + ih - (v / mv) * ih).toFixed(1)}" width="${(bw * 0.7).toFixed(1)}" height="${((v / mv) * ih).toFixed(1)}" rx="2" class="an-bar-v"><title>${days[i]}: ${v} ${t('anVisits')}, ${mins[i]} min</title></rect>`).join('');
+    const line = mins.map((m, i) => `${(L + i * bw + bw / 2).toFixed(1)},${(T + ih - (m / mm) * ih).toFixed(1)}`).join(' ');
+    const step = Math.ceil(days.length / 8);
+    const labels = days.map((d, i) => (i % step === 0 ? `<text x="${(L + i * bw + bw / 2).toFixed(1)}" y="${H - 8}" text-anchor="middle" class="an-axis">${d.slice(5)}</text>` : '')).join('');
+    return `<div class="an-block"><div class="an-block-head"><h3>${escapeHtml(t('anDaily'))}</h3>
+      <span class="an-legend"><i class="an-key-v"></i>${escapeHtml(t('anVisits'))} <i class="an-key-m"></i>${escapeHtml(t('anMinutes'))}</span></div>
+      <svg viewBox="0 0 ${W} ${H}" class="an-chart" role="img" aria-label="${escapeHtml(t('anDaily'))}">
+        <text x="${L - 6}" y="${T + 8}" text-anchor="end" class="an-axis">${mv}</text><text x="${W - R + 6}" y="${T + 8}" class="an-axis an-axis-m">${mm}</text>
+        <line x1="${L}" y1="${T + ih}" x2="${W - R}" y2="${T + ih}" class="an-base"/>${bars}
+        <polyline points="${line}" class="an-line"/>${labels}</svg></div>`;
+  }
+  async function loadAnalytics() {
+    const out = document.getElementById('an-out');
+    if (!out) return;
+    const from = document.getElementById('an-from').value, to = document.getElementById('an-to').value;
+    const staff = document.getElementById('an-staff').checked ? '1' : '0';
+    out.innerHTML = `<p class="admin-empty-note">${escapeHtml(t('adminLoading'))}</p>`;
+    let d;
+    try { d = await api(`/api/admin/analytics?from=${from}&to=${to}&staff=${staff}`); }
+    catch (e) { out.innerHTML = `<p class="form-error">${escapeHtml(e.message || t('errorGeneric'))}</p>`; return; }
+    anData = d;
+    document.getElementById('an-note').textContent = d.totals.trackingSince ? t('anTrackingSince', { day: d.totals.trackingSince }) : t('anTrackingNew');
+    const o = d.overview, c = d.companion, money = (cents) => `€${(Number(cents || 0) / 100).toFixed(2)}`;
+    const role = (r) => t('anRole_' + r);
+    let html = '';
+    html += `<div class="admin-card"><h2>${escapeHtml(t('anOverview'))}</h2>${anCards([
+      ['anVisits', anNum(o.visits)], ['anTimeOnline', anMin(o.minutes)], ['anAvgVisit', `${o.avgMinutesPerVisit} min`], ['anPageViews', anNum(o.pageViews)],
+      ['anActiveAccounts', anNum(o.activeAccounts)], ['anNewParents', anNum(o.newParents)], ['anNewTeachers', anNum(o.newTeachers)], ['anPaidOrders', anNum(o.paidOrders)],
+    ])}${anChart(d.daily, d.from, d.to)}</div>`;
+    html += `<div class="admin-card"><h2>${escapeHtml(t('anWho'))}</h2>${anCards([
+      ['anTotParents', anNum(d.totals.parents)], ['anTotChildren', anNum(d.totals.children)], ['anTotTeachers', anNum(d.totals.teachers)], ['anTotClub', anNum(d.totals.clubMembers)],
+    ])}<div class="an-grid">
+      ${anTable('role', 'anByRole', [['anColWho', 'role', role], ['anVisits', 'visits', anNum], ['anMinutes', 'minutes', anNum], ['anColAccounts', 'accounts', anNum]], d.byRole)}
+      ${anTable('device', 'anByDevice', [['anColDevice', 'device', (v) => t('anDev_' + v)], ['anVisits', 'visits', anNum], ['anMinutes', 'minutes', anNum]], d.byDevice)}
+      ${anTable('lang', 'anByLang', [['anColLang', 'lang', (v) => (v === 'nl' ? 'Nederlands' : 'English')], ['anVisits', 'visits', anNum], ['anMinutes', 'minutes', anNum]], d.byLang)}
+      ${anTable('ref', 'anReferrers', [['anColSite', 'ref'], ['anVisits', 'visits', anNum]], d.referrers)}
+    </div></div>`;
+    html += `<div class="admin-card"><h2>${escapeHtml(t('anPages'))}</h2>${anTable('pages', 'anPagesTable', [['anColPage', 'page', pageName], ['anPageViews', 'views', anNum], ['anVisits', 'visits', anNum], ['anMinutes', 'minutes', anNum], ['anColAvg', 'avgMinutes', (v) => `${v} min`]], d.pages)}</div>`;
+    html += `<div class="admin-card"><h2>${escapeHtml(t('anCompanion'))}</h2>${anCards([
+      ['anCompVisits', anNum(c.companion.visits), t('anFamilies', { n: c.companion.accounts || 0 })], ['anCompTime', anMin(c.companion.minutes)],
+      ['anPicVisits', anNum(c.pictures.visits)], ['anPicTime', anMin(c.pictures.minutes)],
+      ['anRatings', anNum(c.ratings && c.ratings.n), c.ratings && c.ratings.n ? t('anAvgStars', { n: c.ratings.avg }) : ''], ['anMessages', anNum(c.messages)],
+    ])}<div class="an-grid">
+      ${anTable('chapters', 'anPerChapter', [['anColChapter', 'chapter'], ['anColSteps', 'stepViews', anNum], ['anColSpots', 'spotsOpened', anNum], ['anColQuizRight', 'quizRight', anNum], ['anColQuizWrong', 'quizWrong', anNum], ['anColVidStart', 'videosStarted', anNum], ['anColVidEnd', 'videosFinished', anNum], ['anColWrites', 'writes', anNum]], c.perChapter)}
+      ${anTable('kinds', 'anSpotKinds', [['anColKind', 'kind', (v) => t('adminSpotType_' + v)], ['anColOpened', 'opened', anNum]], c.spotKinds)}
+      ${anTable('reading', 'anReadingNow', [['anColChapter', 'chapter', (v) => (Number(v) ? String(v) : t('anNotStarted'))], ['anColParents', 'parents', anNum]], c.readingNow, 'anReadingNowNote')}
+    </div></div>`;
+    html += `<div class="admin-card"><h2>${escapeHtml(t('anTalk'))}</h2>${anCards([
+      ['anTalkSessions', anNum(d.talk.sessions)], ['anTalkFamilies', anNum(d.talk.families)], ['anTalkMinutes', anMin(d.talk.minutes)], ['anTalkTurns', String(d.talk.avgTurns || 0)], ['anTalkPictures', anNum(d.talk.inPictures)],
+    ])}${anTable('talkage', 'anTalkAge', [['anColAge', 'ageBand'], ['anTalkSessions', 'sessions', anNum]], d.talk.byAge)}</div>`;
+    html += `<div class="admin-card"><h2>${escapeHtml(t('anClub'))}</h2>${anCards([
+      ['anClubMembers', anNum(d.club.membersTotal), t('anNewN', { n: d.club.newMembers })], ['anClubVisits', anNum(d.club.clubVisits.visits), anMin(d.club.clubVisits.minutes)],
+      ['anForestVisits', anNum(d.club.forestVisits.visits)], ['anRiddleVisits', anNum(d.club.riddleVisits.visits)],
+    ])}${anTable('subs', 'anSubmissions', [['anColKind', 'kind', (v) => t('anKind_' + (v || 'other'))], ['anColCount', 'n', anNum]], d.club.submissions)}</div>`;
+    const s = d.shop;
+    html += `<div class="admin-card"><h2>${escapeHtml(t('anShop'))}</h2>${anCards([
+      ['anShopVisits', anNum(s.visits)], ['anAddToCart', anNum(s.addToCart)], ['anCheckouts', anNum(s.checkoutsStarted)], ['anPaid', anNum(s.paid)],
+      ...(s.revenueCents != null ? [['anRevenue', money(s.revenueCents)]] : []),
+    ])}${s.topProducts ? anTable('products', 'anTopProducts', [['anColProduct', 'product'], ['anColQty', 'qty', anNum], ['anColSales', 'cents', money]], s.topProducts) : ''}</div>`;
+    html += `<div class="admin-card"><h2>${escapeHtml(t('anTeachers'))}</h2>${anCards([['anTotTeachers', anNum(d.teachers.total)], ['anActiveTeachers', anNum(d.teachers.active)]])}
+      ${anTable('resources', 'anResourceOpens', [['anColResource', 'resource'], ['anColOpens', 'opens', anNum]], d.teachers.resourceOpens)}</div>`;
+    html += `<p class="admin-empty-note an-privacy">${escapeHtml(t('anPrivacy'))}</p>`;
+    out.innerHTML = html;
+    out.querySelectorAll('.an-csv').forEach(b => b.addEventListener('click', () => {
+      const table = out.querySelector(`table[data-csv="${b.dataset.id}"]`);
+      const csv = [...table.rows].map(r => [...r.cells].map(c => `"${c.textContent.replace(/"/g, '""')}"`).join(',')).join('\n');
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(new Blob(['\ufeff' + csv], { type: 'text/csv' }));
+      a.download = `mare-${b.dataset.id}-${d.from}-${d.to}.csv`;
+      a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+    }));
   }
 
   // ── Teacher resources ──

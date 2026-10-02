@@ -75,6 +75,7 @@
   <section class="admin-shell" id="dashboard-view" hidden>
     <div class="admin-tabs" id="admin-tabs">
       <button type="button" class="admin-tab active" data-tab="overview" data-i18n="adminTabOverview">Overview</button>
+      <button type="button" class="admin-tab" data-tab="analytics" data-i18n="adminTabAnalytics">Reports</button>
       <button type="button" class="admin-tab" data-tab="resources" data-i18n="adminTabResources">Teacher Resources</button>
       <button type="button" class="admin-tab" data-tab="pages" data-i18n="adminTabPages">Pages</button>
       <button type="button" class="admin-tab" data-tab="messaging" data-i18n="adminTabMessaging">Messaging</button>
@@ -131,6 +132,28 @@
     </div>
 
     <!-- Teacher resources -->
+    <!-- Mare App 6 (v78) — Reports: usage analytics -->
+    <div class="admin-panel" id="panel-analytics">
+      <div class="admin-card">
+        <h2 data-i18n="anTitle">Reports</h2>
+        <p class="admin-card-sub" data-i18n="anIntro">How the app is used: visits, time online, pages, the Book Companion, Talk to Mare, Club Mare, the shop and teachers.</p>
+        <div class="an-bar">
+          <div class="an-periods">
+            <button type="button" class="an-period" data-days="1" data-no-busy data-i18n="anToday">Today</button>
+            <button type="button" class="an-period" data-days="7" data-no-busy data-i18n="an7">7 days</button>
+            <button type="button" class="an-period on" data-days="30" data-no-busy data-i18n="an30">30 days</button>
+            <button type="button" class="an-period" data-days="90" data-no-busy data-i18n="an90">90 days</button>
+            <button type="button" class="an-period" data-days="365" data-no-busy data-i18n="an365">12 months</button>
+          </div>
+          <label class="an-dates"><input type="date" id="an-from"> – <input type="date" id="an-to"></label>
+          <label class="an-staff"><input type="checkbox" id="an-staff"> <span data-i18n="anIncludeStaff">Include staff</span></label>
+          <button type="button" class="btn-primary btn-small" id="an-load" data-i18n="anShow">Show</button>
+        </div>
+        <p class="admin-empty-note" id="an-note"></p>
+      </div>
+      <div id="an-out"></div>
+    </div>
+
     <div class="admin-panel" id="panel-resources">
       <div class="admin-card">
         <h2 data-i18n="adminResourcesAddTitle">Add a resource</h2>
@@ -1111,6 +1134,7 @@
 </main>
 
 <script src="/js/i18n.js"></script>
+<script src="/js/track.js"></script>
 <script src="/js/busy-buttons.js"></script>
 <script src="/js/mare-helper-widget.js"></script>
 <script src="/js/bg-slideshow.js"></script>

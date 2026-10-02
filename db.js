@@ -1090,6 +1090,16 @@ Volgende maand verschijnt er een nieuw raadsel uit het Fluisterbos. 🌲🔎', ?
   // height and whether a tap takes it away. { colour, mode, shape, h, reveal }
   try { db.run(`ALTER TABLE picture_spots ADD COLUMN look_json TEXT`); } catch {}
 
+  // ── Mare App 6 (v78) — usage analytics (see analytics.js) ──
+  db.run(`CREATE TABLE IF NOT EXISTS a_visits (
+    id TEXT PRIMARY KEY, sid TEXT, day TEXT, started_at TEXT, page TEXT, role TEXT, user_id TEXT,
+    lang TEXT, device TEXT, ref TEXT, seconds INTEGER NOT NULL DEFAULT 0)`);
+  db.run(`CREATE INDEX IF NOT EXISTS a_visits_day ON a_visits (day, role)`);
+  db.run(`CREATE TABLE IF NOT EXISTS a_events (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, ts TEXT, day TEXT, sid TEXT, role TEXT, user_id TEXT,
+    page TEXT, name TEXT, detail TEXT, value REAL)`);
+  db.run(`CREATE INDEX IF NOT EXISTS a_events_day ON a_events (day, name)`);
+
   // ── Mare App 5 — Talk to Mare in the pictures: what Mare knows.
   // companion_practices.summary = a short private summary of the chapter
   // (never shown; Mare only gets chapters up to the family's chapter, so
@@ -1249,6 +1259,12 @@ function get(sql, params = []) {
   const row = stmt.step() ? stmt.getAsObject() : null;
   stmt.free();
   return row;
+}
+
+// v78 — many writes, one save (analytics batches)
+function runBatch(list) {
+  for (const [sql, params] of list) db.run(sql, params || []);
+  save();
 }
 
 function all(sql, params = []) {
@@ -2946,6 +2962,7 @@ function getAllBulkImports() {
 }
 
 module.exports = {
+  runBatch, getRow: get, allRows: all, // v78 analytics
   setPictureTalk,
   pictureScenes, pictureScene, createPictureScene, updatePictureScene, deletePictureScene,
   pictureSpots, pictureSpot, savePictureSpot, deletePictureSpot,

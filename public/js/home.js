@@ -92,6 +92,7 @@
   // to the book and to the Book Companion. The text is editable in the text
   // editor (homeSampleText, EN + NL).
   function openBook() {
+    try { window.MareTrack && window.MareTrack.event('sample_open'); } catch { /* fine */ } // v78
     const box = document.getElementById('sample-text');
     const text = window.MareI18n.t('homeSampleText');
     box.innerHTML = text.split(/\n{2,}/).map(p => `<p>${p.replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]))}</p>`).join('');

@@ -1969,3 +1969,30 @@ html { scroll-behavior: smooth; }
 #pic-flow.pic-working { pointer-events: none; }
 #pic-flow.pic-working::after { content: ''; position: absolute; left: 50%; top: 120px; width: 34px; height: 34px; margin-left: -17px; border-radius: 50%; border: 3px solid #16305C; border-right-color: transparent; animation: busy-spin 0.8s linear infinite; }
 #pic-flow.pic-working .flow { opacity: 0.5; }
+
+/* Mare App 6 (v78) — Reports */
+.an-bar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.an-periods { display: inline-flex; border: 1.5px solid rgba(22,48,92,0.2); border-radius: 999px; overflow: hidden; }
+.an-period { font: inherit; font-weight: 700; font-size: 0.82rem; padding: 6px 12px; border: 0; background: transparent; color: var(--navy); cursor: pointer; }
+.an-period.on { background: var(--navy); color: #fff; }
+.an-dates input { font: inherit; padding: 5px 8px; border-radius: 8px; border: 1.5px solid rgba(22,48,92,0.2); }
+.an-staff { display: inline-flex; gap: 6px; align-items: center; font-size: 0.88rem; }
+.an-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; margin: 10px 0 6px; }
+.an-card { background: var(--cloud, #EEF1F8); border-radius: 12px; padding: 12px 14px; }
+.an-val { font-size: 1.45rem; font-weight: 800; color: var(--navy); line-height: 1.15; }
+.an-lab { font-size: 0.8rem; color: var(--navy-soft, #4A5B7A); margin-top: 2px; }
+.an-sub { font-size: 0.75rem; color: rgba(22,48,92,0.55); margin-top: 2px; }
+.an-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 14px; }
+.an-block { margin-top: 14px; }
+.an-block-head { display: flex; align-items: center; gap: 10px; justify-content: space-between; }
+.an-block-head h3 { margin: 0; font-size: 1rem; color: var(--navy); }
+.an-chart { width: 100%; height: auto; display: block; margin-top: 8px; }
+.an-bar-v { fill: rgba(226,190,110,0.85); }
+.an-line { fill: none; stroke: #16305C; stroke-width: 2; }
+.an-base { stroke: rgba(22,48,92,0.25); }
+.an-axis { font-size: 11px; fill: rgba(22,48,92,0.6); }
+.an-legend { font-size: 0.8rem; color: var(--navy-soft, #4A5B7A); display: inline-flex; align-items: center; gap: 6px; }
+.an-legend i { display: inline-block; width: 14px; height: 8px; border-radius: 2px; }
+.an-key-v { background: rgba(226,190,110,0.85); } .an-key-m { background: #16305C; height: 2px !important; }
+.an-privacy { margin: 6px 4px 20px; }
+.an-grid > .an-wide { grid-column: 1 / -1; }

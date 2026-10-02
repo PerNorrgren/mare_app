@@ -620,6 +620,8 @@ app.post('/api/view-as/exit', (req, res) => {
 require('./bookcompanion').register(app, { db, auth, email, anthropic, model: TALK_MODEL, publicUrl: PUBLIC_URL });
 // Mare App 5 — Picture explorer (interactive pictures per chapter; the book itself is on Amazon).
 require('./explorer').register(app, { db, auth, media, email, publicUrl: PUBLIC_URL });
+// Mare App 6 (v78) — usage analytics (first-party, no cookies of its own)
+const analytics = require('./analytics').register(app, { db, auth });
 // Mare's monthly post — Club Mare step 4 (Mare App 4). Links in the
 // letters use PUBLIC_URL (the live site; see email.js).
 require('./marepost').register(app, { db, auth, email, anthropic, model: TALK_MODEL,
@@ -2656,6 +2658,7 @@ app.get('/api/teacher/resources/:id/open', async (req, res) => {
   const resource = db.getTeacherResourceById(req.params.id);
   if (!resource || (!resource.active && payload.role === 'teacher')) return res.status(404).send('Not found');
   try {
+    analytics.serverEvent(req, 'resource_open', resource.id, '/teacher.html');
     if (resource.file_key) {
       const original = resource.file_key.split('/').pop().replace(/^\d+-/, '');
       const url = await media.getPlaybackUrl(resource.file_key, { inlineName: original });

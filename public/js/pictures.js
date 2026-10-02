@@ -9,6 +9,7 @@
   const params = new URLSearchParams(location.search);
   const fixedChapter = Number(params.get('chapter')) || 0; // staff preview
   let data = null, idx = 0, audio = null;
+  const track = (n, d, v) => { try { window.MareTrack && window.MareTrack.event(n, d, v); } catch { /* never break the page */ } }; // v78
   const found = new Set();
   // v74 — video scenes: spots appear between tStart and tEnd; a spot can
   // stop the video when it appears (once per pass); opening a spot pauses
@@ -33,6 +34,7 @@
   }
 
   function openSpot(spot, el) {
+    track('spot_open', `${data.chapter}:${spot.type}`);
     found.add(spot.id);
     el.classList.add('found');
     el.classList.remove('beckon');
@@ -86,6 +88,7 @@
     const msg = $('px-quiz-msg');
     $('px-pop-body').querySelectorAll('.px-answer').forEach(b => b.addEventListener('click', () => {
       const right = Number(b.dataset.i) === q.correct;
+      track('quiz_answer', `${data.chapter}:quiz`, right ? 1 : 0);
       if (right) {
         $('px-pop-body').querySelectorAll('.px-answer').forEach(x => { x.disabled = true; });
         b.classList.add('right');
@@ -129,7 +132,7 @@
         const out = await r.json().catch(() => ({}));
         if (test && r.ok) { msg.textContent = t('picturesWriteTestSent'); msg.className = 'px-quiz-msg right'; }
         else if (!r.ok) { msg.textContent = out.error || t('errorGeneric'); msg.className = 'px-quiz-msg wrong'; msg.hidden = false; return; }
-        else { msg.textContent = t('picturesWriteSent'); msg.className = 'px-quiz-msg right'; }
+        else { msg.textContent = t('picturesWriteSent'); msg.className = 'px-quiz-msg right'; track('write_sent', `${data.chapter}:write`); }
         msg.hidden = false;
         $('px-write').disabled = true; $('px-write-send').hidden = true; $('px-carry').hidden = false;
       } catch { msg.textContent = t('errorGeneric'); msg.className = 'px-quiz-msg wrong'; msg.hidden = false; }
@@ -175,10 +178,10 @@
   function setupVideo() {
     const v = vid();
     v.addEventListener('loadedmetadata', () => { layout(); tick(); });
-    v.addEventListener('play', () => { delete v.dataset.stoppedBySpot; $('px-bigplay').hidden = true; fmtBtn(); cancelAnimationFrame(raf); loop(); });
+    v.addEventListener('play', () => { if (v.currentTime < 0.5) track('video_start', `${data.chapter}:${idx + 1}`); delete v.dataset.stoppedBySpot; $('px-bigplay').hidden = true; fmtBtn(); cancelAnimationFrame(raf); loop(); });
     v.addEventListener('pause', () => { fmtBtn(); tick(); });
     v.addEventListener('seeked', tick);
-    v.addEventListener('ended', () => { fmtBtn(); $('px-bigplay').textContent = '↻'; $('px-bigplay').setAttribute('aria-label', t('picturesWatchAgain')); $('px-bigplay').hidden = false; });
+    v.addEventListener('ended', () => { track('video_end', `${data.chapter}:${idx + 1}`); fmtBtn(); $('px-bigplay').textContent = '↻'; $('px-bigplay').setAttribute('aria-label', t('picturesWatchAgain')); $('px-bigplay').hidden = false; });
     $('px-bigplay').onclick = () => {
       if (v.ended) { pausedFor.clear(); v.currentTime = 0; }
       $('px-bigplay').textContent = '▶';
@@ -228,6 +231,7 @@
     closePop();
     idx = Math.max(0, Math.min(i, data.scenes.length - 1));
     const scene = data.scenes[idx];
+    track('step_view', `${data.chapter}:${idx + 1}`);
     const img = $('px-img'), v = vid();
     isVideo = !!scene.video;
     resumeAfter = false; pausedFor.clear(); cancelAnimationFrame(raf);
@@ -317,6 +321,7 @@
 
   // Mare App 5 — Talk to Mare about the picture on screen.
   function openTalk() {
+    track('picture_talk', String(data.chapter));
     const scene = data && data.scenes[idx];
     if (!scene) return;
     closePop();

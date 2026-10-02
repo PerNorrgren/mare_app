@@ -41,6 +41,7 @@
     sel.onchange = async () => {
       try {
         const out = await api('/api/companion/chapter', { chapter: Number(sel.value) });
+        try { window.MareTrack && window.MareTrack.event('chapter_set', sel.value); } catch { /* fine */ } // v78
         data.chapter = out.chapter;
         renderPractice(out.practice);
         if (data.preview) $('cp-read-btn').href = `/pictures.html?chapter=${out.chapter}`;
@@ -130,6 +131,7 @@
       if (!message) { $('cp-msg-text').focus(); return; }
       try {
         const out = await api('/api/companion/message', { message, childName: $('cp-msg-child').value });
+        try { window.MareTrack && window.MareTrack.event('mare_message'); } catch { /* fine */ } // v78
         data.messages = out.messages;
         $('cp-msg-text').value = '';
         status.textContent = t('companionMsgSent');
@@ -146,6 +148,7 @@
       if (!stars) { errEl.textContent = t('companionRatePickStars'); errEl.hidden = false; return; }
       try {
         const out = await api('/api/companion/rating', { stars, comment: $('cp-rate-comment').value.trim() });
+        try { window.MareTrack && window.MareTrack.event('rate_book', '', stars); } catch { /* fine */ } // v78
         data.rating = out.rating;
         renderRating();
       } catch (err) { errEl.textContent = err.message; errEl.hidden = false; }

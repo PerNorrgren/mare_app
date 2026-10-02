@@ -295,6 +295,7 @@
       const variantField = document.getElementById('pd-variant-field');
       const variant = variantField.hidden ? null : document.getElementById('pd-variant').value;
       const existing = cart.find(item => item.productId === currentProduct.id && item.variant === variant);
+      try { window.MareTrack && window.MareTrack.event('add_to_cart', currentProduct.id, qty); } catch { /* fine */ } // v78
       if (existing) {
         existing.qty += qty;
       } else {
@@ -440,6 +441,7 @@
           tabKey = sessionStorage.getItem('mare_checkout_tab') || '';
           if (!tabKey) { tabKey = Math.random().toString(36).slice(2) + Date.now().toString(36); sessionStorage.setItem('mare_checkout_tab', tabKey); }
         } catch { /* private mode: no reuse, still works */ }
+        try { window.MareTrack && window.MareTrack.event('checkout_start'); } catch { /* fine */ } // v78
         const res = await fetch('/api/checkout', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
