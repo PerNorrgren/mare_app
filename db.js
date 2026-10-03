@@ -1106,6 +1106,17 @@ Volgende maand verschijnt er een nieuw raadsel uit het Fluisterbos. 🌲🔎', ?
   db.run(`CREATE TABLE IF NOT EXISTS a_devices (did TEXT PRIMARY KEY, first_seen TEXT, last_seen TEXT, role TEXT, user_id TEXT, linked_at TEXT)`);
   db.run(`CREATE TABLE IF NOT EXISTS a_bots (day TEXT, reason TEXT, n INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (day, reason))`);
 
+  // ── Mare App 6 (v82) — social media publishing (see social.js) ──
+  try { db.run(`ALTER TABLE app_config ADD COLUMN social_channels_json TEXT`); } catch {}
+  db.run(`CREATE TABLE IF NOT EXISTS social_queue (
+    id TEXT PRIMARY KEY, platform TEXT NOT NULL, content TEXT NOT NULL,
+    media_key TEXT, media_type TEXT, ai_media INTEGER NOT NULL DEFAULT 0,
+    status TEXT NOT NULL DEFAULT 'queued', scheduled_for TEXT, published_at TEXT,
+    bp_post_id TEXT, channel_id TEXT, error TEXT, created_by TEXT,
+    created_at TEXT DEFAULT (datetime('now')))`);
+  db.run(`CREATE INDEX IF NOT EXISTS social_queue_due ON social_queue (status, scheduled_for)`);
+  db.run(`CREATE TABLE IF NOT EXISTS social_times (platform TEXT PRIMARY KEY, days TEXT NOT NULL, times TEXT NOT NULL)`);
+
   // ── Mare App 5 — Talk to Mare in the pictures: what Mare knows.
   // companion_practices.summary = a short private summary of the chapter
   // (never shown; Mare only gets chapters up to the family's chapter, so
