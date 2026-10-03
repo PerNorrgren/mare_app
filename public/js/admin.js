@@ -135,6 +135,8 @@
     document.querySelectorAll('.admin-only-tab').forEach(el => { el.hidden = !isAdmin; });
 
     setupTabs();
+
+    addCloseButtons(); // v81
     setupBroadcastModal();
     setupWhatsNewModal();
     setupOfferModal();
@@ -186,10 +188,41 @@
     if (isAdmin) loadBackups();
   }
 
+  let lastTab = 'overview';
+  // ── Mare App 6 (v81) — a Close at the top and the bottom of every pop-out:
+  // the windows that open over the page, the Overview lists, the Email log,
+  // the Reports lists and 'Try it here' in the picture builder.
+  function addCloseButtons() {
+    const mk = (cls, text, fn) => { const b = document.createElement('button'); b.type = 'button'; b.className = cls; b.textContent = text; b.setAttribute('data-no-busy', ''); b.addEventListener('click', fn); return b; };
+    // windows over the page: a ✕ at the top that does what their own Close does
+    document.querySelectorAll('.admin-modal-backdrop').forEach(bd => {
+      const card = bd.querySelector('.admin-modal-card'); if (!card) return;
+      const own = bd.querySelector('[id$="-close-btn"]');
+      const close = () => { if (own) own.click(); else if (bd.id === 'flow-modal') flowClose(); else bd.hidden = true; };
+      if (!card.querySelector('.flow-modal-close, .pop-x')) { card.style.position = card.style.position || 'relative'; card.prepend(mk('pop-x', '✕', close)); card.querySelector('.pop-x').setAttribute('aria-label', t('adminClose')); }
+      if (!own) card.appendChild(Object.assign(document.createElement('div'), { className: 'pop-bottom' })).appendChild(mk('btn-ghost btn-small', t('adminClose'), close));
+    });
+    // Overview "At a glance" list: Close at the bottom too
+    const sd = document.getElementById('stat-detail');
+    if (sd && !sd.querySelector('.pop-bottom')) sd.appendChild(Object.assign(document.createElement('div'), { className: 'pop-bottom' })).appendChild(mk('btn-ghost btn-small', t('adminClose'), () => closeStatDetail()));
+    // Email log: Close at the top and the bottom, back to where you came from
+    const el = document.querySelector('#panel-emaillog .admin-card');
+    if (el && !el.querySelector('.pop-top')) {
+      const back = () => goToTab(lastTab && lastTab !== 'emaillog' ? lastTab : 'overview');
+      el.prepend(Object.assign(document.createElement('div'), { className: 'pop-top' })); el.querySelector('.pop-top').appendChild(mk('btn-ghost btn-small', `✕ ${t('adminClose')}`, back));
+      el.appendChild(Object.assign(document.createElement('div'), { className: 'pop-bottom' })).appendChild(mk('btn-ghost btn-small', `✕ ${t('adminClose')}`, back));
+    }
+    // Reports lists: Back at the bottom too
+    const pl = document.querySelector('#an-people .admin-card');
+    if (pl && !pl.querySelector('.pop-bottom')) pl.appendChild(Object.assign(document.createElement('div'), { className: 'pop-bottom' })).appendChild(mk('btn-ghost btn-small', `← ${t('anBackToReports')}`, () => closePeople()));
+  }
+
   function setupTabs() {
     document.querySelectorAll('#admin-tabs .admin-tab').forEach(btn => {
       btn.addEventListener('click', () => {
         if (btn.hidden) return;
+        const was = document.querySelector('#admin-tabs .admin-tab.active');
+        if (was && was !== btn) lastTab = was.getAttribute('data-tab'); // v81: Close goes back here
         document.querySelectorAll('#admin-tabs .admin-tab').forEach(b => b.classList.toggle('active', b === btn));
         const target = btn.getAttribute('data-tab');
         document.querySelectorAll('.admin-panel').forEach(p => p.classList.toggle('active', p.id === `panel-${target}`));
@@ -475,8 +508,9 @@
     if (host) {
       const ov = document.createElement('div');
       ov.className = 'pic-try';
-      ov.innerHTML = `<div class="pic-try-card"><button type="button" class="flow-modal-close" data-no-busy aria-label="Close">✕</button><div class="pic-try-body">${html}</div></div>`;
-      ov.addEventListener('click', (e) => { if (e.target === ov || e.target.closest('.flow-modal-close')) flowClose(); });
+      ov.innerHTML = `<div class="pic-try-card"><button type="button" class="flow-modal-close" data-no-busy aria-label="Close">✕</button><div class="pic-try-body">${html}</div>
+        <div class="pop-bottom"><button type="button" class="btn-ghost btn-small flow-modal-close-b" data-no-busy>${escapeHtml(t('adminClose'))}</button></div></div>`;
+      ov.addEventListener('click', (e) => { if (e.target === ov || e.target.closest('.flow-modal-close, .flow-modal-close-b')) flowClose(); });
       host.appendChild(ov);
       return ov.querySelector('.pic-try-body');
     }
