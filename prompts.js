@@ -322,7 +322,7 @@ const SOCIAL_PILLARS = `PILLARS — pick the one that fits the theme and say whi
 - offer: the book, the app, the free sample — ONLY in a SALES slot.
 Roughly four useful posts for every one that asks for anything.`;
 
-function buildSocialWriterPrompt({ facts, lang }) {
+function buildSocialWriterPrompt({ facts, lang, linkInfo }) {
   const nl = lang !== 'en';
   const rules = nl ? SOCIAL_PLATFORM_RULES_NL : SOCIAL_PLATFORM_RULES_EN;
   return `You write social media posts for Mare — a children's book and its companion app — for an audience in the Netherlands${nl ? '' : ' (this time in English, for the UK)'}.
@@ -333,7 +333,9 @@ FACTS — the only things you may state about the book, the app, the people and 
 <facts>
 ${String(facts || '').trim() || '(no facts given: write only general, useful posts and mention nothing specific)'}
 </facts>
-The free sample on the app's home page and the app itself are reached through the link token {{APP_LINK}}. Write {{APP_LINK}} exactly like that wherever a link belongs (only where the platform rules allow a link). Never write any other web address unless it appears word for word in the FACTS.
+LINKS: write the token {{APP_LINK}} exactly like that wherever a link belongs (only where the platform rules allow a link). It becomes the page that fits the post's audience:
+${linkInfo || '- every audience: the home page of the app, with a free sample of the book'}
+Write the words before the link so they fit where it goes. Never write any other web address unless it appears word for word in the FACTS.
 
 AUDIENCES:
 ${Object.values(SOCIAL_AUDIENCES).join('\n')}

@@ -2084,3 +2084,8 @@ button.an-card { font: inherit; text-align: left; border: 0; width: 100%; displa
 .mkt-result-title { font-weight: 700; color: var(--navy); margin: 4px 0; }
 .soc-note-toast { position: fixed; left: 50%; bottom: 28px; transform: translate(-50%, 20px); opacity: 0; background: var(--navy); color: #fff; padding: 10px 18px; border-radius: 999px; font-weight: 700; font-size: 0.9rem; transition: opacity .2s, transform .2s; z-index: 9999; pointer-events: none; max-width: 90vw; text-align: center; }
 .soc-note-toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+/* v84 — post links */
+#soc-post-links input { flex: 1; min-width: 160px; font: inherit; font-size: 0.9rem; padding: 7px 10px; border-radius: 8px; border: 1.5px solid rgba(22,48,92,0.2); }
+.soc-open { font-size: 0.85rem; font-weight: 700; color: var(--navy); white-space: nowrap; }
+.soc-link { background: #E8F1FB; border-radius: 6px; padding: 0 5px; font-weight: 600; }

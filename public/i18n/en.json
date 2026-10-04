@@ -1605,5 +1605,12 @@
   "socGenDesc": "Paste something to work from (a What's New item, a chapter idea, a note from Patricia), or just write a theme. The writer follows the Dutch posting rules and the Facts about Mare. Read every post before it goes out.",
   "socLang": "Language",
   "picturesLoading": "Just a moment…",
-  "picturesLoadFailed": "This won't load right now. Tap to try again."
+  "picturesLoadFailed": "This won't load right now. Tap to try again.",
+  "socPostLinks": "Post links",
+  "socPostLinksNote": "Where a post sends people, by who it is for: in the first comment, and as the pin's link on Pinterest. A page of the app (/teacher.html) or a full address. Changing one changes it for every post still waiting, drafts too.",
+  "socSaveLinks": "Save post links",
+  "socOpenPage": "Open ↗",
+  "socLinkTokenTip": "The post link for this post type (Post links on the Social media card)",
+  "socLinkGoesTo": "The post link goes to {url}.",
+  "pageStatusRemoved": "No longer in the app"
 }

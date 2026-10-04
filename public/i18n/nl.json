@@ -1605,5 +1605,12 @@
   "socGenDesc": "Plak iets om vanuit te werken (een nieuwtje, een idee bij een hoofdstuk, een notitie van Patricia), of schrijf alleen een thema. De schrijver volgt de Nederlandse plaatsingsregels en de Feiten over Mare. Lees elk bericht voordat het online gaat.",
   "socLang": "Taal",
   "picturesLoading": "Even laden…",
-  "picturesLoadFailed": "Dit laadt nu even niet. Tik om het opnieuw te proberen."
+  "picturesLoadFailed": "Dit laadt nu even niet. Tik om het opnieuw te proberen.",
+  "socPostLinks": "Links in berichten",
+  "socPostLinksNote": "Waar een bericht mensen naartoe stuurt, per doelgroep: in de eerste reactie, en als link van de pin op Pinterest. Een pagina van de app (/teacher.html) of een volledig adres. Pas je er een aan, dan geldt dat voor elk bericht dat nog wacht, ook concepten.",
+  "socSaveLinks": "Links opslaan",
+  "socOpenPage": "Openen ↗",
+  "socLinkTokenTip": "De link voor dit soort bericht (Links in berichten, op de kaart Sociale media)",
+  "socLinkGoesTo": "De link gaat naar {url}.",
+  "pageStatusRemoved": "Niet meer in de app"
 }

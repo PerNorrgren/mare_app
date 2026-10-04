@@ -580,42 +580,6 @@
         <button type="button" class="btn-primary" id="shipping-save-btn" data-i18n="adminSaveChanges">Save</button>
       </div>
 
-      <div class="admin-card">
-        <h2 data-i18n="adminSocialLinksTitle">Social links</h2>
-        <p class="admin-card-sub" data-i18n="adminSocialLinksDesc">Mare's own accounts — shown in the site footer.</p>
-        <form id="social-link-form">
-          <div class="admin-form-row">
-            <div class="field">
-              <label for="sl-platform" data-i18n="adminFieldPlatform">Platform</label>
-              <select id="sl-platform">
-                <option value="instagram">Instagram</option>
-                <option value="facebook">Facebook</option>
-                <option value="tiktok">TikTok</option>
-                <option value="youtube">YouTube</option>
-                <option value="linkedin">LinkedIn</option>
-                <option value="threads">Threads</option>
-                <option value="x">X</option>
-                <option value="other">Other</option>
-              </select>
-            </div>
-            <div class="field">
-              <label for="sl-label" data-i18n="adminFieldLabelOptional">Label (optional)</label>
-              <input type="text" id="sl-label" placeholder="@marethestorycorner">
-            </div>
-          </div>
-          <div class="field">
-            <label for="sl-url" data-i18n="adminFieldUrl">URL or path</label>
-            <input type="url" id="sl-url" placeholder="https://…" required>
-          </div>
-          <p class="form-error" id="social-link-error" hidden></p>
-          <button type="submit" class="btn-primary" id="social-link-submit-btn" data-i18n="adminAddSocialLink">Add link</button>
-        </form>
-      </div>
-      <div class="admin-card">
-        <h2 data-i18n="adminSocialLinksExistingTitle">Existing links</h2>
-        <div id="social-links-list"><p class="admin-empty-note" data-i18n="adminLoading">Loading…</p></div>
-      </div>
-
       <!-- Mare App 6 (v82) — social media publishing (BulkPublish, Mare's own organization) -->
       <div class="admin-card" id="social-card">
         <h2 data-i18n="socTitle">Social media</h2>
@@ -629,6 +593,10 @@
           <button type="button" class="btn-primary btn-small admin-only-tab" id="soc-save-channels" data-i18n="socSaveChannels">Save channels</button>
           <button type="button" class="btn-ghost btn-small" id="soc-refresh" data-i18n="socRefresh">Refresh list</button>
         </div>
+        <h3 class="soc-h" data-i18n="socPostLinks">Post links</h3>
+        <p class="admin-empty-note" data-i18n="socPostLinksNote">Where a post sends people, by who it is for: in the first comment, and as the pin's link on Pinterest. A page of the app (/teacher.html) or a full address. Changing one changes it for every post still waiting, drafts too.</p>
+        <div id="soc-post-links"></div>
+        <div class="soc-btns"><button type="button" class="btn-primary btn-small admin-only-tab" id="soc-save-links" data-i18n="socSaveLinks">Save post links</button></div>
         <h3 class="soc-h" data-i18n="socHealth">Health</h3>
         <p class="admin-empty-note" data-i18n="socHealthNote">Checked every hour. An email goes out once when a chosen channel stops working or a post fails, once when it works again, and at 08:00 if a posting time in the next 48 hours has nothing to post.</p>
         <div id="soc-health"></div>

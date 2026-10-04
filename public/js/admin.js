@@ -160,7 +160,6 @@
     loadPages();
     loadDirectory();
     loadAdminSettings();
-    loadSocialLinks();
     loadMarketingHistory();
     loadSocial(); // v82
     loadBroadcasts();
@@ -1525,7 +1524,7 @@
     });
   }
 
-  const PAGE_STATUS_KEY = { live: 'pageStatusLive', planned: 'pageStatusPlanned', stub: 'pageStatusStub' };
+  const PAGE_STATUS_KEY = { live: 'pageStatusLive', planned: 'pageStatusPlanned', stub: 'pageStatusStub', removed: 'pageStatusRemoved' };
   const PAGE_KIND_KEY = { internal: 'pageKindInternal', external: 'pageKindExternal' };
 
   async function loadPages() {
@@ -1589,83 +1588,6 @@
     }
   }
 
-  // ── Marketing: social links ──
-  const PLATFORM_LABEL = { instagram: 'Instagram', facebook: 'Facebook', tiktok: 'TikTok', youtube: 'YouTube', linkedin: 'LinkedIn', threads: 'Threads', x: 'X', other: 'Other' };
-
-  function setupSocialLinkForm() {
-    document.getElementById('social-link-form').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      clearError('social-link-error');
-      const submitBtn = document.getElementById('social-link-submit-btn');
-      submitBtn.disabled = true;
-      try {
-        const platform = document.getElementById('sl-platform').value;
-        const label = document.getElementById('sl-label').value.trim();
-        const url = document.getElementById('sl-url').value.trim();
-        if (!url) throw new Error(t('adminErrorAddUrl'));
-        await api('/api/admin/social-links', { method: 'POST', body: JSON.stringify({ platform, label, url }) });
-        document.getElementById('social-link-form').reset();
-        await loadSocialLinks();
-      } catch (err) {
-        showError('social-link-error', err.message || t('adminErrorSavePage'));
-      } finally {
-        submitBtn.disabled = false;
-      }
-    });
-  }
-
-  async function loadSocialLinks() {
-    const container = document.getElementById('social-links-list');
-    try {
-      const data = await api('/api/admin/social-links');
-      const links = data.links || [];
-      if (!links.length) {
-        container.innerHTML = `<p class="admin-empty-note">${escapeHtml(t('adminNoSocialLinksYet'))}</p>`;
-        return;
-      }
-      container.innerHTML = '';
-      const table = document.createElement('table');
-      table.className = 'admin-table';
-      table.innerHTML = `<thead><tr><th>${t('adminFieldPlatform')}</th><th>${t('adminFieldUrl')}</th><th></th></tr></thead>`;
-      const tbody = document.createElement('tbody');
-      links.forEach(l => {
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-          <td>${escapeHtml(PLATFORM_LABEL[l.platform] || l.platform)}${l.label ? `<br><span class="admin-empty-note">${escapeHtml(l.label)}</span>` : ''}</td>
-          <td><a href="${escapeHtml(l.url)}" target="_blank" rel="noopener">${escapeHtml(l.url)}</a></td>
-        `;
-        const actionsTd = document.createElement('td');
-        const actions = document.createElement('div');
-        actions.className = 'admin-resource-actions';
-        const toggleBtn = document.createElement('button');
-        toggleBtn.type = 'button';
-        toggleBtn.textContent = l.active ? t('adminHide') : t('adminShow');
-        toggleBtn.addEventListener('click', async () => {
-          await api(`/api/admin/social-links/${l.id}`, { method: 'PATCH', body: JSON.stringify({ active: l.active ? 0 : 1 }) });
-          loadSocialLinks();
-        });
-        actions.appendChild(toggleBtn);
-        const deleteBtn = document.createElement('button');
-        deleteBtn.type = 'button';
-        deleteBtn.className = 'danger';
-        deleteBtn.textContent = t('adminDelete');
-        deleteBtn.addEventListener('click', async () => {
-          if (!confirm(t('adminConfirmDelete', { name: PLATFORM_LABEL[l.platform] || l.platform }))) return;
-          await api(`/api/admin/social-links/${l.id}`, { method: 'DELETE' });
-          loadSocialLinks();
-        });
-        actions.appendChild(deleteBtn);
-        actionsTd.appendChild(actions);
-        tr.appendChild(actionsTd);
-        tbody.appendChild(tr);
-      });
-      table.appendChild(tbody);
-      container.appendChild(table);
-    } catch {
-      container.innerHTML = `<p class="admin-empty-note">${escapeHtml(t('adminCouldNotLoadSocialLinks'))}</p>`;
-    }
-  }
-
   // ── Marketing: generate social posts (v83: Dutch rules, audience, theme) ──
   function setupMarketingGenerator() {
     document.getElementById('marketing-generate-btn').addEventListener('click', async () => {
@@ -1693,6 +1615,19 @@
     const was = new Set(Array.from(box.querySelectorAll('.mkt-platform:checked')).map(i => i.value));
     const first = !box.children.length;
     box.innerHTML = socState.platforms.map(p => `<label class="mkt-platform-check"><input type="checkbox" class="mkt-platform" value="${escapeHtml(p)}" ${(first ? ['instagram', 'facebook'].includes(p) : was.has(p)) ? 'checked' : ''}> ${escapeHtml(socLabel(p))}</label>`).join('');
+  }
+
+  // v84: posts carry {{LINK}}; show it as the page it will become
+  function withLink(text, audience) {
+    const html = escapeHtml(text || '');
+    const full = socState && socState.postLinksFull && (socState.postLinksFull[audience] || socState.postLinksFull.any);
+    return full ? html.split('{{LINK}}').join(`<span class="soc-link" title="${escapeHtml(t('socLinkTokenTip'))}">${escapeHtml(full)}</span>`) : html;
+  }
+  function renderPostLinks() {
+    const box = document.getElementById('soc-post-links'); if (!box || !socState) return;
+    const pl = socState.postLinks || {}, dis = socIsAdmin() ? '' : 'disabled';
+    box.innerHTML = SOC_AUD.map(a => `<div class="soc-row"><span class="soc-p">${escapeHtml(audLabel(a))}</span><input type="text" data-aud="${a}" value="${escapeHtml(pl[a] || '')}" ${dis}>
+      <a href="${escapeHtml(socState.postLinksFull[a] || '#')}" target="_blank" rel="noopener" class="soc-open">${escapeHtml(t('socOpenPage'))}</a></div>`).join('');
   }
 
   // notes on a post: picture to attach, carousel slides, anything to check
@@ -1743,9 +1678,9 @@
       if (r.title) { const ti = document.createElement('div'); ti.className = 'mkt-result-title'; ti.textContent = r.title; card.appendChild(ti); }
       const text = document.createElement('div');
       text.className = 'mkt-result-text';
-      text.textContent = r.content;
+      text.innerHTML = withLink(r.content, r.audience || 'any');
       card.appendChild(text);
-      if (r.firstComment) { const fc = document.createElement('div'); fc.className = 'soc-fc'; fc.innerHTML = `<b>${escapeHtml(t('socFirstCommentShort'))}</b> ${escapeHtml(r.firstComment)}`; card.appendChild(fc); }
+      if (r.firstComment) { const fc = document.createElement('div'); fc.className = 'soc-fc'; fc.innerHTML = `<b>${escapeHtml(t('socFirstCommentShort'))}</b> ${withLink(r.firstComment, r.audience || 'any')}`; card.appendChild(fc); }
       const notes = socNotesHtml(r.notes);
       if (notes) { const n = document.createElement('div'); n.className = 'soc-notes'; n.innerHTML = notes; card.appendChild(n); }
       container.appendChild(card);
@@ -1788,6 +1723,7 @@
     warn.hidden = !socState.notChosen.length;
     warn.textContent = socState.notChosen.length ? t('socOtherChannels', { list: socState.notChosen.map(c => `${socLabel(c.platform)}: ${c.name} (id ${c.id})`).join(', ') }) : '';
     loadPinBoards();
+    renderPostLinks();
     renderHealth(socState.lastHealth);
     document.getElementById('soc-alert-emails').value = socState.alertEmails || '';
     document.getElementById('soc-alert-emails').disabled = !isAdmin;
@@ -1888,8 +1824,8 @@
       <div class="soc-post-main">
         <div class="soc-post-head"><b>${escapeHtml(socLabel(r.platform))}</b> · ${escapeHtml(head)} · <span class="soc-aud soc-aud-${escapeHtml(r.audience || 'any')}">${escapeHtml(audLabel(r.audience || 'any'))}</span>${r.theme ? ` · <i>${escapeHtml(r.theme)}</i>` : ''}${r.ai_media ? ' · AI' : ''}</div>
         ${r.title ? `<div class="mkt-result-title">${escapeHtml(r.title)}</div>` : ''}
-        <div class="soc-post-text">${escapeHtml(r.content)}</div>
-        ${r.first_comment ? `<div class="soc-fc"><b>${escapeHtml(t('socFirstCommentShort'))}</b> ${escapeHtml(r.first_comment)}</div>` : ''}
+        <div class="soc-post-text">${withLink(r.content, r.audience || 'any')}</div>
+        ${r.first_comment ? `<div class="soc-fc"><b>${escapeHtml(t('socFirstCommentShort'))}</b> ${withLink(r.first_comment, r.audience || 'any')}</div>` : ''}
         ${missingMedia ? `<div class="soc-post-err">${escapeHtml(t('socNeedsPicture', { p: socLabel(r.platform) }))}</div>` : ''}
         ${r.notes && ['draft', 'queued', 'failed'].includes(r.status) ? `<div class="soc-notes">${socNotesHtml(r.notes)}</div>` : ''}
         ${r.error ? `<div class="soc-post-err">${escapeHtml(r.error)}</div>` : ''}
@@ -1935,7 +1871,9 @@
     document.getElementById('sp-fc-wrap').hidden = !fcOk;
     document.getElementById('sp-title-wrap').hidden = p !== 'pinterest';
     const noLink = socState && (socState.noLinkPlatforms || []).includes(p);
-    document.getElementById('sp-link-note').textContent = noLink ? t('socLinkMoves', { p: socLabel(p) }) : p === 'instagram' ? t('socLinkBio') : '';
+    const aud = document.getElementById('sp-audience').value;
+    const goes = socState && socState.postLinksFull ? ' ' + t('socLinkGoesTo', { url: socState.postLinksFull[aud] || socState.postLinksFull.any }) : '';
+    document.getElementById('sp-link-note').textContent = (noLink ? t('socLinkMoves', { p: socLabel(p) }) : p === 'instagram' ? t('socLinkBio') : '') + goes;
   }
   // open the post window: r = existing post (edit), a copy (id null), or a generated post
   function openSocialPost(r) {
@@ -1971,6 +1909,7 @@
     document.getElementById('sp-when').addEventListener('change', (e) => { document.getElementById('sp-at-wrap').hidden = e.target.value !== 'at'; });
     document.getElementById('sp-text').addEventListener('input', socCount);
     document.getElementById('sp-platform').addEventListener('change', socCount);
+    document.getElementById('sp-audience').addEventListener('change', socCount);
     document.getElementById('sp-file').addEventListener('change', async (e) => {
       const file = e.target.files[0]; if (!file) return;
       const isVid = (file.type || '').startsWith('video/');
@@ -2021,6 +1960,12 @@
         if (!document.getElementById('soc-pin-row').hidden) await api('/api/admin/social/settings', { method: 'PUT', body: JSON.stringify({ pinterestBoard: document.getElementById('soc-pin-board').value }) });
       } catch (e) { const st = document.getElementById('soc-status'); st.textContent = e.message; st.hidden = false; throw e; }
       await loadSocial(true);
+    });
+    document.getElementById('soc-save-links').addEventListener('click', async () => {
+      const postLinks = {}; document.querySelectorAll('#soc-post-links input[data-aud]').forEach(i => { postLinks[i.dataset.aud] = i.value; });
+      try { await api('/api/admin/social/settings', { method: 'PUT', body: JSON.stringify({ postLinks }) }); }
+      catch (e) { alert(e.message); throw e; }
+      await loadSocial();
     });
     document.getElementById('soc-check-health').addEventListener('click', async () => {
       const d = await api('/api/admin/social/health-check', { method: 'POST' });
@@ -4175,7 +4120,6 @@
     setupForgotPassword();
     setupResourceForm();
     setupPageForm();
-    setupSocialLinkForm();
     setupMarketingGenerator();
     setupStaffForm();
 

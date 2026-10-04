@@ -1641,31 +1641,7 @@ app.get('/api/whats-new', auth.requireAuthApi(['parent', 'teacher']), (req, res)
 });
 
 // ─────────────────────────────────────────────────────────────────────
-// SOCIAL LINKS — public read (site footer), admin+support manage
-// ─────────────────────────────────────────────────────────────────────
-
-app.get('/api/social-links', (req, res) => {
-  res.json({ links: db.getActiveSocialLinks() });
-});
-app.get('/api/admin/social-links', auth.requireAuthApi(['admin', 'support']), (req, res) => {
-  res.json({ links: db.getAllSocialLinks() });
-});
-app.post('/api/admin/social-links', auth.requireAuthApi(['admin', 'support']), (req, res) => {
-  const { platform, url, label, sortOrder } = req.body || {};
-  if (!platform || !url) return res.status(400).json({ error: 'platform and url required' });
-  const id = db.createSocialLink({ platform, url, label, sortOrder });
-  res.json({ ok: true, id });
-});
-app.patch('/api/admin/social-links/:id', auth.requireAuthApi(['admin', 'support']), (req, res) => {
-  const ok = db.updateSocialLink(req.params.id, req.body || {});
-  if (!ok) return res.status(404).json({ error: 'Not found' });
-  res.json({ ok: true });
-});
-app.delete('/api/admin/social-links/:id', auth.requireAuthApi(['admin', 'support']), (req, res) => {
-  db.deleteSocialLink(req.params.id);
-  res.json({ ok: true });
-});
-
+// (v84: the Social links footer was removed — posts link back to the app instead)
 // ─────────────────────────────────────────────────────────────────────
 // MARKETING — "reformat for social": paste content, get platform-ready
 // posts an admin copies and posts by hand. No auto-posting integration
@@ -2686,6 +2662,53 @@ app.get('/api/teacher/resources', auth.requireAuthApi(['teacher']), (req, res) =
 // Content, not payments, so admin+support both manage it.
 // ─────────────────────────────────────────────────────────────────────
 
+// Mare App 7 (v84) — the Pages list keeps itself up to date. Every page
+// of the app is a file in public/, so at each start-up the server looks
+// there: a new page is added to the list, a "planned" page whose file now
+// exists becomes Live, and a page whose file has gone is marked "No longer
+// in the app" (never deleted, so its notes stay). External links and
+// anything typed in by hand are left alone.
+const PAGE_LABELS = {
+  '/companion.html': ['Book Companion', 'Pictures and practices for each chapter, after reading.'],
+  '/pictures.html': ['Pictures (child mode)', 'Full-screen pictures and videos with spots, on the family tablet.'],
+  '/forest.html': ['The Forest of Words', 'The Whispering Woods.'],
+  '/riddle.html': ['Riddles', 'Riddles from the Whispering Woods.'],
+  '/press.html': ['Press release', 'Press release / persbericht.'],
+  '/editor.html': ['Text editor (staff)', 'Edit the words on the site. Staff only.'],
+  '/admin-content.html': ['Book content (staff)', 'Book chapters and content. Staff only.'],
+  '/reset-password.html': ['Reset password', 'Opened from the reset email.'],
+  '/merchandise.html': ['Shop', 'The book (Amazon), pouches and other products.'],
+};
+function syncAppPages() {
+  const fs = require('fs'), path = require('path');
+  const dir = path.join(__dirname, 'public');
+  let files = [];
+  try { files = fs.readdirSync(dir).filter(f => f.endsWith('.html')); } catch (e) { console.error('pages sync: could not read public/', e.message); return; }
+  const urlOf = (f) => (f === 'index.html' ? '/' : '/' + f);
+  const present = new Set(files.map(urlOf));
+  const pages = db.getAllAppPages();
+  const known = new Set(pages.map(p => p.url));
+  let sort = pages.reduce((m, p) => Math.max(m, p.sort_order || 0), 0);
+  const today = new Date().toISOString().slice(0, 10);
+  let added = 0, changed = 0;
+  for (const f of files) {
+    const url = urlOf(f);
+    if (known.has(url)) continue;
+    let title = '';
+    try { const m = fs.readFileSync(path.join(dir, f), 'utf8').match(/<title>([^<]*)<\/title>/i); title = m ? m[1].replace(/^Mare\s*[—-]\s*/, '').trim() : ''; } catch { /* use the file name */ }
+    const [label, desc] = PAGE_LABELS[url] || [title || f.replace(/\.html$/, ''), ''];
+    db.createAppPage({ label, url, kind: 'internal', status: 'live', description: `${desc ? desc + ' ' : ''}(Added automatically ${today}.)`, sortOrder: (sort += 10) });
+    added++;
+  }
+  for (const p of pages) {
+    if (p.kind === 'external' || !/^\/[^/]*$/.test(p.url)) continue; // only simple internal pages
+    const exists = present.has(p.url);
+    const next = !exists ? 'removed' : (p.status === 'planned' || p.status === 'removed') ? 'live' : p.status;
+    if (next !== p.status) { db.updateAppPage(p.id, { ...p, status: next, sortOrder: p.sort_order }); changed++; }
+  }
+  if (added || changed) console.log(`Pages list: ${added} added, ${changed} updated.`);
+}
+
 app.get('/api/admin/pages', auth.requireAuthApi(['admin', 'support']), (req, res) => {
   res.json({ pages: db.getAllAppPages() });
 });
@@ -2989,6 +3012,7 @@ app.get('/health', (req, res) => res.json({ ok: true }));
 
 db.getDb().then(() => {
   startCron();
+  try { syncAppPages(); } catch (e) { console.error('pages sync failed:', e.message); } // v84
   server.listen(PORT, () => console.log(`Mare app listening on :${PORT}`));
 }).catch(e => {
   console.error('Failed to initialise database', e);
