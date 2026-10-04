@@ -2055,3 +2055,32 @@ button.an-card { font: inherit; text-align: left; border: 0; width: 100%; displa
 .soc-upload { display: inline-block; cursor: pointer; margin: 4px 0; }
 .soc-count { display: block; text-align: right; font-size: 0.78rem; color: rgba(22,48,92,0.55); } .soc-count.over { color: #A5473A; font-weight: 700; }
 #sp-at-wrap[hidden] { display: none; }
+
+/* ── Mare App 7 (v83) — social: posting times, drafts, notes, health ── */
+.soc-slot-table { display: grid; gap: 4px; margin-top: 6px; overflow-x: auto; }
+.soc-slot { display: grid; grid-template-columns: 150px 80px 76px 120px minmax(220px, 1fr) 40px 40px; gap: 8px; align-items: center; padding: 4px 0; border-bottom: 1px solid rgba(22,48,92,0.06); min-width: 760px; }
+.soc-slot.off { opacity: 0.5; }
+.soc-slot-head { font-size: 0.78rem; font-weight: 700; color: rgba(22,48,92,0.6); border-bottom: 1.5px solid rgba(22,48,92,0.15); }
+.soc-slot select, .soc-slot input[type="text"] { width: 100%; font: inherit; font-size: 0.88rem; padding: 6px 8px; border-radius: 8px; border: 1.5px solid rgba(22,48,92,0.2); background: #fff; min-width: 0; box-sizing: border-box; }
+.soc-slot .soc-wait { display: block; font-size: 0.72rem; color: rgba(22,48,92,0.55); font-style: normal; margin-top: 2px; }
+.soc-aud-teachers { background: #E8F1FB !important; } .soc-aud-parents { background: #FBEFE6 !important; } .soc-aud-sales { background: #FFF4D6 !important; }
+.soc-aud { padding: 1px 8px; border-radius: 999px; background: #EEF1F8; font-weight: 700; font-size: 0.78rem; }
+.soc-unsaved { box-shadow: 0 0 0 3px rgba(226,190,110,0.7); }
+.soc-ahead { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 6px 0 2px; font-size: 0.9rem; }
+.soc-ahead select { font: inherit; padding: 6px 8px; border-radius: 8px; border: 1.5px solid rgba(22,48,92,0.2); }
+.soc-ahead-status { font-size: 0.88rem; color: var(--navy); }
+.soc-spin { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(22,48,92,0.2); border-top-color: var(--navy); border-radius: 50%; animation: soc-spin 0.8s linear infinite; vertical-align: -2px; }
+@keyframes soc-spin { to { transform: rotate(360deg); } }
+.soc-post.draft { background: rgba(255,244,214,0.35); }
+.soc-post-nomedia { width: 96px; height: 96px; border-radius: 10px; background: #EEF1F8; display: flex; align-items: center; justify-content: center; font-size: 1.6rem; color: #A5473A; }
+.soc-fc { margin-top: 6px; font-size: 0.85rem; color: var(--navy); background: #F3F5FA; border-radius: 8px; padding: 6px 10px; white-space: pre-wrap; }
+.soc-notes { margin-top: 6px; font-size: 0.83rem; color: rgba(22,48,92,0.8); border-left: 3px solid rgba(226,190,110,0.8); padding: 4px 10px; }
+.soc-notes ol { margin: 4px 0 0 18px; padding: 0; }
+.soc-note-warn { color: #8A4B12; font-weight: 600; margin-bottom: 4px; }
+.soc-warn-text { color: #8A6A12; font-weight: 700; }
+.soc-alert-field { margin-top: 8px; max-width: 520px; }
+.soc-alert-field input { width: 100%; }
+.soc-facts { width: 100%; box-sizing: border-box; font: 0.88rem/1.45 ui-monospace, Menlo, monospace; padding: 10px 12px; border-radius: 10px; border: 1.5px solid rgba(22,48,92,0.2); }
+.mkt-result-title { font-weight: 700; color: var(--navy); margin: 4px 0; }
+.soc-note-toast { position: fixed; left: 50%; bottom: 28px; transform: translate(-50%, 20px); opacity: 0; background: var(--navy); color: #fff; padding: 10px 18px; border-radius: 999px; font-weight: 700; font-size: 0.9rem; transition: opacity .2s, transform .2s; z-index: 9999; pointer-events: none; max-width: 90vw; text-align: center; }
+.soc-note-toast.show { opacity: 1; transform: translate(-50%, 0); }

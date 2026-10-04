@@ -623,7 +623,7 @@ require('./explorer').register(app, { db, auth, media, email, publicUrl: PUBLIC_
 // Mare App 6 (v78) — usage analytics (first-party, no cookies of its own)
 const analytics = require('./analytics').register(app, { db, auth });
 // Mare App 6 (v82) — social media publishing via BulkPublish (Mare's own organization)
-require('./social').register(app, { db, auth, media });
+require('./social').register(app, { db, auth, media, email, anthropic, model: TALK_MODEL, publicUrl: PUBLIC_URL }); // v83: + writer, health emails
 // Mare's monthly post — Club Mare step 4 (Mare App 4). Links in the
 // letters use PUBLIC_URL (the live site; see email.js).
 require('./marepost').register(app, { db, auth, email, anthropic, model: TALK_MODEL,

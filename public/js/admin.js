@@ -1666,140 +1666,257 @@
     }
   }
 
-  // ── Marketing: generate social posts ──
+  // ── Marketing: generate social posts (v83: Dutch rules, audience, theme) ──
   function setupMarketingGenerator() {
     document.getElementById('marketing-generate-btn').addEventListener('click', async () => {
       clearError('marketing-error');
       const source = document.getElementById('mkt-source').value.trim();
+      const theme = document.getElementById('mkt-theme').value.trim();
       const platforms = Array.from(document.querySelectorAll('.mkt-platform:checked')).map(el => el.value);
-      const includeCta = document.getElementById('mkt-include-cta').checked;
       const resultsEl = document.getElementById('marketing-results');
-      const btn = document.getElementById('marketing-generate-btn');
-      if (!source) return showError('marketing-error', t('adminErrorSourceRequired'));
-      if (!platforms.length) return showError('marketing-error', t('adminErrorPlatformRequired'));
-      btn.disabled = true;
+      if (!source && !theme) { showError('marketing-error', t('socGenNeedSource')); throw new Error('source'); }
+      if (!platforms.length) { showError('marketing-error', t('adminErrorPlatformRequired')); throw new Error('platform'); }
       resultsEl.innerHTML = `<p class="admin-empty-note">${escapeHtml(t('adminGenerating'))}</p>`;
       try {
-        const data = await api('/api/admin/marketing/generate', { method: 'POST', body: JSON.stringify({ sourceText: source, platforms, includeCta }) });
+        const data = await api('/api/admin/social/generate', { method: 'POST', body: JSON.stringify({ sourceText: source, theme, platforms, audience: document.getElementById('mkt-audience').value, lang: document.getElementById('mkt-lang').value }) });
         renderMarketingResults(resultsEl, data.results);
         loadMarketingHistory();
       } catch (err) {
         resultsEl.innerHTML = '';
         showError('marketing-error', err.message || t('adminErrorGenerateFailed'));
-      } finally {
-        btn.disabled = false;
+        throw err;
       }
     });
   }
+  function renderGenPlatforms() {
+    const box = document.getElementById('mkt-platforms'); if (!box || !socState) return;
+    const was = new Set(Array.from(box.querySelectorAll('.mkt-platform:checked')).map(i => i.value));
+    const first = !box.children.length;
+    box.innerHTML = socState.platforms.map(p => `<label class="mkt-platform-check"><input type="checkbox" class="mkt-platform" value="${escapeHtml(p)}" ${(first ? ['instagram', 'facebook'].includes(p) : was.has(p)) ? 'checked' : ''}> ${escapeHtml(socLabel(p))}</label>`).join('');
+  }
 
+  // notes on a post: picture to attach, carousel slides, anything to check
+  function socNotesHtml(n) {
+    if (!n || typeof n !== 'object') return '';
+    const parts = [];
+    if (n.warnings && n.warnings.length) parts.push(`<div class="soc-note-warn">⚠ ${n.warnings.map(escapeHtml).join('<br>⚠ ')}</div>`);
+    if (n.picture) parts.push(`<div><b>${escapeHtml(t('socNotePicture'))}</b> ${escapeHtml(n.picture)}</div>`);
+    if (n.slides && n.slides.length) parts.push(`<div><b>${escapeHtml(t('socNoteSlides'))}</b><ol>${n.slides.map(x => `<li>${escapeHtml(x)}</li>`).join('')}</ol></div>`);
+    return parts.join('');
+  }
+  // results: { platform: string (old history) | { content, firstComment, title, notes, audience } | { error } }
   function renderMarketingResults(container, results) {
     container.innerHTML = '';
-    Object.keys(results).forEach(platform => {
+    Object.keys(results || {}).forEach(platform => {
+      const raw = results[platform];
+      const r = typeof raw === 'string' ? { content: raw } : (raw || {});
       const card = document.createElement('div');
       card.className = 'mkt-result-card';
       const header = document.createElement('div');
       header.className = 'mkt-result-platform';
-      const label = document.createElement('span');
-      label.textContent = PLATFORM_LABEL[platform] || platform;
-      header.appendChild(label);
+      const lab = document.createElement('span');
+      lab.textContent = socLabel(platform) + (r.audience && r.audience !== 'any' ? ` · ${t('socAud' + r.audience[0].toUpperCase() + r.audience.slice(1))}` : '');
+      header.appendChild(lab);
+      card.appendChild(header);
+      if (r.error) { const e = document.createElement('p'); e.className = 'form-error'; e.textContent = r.error; card.appendChild(e); container.appendChild(card); return; }
       const copyBtn = document.createElement('button');
       copyBtn.type = 'button';
       copyBtn.className = 'btn-ghost btn-sm';
+      copyBtn.setAttribute('data-no-busy', '');
       copyBtn.textContent = t('adminCopy');
       copyBtn.addEventListener('click', async () => {
-        try {
-          await navigator.clipboard.writeText(results[platform]);
-          copyBtn.textContent = t('adminCopied');
-          setTimeout(() => { copyBtn.textContent = t('adminCopy'); }, 1800);
-        } catch { /* clipboard permission denied — text is still visible to select manually */ }
+        try { await navigator.clipboard.writeText(r.content); copyBtn.textContent = t('adminCopied'); setTimeout(() => { copyBtn.textContent = t('adminCopy'); }, 1800); } catch { /* text is still visible */ }
       });
       header.appendChild(copyBtn);
-      // v82 — post it: straight away, into the queue (next free time), or edit first
-      if (SOC_LABEL[platform]) {
-        const mk = (key, cls, fn, noBusy) => { const b = document.createElement('button'); b.type = 'button'; b.className = `${cls} btn-sm`; b.textContent = t(key); if (noBusy) b.setAttribute('data-no-busy', ''); b.addEventListener('click', fn); header.appendChild(b); return b; };
-        mk('socEditFirst', 'btn-ghost', () => openSocialPost({ platform, content: results[platform] }), true);
-        mk('socAddToQueue', 'btn-ghost', async () => { await api('/api/admin/social/queue', { method: 'POST', body: JSON.stringify({ platform, content: results[platform], scheduledFor: 'next' }) }); loadSocialQueue(); });
-        mk('socPublishNow', 'btn-primary', async () => {
-          if (!confirm(t('socPublishConfirm', { p: SOC_LABEL[platform] }))) return;
-          try { await api('/api/admin/social/publish', { method: 'POST', body: JSON.stringify({ platform, content: results[platform] }) }); } finally { loadSocialQueue(); }
-        });
-      }
-      card.appendChild(header);
+      const post = { platform, content: r.content, first_comment: r.firstComment || '', title: r.title || '', audience: r.audience || 'any', notes: r.notes || null };
+      const body = { platform, content: r.content, firstComment: r.firstComment || '', title: r.title || '', audience: r.audience || 'any', notes: r.notes || null };
+      const mk = (key, cls, fn, noBusy) => { const b = document.createElement('button'); b.type = 'button'; b.className = `${cls} btn-sm`; b.textContent = t(key); if (noBusy) b.setAttribute('data-no-busy', ''); b.addEventListener('click', fn); header.appendChild(b); return b; };
+      mk('socEditFirst', 'btn-ghost', () => openSocialPost(post), true);
+      mk('socAddToQueue', 'btn-ghost', async () => {
+        try { const d = await api('/api/admin/social/queue', { method: 'POST', body: JSON.stringify({ ...body, scheduledFor: 'next' }) }); socNote(t('socQueuedFor', { when: socWhen(d.scheduledFor) })); }
+        catch (e) { alert(e.message); throw e; } finally { loadSocialQueue(); }
+      });
+      if (!(socState && socState.needsMedia || []).includes(platform)) mk('socPublishNow', 'btn-primary', async () => {
+        if (!confirm(t('socPublishConfirm', { p: socLabel(platform) }))) return;
+        try { await api('/api/admin/social/publish', { method: 'POST', body: JSON.stringify(body) }); } catch (e) { alert(e.message); throw e; } finally { loadSocialQueue(); }
+      });
+      if (r.title) { const ti = document.createElement('div'); ti.className = 'mkt-result-title'; ti.textContent = r.title; card.appendChild(ti); }
       const text = document.createElement('div');
       text.className = 'mkt-result-text';
-      text.textContent = results[platform];
+      text.textContent = r.content;
       card.appendChild(text);
+      if (r.firstComment) { const fc = document.createElement('div'); fc.className = 'soc-fc'; fc.innerHTML = `<b>${escapeHtml(t('socFirstCommentShort'))}</b> ${escapeHtml(r.firstComment)}`; card.appendChild(fc); }
+      const notes = socNotesHtml(r.notes);
+      if (notes) { const n = document.createElement('div'); n.className = 'soc-notes'; n.innerHTML = notes; card.appendChild(n); }
       container.appendChild(card);
     });
   }
 
-
-  // ── Mare App 6 (v82) — social media publishing ─────────────────────────
-  const SOC_LABEL = { facebook: 'Facebook', instagram: 'Instagram', threads: 'Threads', linkedin: 'LinkedIn' };
+  // ── Mare App 6 (v82) / Mare App 7 (v83) — social media publishing ──────
   const SOC_DAYS = [1, 2, 3, 4, 5, 6, 0]; // Mon..Sun
-  let socState = null, socFilter = 'queued', socEditing = null, socMedia = null;
-  const socWhen = (iso) => (iso ? new Date(iso).toLocaleString(window.MareI18n.locale === 'nl' ? 'nl-NL' : 'en-GB', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '');
+  const SOC_AUD = ['any', 'teachers', 'parents', 'sales'];
+  let socState = null, socFilter = 'queued', socEditing = null, socMedia = null, socEditRow = null, socSlots = [], socPoll = null;
+  const socLabel = (p) => (socState && socState.labels && socState.labels[p]) || (p ? p[0].toUpperCase() + p.slice(1) : '');
+  const audLabel = (a) => t('socAud' + (a || 'any')[0].toUpperCase() + (a || 'any').slice(1));
+  const socWhen = (iso) => (iso ? new Date(iso).toLocaleString(window.MareI18n.locale === 'nl' ? 'nl-NL' : 'en-GB', { timeZone: 'Europe/Amsterdam', weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '');
+  const dayName = (d) => new Date(Date.UTC(2024, 0, 7 + d)).toLocaleDateString(window.MareI18n.locale === 'nl' ? 'nl-NL' : 'en-GB', { weekday: 'short', timeZone: 'UTC' });
+  const socIsAdmin = () => !document.getElementById('soc-save-channels').hidden;
+  function socNote(msg) { // a short "done" line that stays a few seconds
+    let el = document.getElementById('soc-note');
+    if (!el) { el = document.createElement('div'); el.id = 'soc-note'; el.className = 'soc-note-toast'; document.body.appendChild(el); }
+    el.textContent = msg; el.classList.add('show'); clearTimeout(el._t); el._t = setTimeout(() => el.classList.remove('show'), 4000);
+  }
   async function loadSocial(fresh) {
     const box = document.getElementById('soc-channels'); if (!box) return;
     const st = document.getElementById('soc-status');
     try { socState = await api('/api/admin/social/status' + (fresh ? '?fresh=1' : '')); } catch (e) { st.textContent = e.message; st.hidden = false; return; }
     st.hidden = !(!socState.configured || socState.error);
     st.textContent = !socState.configured ? t('socNotConfigured') : (socState.error || '');
-    const isAdmin = !document.getElementById('soc-save-channels').hidden;
+    const isAdmin = socIsAdmin();
     box.innerHTML = socState.platforms.map(p => {
       const opts = socState.channels.filter(c => c.platform === p);
       const cur = socState.chosen[p] || '';
-      const h = socState.health.find(x => x.platform === p);
-      const state = cur ? (h && h.ok ? `<span class="soc-ok">✓ ${escapeHtml(t('socPostingHere'))}</span>` : `<span class="soc-bad">✕ ${escapeHtml(t('socChannelGone'))}</span>`) : `<span class="soc-off">${escapeHtml(t('socNotPosting'))}</span>`;
-      return `<div class="soc-row"><span class="soc-p">${SOC_LABEL[p]}</span>
-        <select data-p="${p}" ${isAdmin ? '' : 'disabled'}><option value="">${escapeHtml(t('socNoChannel'))}</option>${opts.map(c => `<option value="${escapeHtml(c.id)}"${c.id === String(cur) ? ' selected' : ''}>${escapeHtml(c.name)} (id ${escapeHtml(c.id)})</option>`).join('')}
-        ${cur && !opts.some(c => c.id === String(cur)) ? `<option value="${escapeHtml(cur)}" selected>id ${escapeHtml(cur)} ?</option>` : ''}</select>${state}</div>`;
+      const h = socState.health.find(x => x.platform === p) || {};
+      const state = !cur ? `<span class="soc-off">${escapeHtml(t('socNotPosting'))}</span>`
+        : h.ok ? `<span class="soc-ok">✓ ${escapeHtml(t(h.expiring ? 'socExpiring' : 'socPostingHere'))}</span>`
+        : `<span class="soc-bad">✕ ${escapeHtml(t({ reconnect: 'socNeedsReconnect', paused: 'socPaused', inactive: 'socInactive' }[h.problem] || 'socChannelGone'))}</span>`;
+      return `<div class="soc-row"><span class="soc-p">${escapeHtml(socLabel(p))}</span>
+        <select data-p="${escapeHtml(p)}" ${isAdmin ? '' : 'disabled'}><option value="">${escapeHtml(t('socNoChannel'))}</option>${opts.map(c => `<option value="${escapeHtml(c.id)}"${c.id === String(cur) ? ' selected' : ''}>${escapeHtml(c.name)} (id ${escapeHtml(c.id)})</option>`).join('')}</select>
+        ${state}</div>`;
     }).join('');
     const warn = document.getElementById('soc-warn');
     warn.hidden = !socState.notChosen.length;
-    warn.textContent = socState.notChosen.length ? t('socOtherChannels', { list: socState.notChosen.map(c => `${SOC_LABEL[c.platform] || c.platform}: ${c.name} (id ${c.id})`).join(', ') }) : '';
-    const dayName = (d) => new Date(Date.UTC(2024, 0, 7 + d)).toLocaleDateString(window.MareI18n.locale === 'nl' ? 'nl-NL' : 'en-GB', { weekday: 'short', timeZone: 'UTC' });
-    document.getElementById('soc-times').innerHTML = socState.platforms.map(p => {
-      const v = socState.times[p] || { days: [], times: [] };
-      return `<div class="soc-row" data-p="${p}"><span class="soc-p">${SOC_LABEL[p]}</span>
-        <span class="soc-days">${SOC_DAYS.map(d => `<label class="soc-day"><input type="checkbox" value="${d}" ${v.days.includes(d) ? 'checked' : ''} ${isAdmin ? '' : 'disabled'}><span>${escapeHtml(dayName(d))}</span></label>`).join('')}</span>
-        <input type="text" class="soc-hours" value="${escapeHtml((v.times || []).join(', '))}" placeholder="09:00, 16:00" ${isAdmin ? '' : 'disabled'}></div>`;
-    }).join('');
+    warn.textContent = socState.notChosen.length ? t('socOtherChannels', { list: socState.notChosen.map(c => `${socLabel(c.platform)}: ${c.name} (id ${c.id})`).join(', ') }) : '';
+    loadPinBoards();
+    renderHealth(socState.lastHealth);
+    document.getElementById('soc-alert-emails').value = socState.alertEmails || '';
+    document.getElementById('soc-alert-emails').disabled = !isAdmin;
+    const facts = document.getElementById('soc-facts');
+    if (!facts.dataset.touched) facts.value = socState.facts || '';
+    facts.disabled = !isAdmin;
+    socSlots = (socState.slots || []).map(s => ({ ...s }));
+    renderSlots();
+    renderGenPlatforms();
+    showJob(socState.job);
     loadSocialQueue();
   }
+  async function loadPinBoards() {
+    const row = document.getElementById('soc-pin-row'), sel = document.getElementById('soc-pin-board');
+    row.hidden = !socState.chosen.pinterest;
+    if (row.hidden) return;
+    const cur = (socState.options && socState.options.pinterestBoard) || '';
+    let boards = [];
+    try { boards = (await api('/api/admin/social/pinterest-boards')).boards; } catch { /* keep what's saved */ }
+    if (cur && !boards.some(b => b.id === cur)) boards.unshift({ id: cur, name: `id ${cur}` });
+    sel.innerHTML = `<option value="">${escapeHtml(t('socPinDefault'))}</option>` + boards.map(b => `<option value="${escapeHtml(b.id)}"${b.id === cur ? ' selected' : ''}>${escapeHtml(b.name)}</option>`).join('');
+    sel.disabled = !socIsAdmin();
+  }
+  function renderHealth(h) {
+    const el = document.getElementById('soc-health');
+    if (!h || !h.items) { el.innerHTML = `<p class="admin-empty-note">${escapeHtml(t('socHealthNever'))}</p>`; return; }
+    const icon = { ok: '✓', down: '✕', warn: '⚠', none: '–' };
+    const cls = { ok: 'soc-ok', down: 'soc-bad', warn: 'soc-warn-text', none: 'soc-off' };
+    el.innerHTML = `<p class="admin-empty-note">${escapeHtml(t('socHealthAt', { when: socWhen(h.at) }))}</p>` +
+      (h.items.length ? h.items.map(i => `<div class="${cls[i.state] || ''}">${icon[i.state] || ''} ${escapeHtml(i.text)}</div>`).join('') : `<p class="admin-empty-note">${escapeHtml(t('socHealthNothing'))}</p>`);
+  }
+
+  // posting times (slots): one row each — platform, day, time, for, theme, on/off
+  function renderSlots() {
+    const box = document.getElementById('soc-slots');
+    const isAdmin = socIsAdmin(), dis = isAdmin ? '' : 'disabled';
+    const live = new Set(Object.entries(socState.chosen || {}).filter(([, id]) => id).map(([p]) => p));
+    const plats = socState.platforms;
+    const order = (s) => `${plats.indexOf(s.platform) < 0 ? 99 : String(plats.indexOf(s.platform)).padStart(2, '0')}|${SOC_DAYS.indexOf(Number(s.day))}|${s.time}`;
+    const rows = socSlots.map((s, i) => ({ s, i })).sort((a, b) => (a.s._new ? 1 : 0) - (b.s._new ? 1 : 0) || order(a.s).localeCompare(order(b.s)));
+    if (!rows.length) { box.innerHTML = `<p class="admin-empty-note">${escapeHtml(t('socNoSlots'))}</p>`; return; }
+    box.innerHTML = `<div class="soc-slot-table"><div class="soc-slot soc-slot-head"><span>${escapeHtml(t('socPlatform'))}</span><span>${escapeHtml(t('socDay'))}</span><span>${escapeHtml(t('socTime'))}</span><span>${escapeHtml(t('socFor'))}</span><span>${escapeHtml(t('socTheme'))}</span><span>${escapeHtml(t('socOn'))}</span><span></span></div>` +
+      rows.map(({ s, i }) => `<div class="soc-slot${s.active ? '' : ' off'}" data-i="${i}">
+        <span><select data-k="platform" ${dis}>${plats.map(p => `<option value="${escapeHtml(p)}"${p === s.platform ? ' selected' : ''}>${escapeHtml(socLabel(p))}</option>`).join('')}</select>${live.has(s.platform) ? '' : `<em class="soc-wait">${escapeHtml(t('socWaitingChannel'))}</em>`}</span>
+        <span><select data-k="day" ${dis}>${SOC_DAYS.map(d => `<option value="${d}"${d === Number(s.day) ? ' selected' : ''}>${escapeHtml(dayName(d))}</option>`).join('')}</select></span>
+        <span><input type="text" data-k="time" value="${escapeHtml(s.time)}" placeholder="20:30" ${dis}></span>
+        <span><select data-k="audience" class="soc-aud-${escapeHtml(s.audience)}" ${dis}>${SOC_AUD.map(a => `<option value="${a}"${a === s.audience ? ' selected' : ''}>${escapeHtml(audLabel(a))}</option>`).join('')}</select></span>
+        <span><input type="text" data-k="theme" value="${escapeHtml(s.theme || '')}" ${dis}></span>
+        <span><input type="checkbox" data-k="active" ${s.active ? 'checked' : ''} ${dis}></span>
+        <span>${isAdmin ? `<button type="button" class="btn-ghost btn-small" data-rm data-no-busy aria-label="${escapeHtml(t('socDelete'))}">✕</button>` : ''}</span></div>`).join('') + `</div>`;
+    box.querySelectorAll('.soc-slot[data-i]').forEach(el => {
+      const s = socSlots[Number(el.dataset.i)];
+      el.querySelectorAll('[data-k]').forEach(inp => inp.addEventListener('change', () => {
+        const k = inp.dataset.k;
+        s[k] = k === 'active' ? (inp.checked ? 1 : 0) : k === 'day' ? Number(inp.value) : inp.value;
+        if (k === 'audience') inp.className = 'soc-aud-' + inp.value;
+        if (k === 'active') el.classList.toggle('off', !inp.checked);
+        document.getElementById('soc-save-slots').classList.add('soc-unsaved');
+      }));
+      const rm = el.querySelector('[data-rm]');
+      if (rm) rm.addEventListener('click', () => { socSlots.splice(Number(el.dataset.i), 1); renderSlots(); document.getElementById('soc-save-slots').classList.add('soc-unsaved'); });
+    });
+  }
+  function showJob(j) {
+    const el = document.getElementById('soc-ahead-status'), btn = document.getElementById('soc-ahead-btn');
+    if (!el) return;
+    clearTimeout(socPoll);
+    if (!j) { el.textContent = ''; btn.disabled = false; return; }
+    if (!j.finished) {
+      btn.disabled = true;
+      el.innerHTML = `<span class="soc-spin"></span> ${escapeHtml(t('socAheadWorking', { done: j.done, total: j.total }))}`;
+      socPoll = setTimeout(async () => { try { const d = await api('/api/admin/social/write-ahead'); showJob(d.job); if (d.job && d.job.created !== j.created) loadSocialQueue(); } catch { showJob(j); } }, 3000);
+      return;
+    }
+    btn.disabled = false;
+    el.textContent = j.total === 0 ? t('socAheadNone') : t('socAheadDone', { n: j.created }) + (j.errors && j.errors.length ? ' ' + t('socAheadErrors', { list: j.errors.join(' · ') }) : '');
+    if (j.created) { loadSocialQueue(); }
+  }
+
   async function loadSocialQueue() {
     const box = document.getElementById('soc-queue'); if (!box) return;
     let d; try { d = await api('/api/admin/social/queue'); } catch (e) { box.innerHTML = `<p class="form-error">${escapeHtml(e.message)}</p>`; return; }
-    const rows = d.posts.filter(r => (socFilter === 'queued' ? ['queued', 'sending'].includes(r.status) : r.status === socFilter));
+    const inTab = (r, f) => (f === 'queued' ? ['queued', 'sending'].includes(r.status) : r.status === f);
+    const rows = d.posts.filter(r => inTab(r, socFilter));
     document.querySelectorAll('.soc-tab').forEach(b => {
-      const n = d.posts.filter(r => (b.dataset.f === 'queued' ? ['queued', 'sending'].includes(r.status) : r.status === b.dataset.f)).length;
-      b.textContent = `${t({ queued: 'socUpcoming', published: 'socPublished', failed: 'socFailed' }[b.dataset.f])} (${n})`;
+      const n = d.posts.filter(r => inTab(r, b.dataset.f)).length;
+      b.textContent = `${t({ draft: 'socDrafts', queued: 'socUpcoming', published: 'socPublished', failed: 'socFailed' }[b.dataset.f])} (${n})`;
     });
-    socState && (socState.posts = d.posts);
-    if (!rows.length) { box.innerHTML = `<p class="admin-empty-note">${escapeHtml(t('anNone'))}</p>`; return; }
-    box.innerHTML = rows.map(r => `<div class="soc-post" data-id="${r.id}">
-      <div class="soc-post-media">${r.mediaUrl ? (r.media_type === 'video' ? `<video src="${escapeHtml(r.mediaUrl)}" muted preload="metadata"></video>` : `<img src="${escapeHtml(r.mediaUrl)}" alt="">`) : ''}</div>
+    document.getElementById('soc-approve-all-wrap').hidden = !(socFilter === 'draft' && rows.length);
+    if (socState) socState.posts = d.posts;
+    if (!rows.length) { box.innerHTML = `<p class="admin-empty-note">${escapeHtml(t(socFilter === 'draft' ? 'socNoDrafts' : 'socNothingHere'))}</p>`; return; }
+    const needsMedia = new Set((socState && socState.needsMedia) || []);
+    box.innerHTML = rows.map(r => {
+      const head = r.status === 'published' ? t('socWentOut', { when: socWhen(r.published_at) }) : r.status === 'sending' ? t('socSending') : r.status === 'failed' ? t('socFailedAt', { when: socWhen(r.scheduled_for) }) : socWhen(r.scheduled_for);
+      const missingMedia = needsMedia.has(r.platform) && !r.media_key && ['draft', 'queued', 'failed'].includes(r.status);
+      return `<div class="soc-post${r.status === 'draft' ? ' draft' : ''}" data-id="${r.id}">
+      <div class="soc-post-media">${r.mediaUrl ? (r.media_type === 'video' ? `<video src="${escapeHtml(r.mediaUrl)}" muted preload="metadata"></video>` : `<img src="${escapeHtml(r.mediaUrl)}" alt="">`) : `<div class="soc-post-nomedia">${missingMedia ? '⚠' : ''}</div>`}</div>
       <div class="soc-post-main">
-        <div class="soc-post-head"><b>${SOC_LABEL[r.platform] || r.platform}</b> · ${escapeHtml(r.status === 'published' ? t('socWentOut', { when: socWhen(r.published_at) }) : r.status === 'sending' ? t('socSending') : r.status === 'failed' ? t('socFailedAt', { when: socWhen(r.scheduled_for) }) : socWhen(r.scheduled_for))}${r.ai_media ? ' · AI' : ''}</div>
+        <div class="soc-post-head"><b>${escapeHtml(socLabel(r.platform))}</b> · ${escapeHtml(head)} · <span class="soc-aud soc-aud-${escapeHtml(r.audience || 'any')}">${escapeHtml(audLabel(r.audience || 'any'))}</span>${r.theme ? ` · <i>${escapeHtml(r.theme)}</i>` : ''}${r.ai_media ? ' · AI' : ''}</div>
+        ${r.title ? `<div class="mkt-result-title">${escapeHtml(r.title)}</div>` : ''}
         <div class="soc-post-text">${escapeHtml(r.content)}</div>
+        ${r.first_comment ? `<div class="soc-fc"><b>${escapeHtml(t('socFirstCommentShort'))}</b> ${escapeHtml(r.first_comment)}</div>` : ''}
+        ${missingMedia ? `<div class="soc-post-err">${escapeHtml(t('socNeedsPicture', { p: socLabel(r.platform) }))}</div>` : ''}
+        ${r.notes && ['draft', 'queued', 'failed'].includes(r.status) ? `<div class="soc-notes">${socNotesHtml(r.notes)}</div>` : ''}
         ${r.error ? `<div class="soc-post-err">${escapeHtml(r.error)}</div>` : ''}
-        <div class="soc-post-btns">${r.status === 'queued' || r.status === 'failed' ? `
-          <button type="button" class="btn-ghost btn-small" data-a="edit" data-no-busy>${escapeHtml(t('socEdit'))}</button>
-          <button type="button" class="btn-primary btn-small" data-a="now">${escapeHtml(t(r.status === 'failed' ? 'socRetry' : 'socPublishNow'))}</button>` : ''}
+        <div class="soc-post-btns">
+          ${r.status === 'draft' ? `<button type="button" class="btn-primary btn-small" data-a="approve">${escapeHtml(t('socApprove'))}</button>` : ''}
+          ${['draft', 'queued', 'failed'].includes(r.status) ? `<button type="button" class="btn-ghost btn-small" data-a="edit" data-no-busy>${escapeHtml(t('socEdit'))}</button>
+          <button type="button" class="btn-${r.status === 'draft' ? 'ghost' : 'primary'} btn-small" data-a="now">${escapeHtml(t(r.status === 'failed' ? 'socRetry' : 'socPublishNow'))}</button>` : ''}
           ${r.status !== 'sending' ? `<button type="button" class="btn-ghost btn-small" data-a="del">${escapeHtml(t(r.status === 'published' ? 'socRemoveFromList' : 'socDelete'))}</button>` : ''}
           ${r.status === 'published' ? `<button type="button" class="btn-ghost btn-small" data-a="again" data-no-busy>${escapeHtml(t('socPostAgain'))}</button>` : ''}</div>
-      </div></div>`).join('');
+      </div></div>`;
+    }).join('');
     box.querySelectorAll('.soc-post').forEach(el => {
       const r = d.posts.find(x => x.id === el.dataset.id);
       el.querySelectorAll('[data-a]').forEach(b => b.addEventListener('click', async () => {
         const a = b.dataset.a;
         if (a === 'edit') return openSocialPost(r);
-        if (a === 'again') return openSocialPost({ ...r, id: null });
+        if (a === 'again') return openSocialPost({ ...r, id: null, status: null });
         if (a === 'del') { if (!confirm(t(r.status === 'published' ? 'socRemoveConfirm' : 'socDeleteConfirm'))) return; await api(`/api/admin/social/queue/${r.id}`, { method: 'DELETE' }); return loadSocialQueue(); }
+        if (a === 'approve') {
+          try { await api(`/api/admin/social/queue/${r.id}/approve`, { method: 'POST' }); socNote(t('socApproved')); }
+          catch (e) { alert(e.message); throw e; } finally { loadSocialQueue(); }
+          return;
+        }
         if (a === 'now') {
+          if (!confirm(t('socPublishConfirm', { p: socLabel(r.platform) }))) return;
           try { await api(`/api/admin/social/queue/${r.id}/publish-now`, { method: 'POST' }); }
-          catch (e) { alert(e.message); }
-          loadSocialQueue();
+          catch (e) { alert(e.message); throw e; } finally { loadSocialQueue(); }
         }
       }));
     });
@@ -1812,25 +1929,39 @@
   }
   function socCount() {
     const n = document.getElementById('sp-text').value.length, p = document.getElementById('sp-platform').value;
-    const max = { threads: 500, instagram: 2200, linkedin: 3000, facebook: 5000 }[p] || 5000;
+    const max = ((socState && socState.maxLen) || {})[p] || 5000;
     const c = document.getElementById('sp-count'); c.textContent = `${n} / ${max}`; c.classList.toggle('over', n > max);
+    const fcOk = !socState || (socState.firstCommentPlatforms || []).includes(p);
+    document.getElementById('sp-fc-wrap').hidden = !fcOk;
+    document.getElementById('sp-title-wrap').hidden = p !== 'pinterest';
+    const noLink = socState && (socState.noLinkPlatforms || []).includes(p);
+    document.getElementById('sp-link-note').textContent = noLink ? t('socLinkMoves', { p: socLabel(p) }) : p === 'instagram' ? t('socLinkBio') : '';
   }
-  // open the post window: r = existing post (edit), a copy (id null), or { platform, content } from the generator
+  // open the post window: r = existing post (edit), a copy (id null), or a generated post
   function openSocialPost(r) {
     r = r || {};
     socEditing = r.id || null;
+    socEditRow = r;
     socMedia = r.media_key ? { key: r.media_key, type: r.media_type, url: r.mediaUrl } : null;
-    document.getElementById('sp-title').textContent = t(socEditing ? 'socEditTitle' : 'socNewTitle');
-    document.getElementById('sp-platform').innerHTML = Object.keys(SOC_LABEL).map(p => `<option value="${p}">${SOC_LABEL[p]}</option>`).join('');
+    document.getElementById('sp-title').textContent = t(socEditing ? (r.status === 'draft' ? 'socEditDraftTitle' : 'socEditTitle') : 'socNewTitle');
+    const plats = (socState && socState.platforms) || ['facebook', 'instagram', 'linkedin', 'threads'];
+    document.getElementById('sp-platform').innerHTML = plats.map(p => `<option value="${escapeHtml(p)}">${escapeHtml(socLabel(p))}</option>`).join('');
     document.getElementById('sp-platform').value = r.platform || 'facebook';
+    document.getElementById('sp-audience').value = r.audience || 'any';
     document.getElementById('sp-text').value = r.content || '';
+    document.getElementById('sp-fc').value = r.first_comment || '';
+    document.getElementById('sp-pin-title').value = r.title || '';
     document.getElementById('sp-ai').checked = !!r.ai_media;
+    const notes = socNotesHtml(r.notes);
+    document.getElementById('sp-notes').innerHTML = notes;
+    document.getElementById('sp-notes').hidden = !notes;
     const when = document.getElementById('sp-when');
     when.querySelector('option[value="now"]').hidden = !!socEditing;
     when.value = socEditing && r.scheduled_for ? 'at' : 'next';
     const at = socEditing && r.scheduled_for ? new Date(r.scheduled_for) : new Date(Date.now() + 3600e3);
     document.getElementById('sp-at').value = new Date(at.getTime() - at.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
     document.getElementById('sp-at-wrap').hidden = when.value !== 'at';
+    document.getElementById('sp-save').textContent = t(r.status === 'draft' ? 'socSaveApprove' : 'socSave');
     document.getElementById('sp-error').hidden = true;
     socMediaShow(); socCount();
     document.getElementById('social-modal').hidden = false;
@@ -1844,7 +1975,7 @@
       const file = e.target.files[0]; if (!file) return;
       const isVid = (file.type || '').startsWith('video/');
       if (isVid && !/\.mp4$/i.test(file.name)) { alert(t('adminVidMp4Only')); e.target.value = ''; return; }
-      const el = document.getElementById('sp-media'); el.textContent = t('adminUploading');
+      const el = document.getElementById('sp-media'); el.innerHTML = `<span class="soc-spin"></span> ${escapeHtml(t('adminUploading'))}`;
       try {
         const key = `social/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, '_').slice(-80)}`;
         const { url } = await api('/api/admin/upload-url', { method: 'POST', body: JSON.stringify({ key, contentType: file.type || 'application/octet-stream' }) });
@@ -1857,14 +1988,21 @@
     document.getElementById('sp-save').addEventListener('click', async () => {
       const err = document.getElementById('sp-error'); err.hidden = true;
       const when = document.getElementById('sp-when').value;
-      const body = { platform: document.getElementById('sp-platform').value, content: document.getElementById('sp-text').value,
+      const platform = document.getElementById('sp-platform').value;
+      const body = { platform, content: document.getElementById('sp-text').value, audience: document.getElementById('sp-audience').value,
+        firstComment: document.getElementById('sp-fc-wrap').hidden ? '' : document.getElementById('sp-fc').value,
+        title: platform === 'pinterest' ? document.getElementById('sp-pin-title').value : '',
         mediaKey: socMedia ? socMedia.key : null, mediaType: socMedia ? socMedia.type : null, aiMedia: document.getElementById('sp-ai').checked };
+      if (socEditRow && socEditRow.notes && !socEditing) body.notes = socEditRow.notes;
       if (when === 'next') body.scheduledFor = 'next';
       if (when === 'at') { const v = document.getElementById('sp-at').value; if (!v) { err.textContent = t('socChooseTime'); err.hidden = false; throw new Error('time'); } body.scheduledFor = new Date(v).toISOString(); }
+      const wasDraft = socEditing && socEditRow && socEditRow.status === 'draft';
+      if (wasDraft) body.approve = true;
       try {
         if (when === 'now') await api('/api/admin/social/publish', { method: 'POST', body: JSON.stringify(body) });
         else if (socEditing) await api(`/api/admin/social/queue/${socEditing}`, { method: 'PATCH', body: JSON.stringify(body) });
         else await api('/api/admin/social/queue', { method: 'POST', body: JSON.stringify(body) });
+        if (when === 'now' && wasDraft) await api(`/api/admin/social/queue/${socEditing}`, { method: 'DELETE' });
         document.getElementById('social-modal').hidden = true;
         socFilter = when === 'now' ? 'published' : 'queued';
         document.querySelectorAll('.soc-tab').forEach(b => b.classList.toggle('on', b.dataset.f === socFilter));
@@ -1878,17 +2016,55 @@
     document.getElementById('soc-refresh').addEventListener('click', () => loadSocial(true));
     document.getElementById('soc-save-channels').addEventListener('click', async () => {
       const body = {}; document.querySelectorAll('#soc-channels select').forEach(s => { body[s.dataset.p] = s.value || null; });
-      try { await api('/api/admin/social/channels', { method: 'PUT', body: JSON.stringify(body) }); }
-      catch (e) { const st = document.getElementById('soc-status'); st.textContent = e.message; st.hidden = false; throw e; }
-      loadSocial(true);
+      try {
+        await api('/api/admin/social/channels', { method: 'PUT', body: JSON.stringify(body) });
+        if (!document.getElementById('soc-pin-row').hidden) await api('/api/admin/social/settings', { method: 'PUT', body: JSON.stringify({ pinterestBoard: document.getElementById('soc-pin-board').value }) });
+      } catch (e) { const st = document.getElementById('soc-status'); st.textContent = e.message; st.hidden = false; throw e; }
+      await loadSocial(true);
     });
-    document.getElementById('soc-save-times').addEventListener('click', async () => {
-      const body = {};
-      document.querySelectorAll('#soc-times .soc-row').forEach(r => {
-        body[r.dataset.p] = { days: [...r.querySelectorAll('.soc-day input:checked')].map(i => Number(i.value)), times: r.querySelector('.soc-hours').value.split(/[,\s]+/).filter(Boolean).map(s => (s.length === 4 ? '0' + s : s)) };
-      });
-      await api('/api/admin/social/times', { method: 'PUT', body: JSON.stringify(body) });
-      loadSocial();
+    document.getElementById('soc-check-health').addEventListener('click', async () => {
+      const d = await api('/api/admin/social/health-check', { method: 'POST' });
+      renderHealth(d);
+      socNote(d.news ? t('socHealthEmailed', { n: d.emailed }) : t('socHealthNoNews'));
+    });
+    document.getElementById('soc-save-alerts').addEventListener('click', async () => {
+      try { await api('/api/admin/social/settings', { method: 'PUT', body: JSON.stringify({ alertEmails: document.getElementById('soc-alert-emails').value }) }); }
+      catch (e) { alert(e.message); throw e; }
+    });
+    document.getElementById('soc-facts').addEventListener('input', (e) => { e.target.dataset.touched = '1'; });
+    document.getElementById('soc-save-facts').addEventListener('click', async () => {
+      const f = document.getElementById('soc-facts');
+      try { await api('/api/admin/social/facts', { method: 'PUT', body: JSON.stringify({ facts: f.value }) }); delete f.dataset.touched; }
+      catch (e) { alert(e.message); throw e; }
+    });
+    document.getElementById('soc-add-slot').addEventListener('click', () => {
+      socSlots.push({ platform: 'instagram', day: 1, time: '20:30', audience: 'any', theme: '', active: 1, _new: true });
+      renderSlots();
+      document.getElementById('soc-save-slots').classList.add('soc-unsaved');
+      const rows = document.querySelectorAll('#soc-slots .soc-slot[data-i]'); const last = rows[rows.length - 1];
+      if (last) { last.scrollIntoView({ block: 'center' }); const th = last.querySelector('[data-k="theme"]'); if (th) th.focus(); }
+    });
+    document.getElementById('soc-save-slots').addEventListener('click', async () => {
+      try {
+        const d = await api('/api/admin/social/slots', { method: 'PUT', body: JSON.stringify({ slots: socSlots.map(s => ({ id: s.id, platform: s.platform, day: s.day, time: s.time, audience: s.audience, theme: s.theme, active: !!s.active })) }) });
+        socSlots = d.slots.map(s => ({ ...s })); socState.slots = d.slots;
+        document.getElementById('soc-save-slots').classList.remove('soc-unsaved');
+        renderSlots();
+      } catch (e) { alert(e.message); throw e; }
+    });
+    document.getElementById('soc-ahead-btn').addEventListener('click', async () => {
+      try {
+        const d = await api('/api/admin/social/write-ahead', { method: 'POST', body: JSON.stringify({ days: Number(document.getElementById('soc-ahead-days').value) }) });
+        showJob(d.job);
+      } catch (e) { alert(e.message); throw e; }
+    });
+    document.getElementById('soc-approve-all').addEventListener('click', async () => {
+      if (!confirm(t('socApproveAllConfirm'))) return;
+      try {
+        const d = await api('/api/admin/social/approve-all', { method: 'POST' });
+        socNote(t('socApprovedN', { n: d.approved }) + (d.skipped.length ? ' ' + t('socApproveSkipped', { list: d.skipped.join(' · ') }) : ''));
+        if (d.skipped.length) alert(t('socApproveSkipped', { list: d.skipped.join('\n') }));
+      } finally { loadSocialQueue(); }
     });
   }
 

@@ -1116,6 +1116,19 @@ Volgende maand verschijnt er een nieuw raadsel uit het Fluisterbos. 🌲🔎', ?
     created_at TEXT DEFAULT (datetime('now')))`);
   db.run(`CREATE INDEX IF NOT EXISTS social_queue_due ON social_queue (status, scheduled_for)`);
   db.run(`CREATE TABLE IF NOT EXISTS social_times (platform TEXT PRIMARY KEY, days TEXT NOT NULL, times TEXT NOT NULL)`);
+  // ── Mare App 7 (v83) — posting slots per day (time, audience, theme),
+  // drafts that wait for approval, first comments, Pinterest titles, a
+  // note for whoever posts (picture suggestion / carousel slides), the
+  // facts the post writer may use, health alerts.
+  db.run(`CREATE TABLE IF NOT EXISTS social_slots (
+    id TEXT PRIMARY KEY, platform TEXT NOT NULL, day INTEGER NOT NULL, time TEXT NOT NULL,
+    audience TEXT NOT NULL DEFAULT 'any', theme TEXT NOT NULL DEFAULT '', active INTEGER NOT NULL DEFAULT 1)`);
+  for (const c of ['audience TEXT', 'theme TEXT', 'slot_id TEXT', 'first_comment TEXT', 'title TEXT', 'notes TEXT', 'alerted INTEGER NOT NULL DEFAULT 0']) {
+    try { db.run(`ALTER TABLE social_queue ADD COLUMN ${c}`); } catch {}
+  }
+  for (const c of ['social_facts TEXT', 'social_alert_emails TEXT', 'social_health_json TEXT', 'social_options_json TEXT', 'social_seeded_at TEXT', 'social_gap_day TEXT']) {
+    try { db.run(`ALTER TABLE app_config ADD COLUMN ${c}`); } catch {}
+  }
 
   // ── Mare App 5 — Talk to Mare in the pictures: what Mare knows.
   // companion_practices.summary = a short private summary of the chapter

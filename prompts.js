@@ -263,6 +263,98 @@ ${nl ? '- Speak Dutch. Your woods are "het Fluisterbos".' : ''}
 ---`;
 }
 
+// ── Mare App 7 (v83) — the social post writer (Dutch first) ─────────────
+// Used by social.js for both the "Generate social posts" card and
+// "Write drafts for empty slots". Built from four parts:
+//   1. FACTS: the "Facts about Mare" card in admin (editable by Per and
+//      Patricia). The writer may only state what is there.
+//   2. Audience and platform rules, from the Dutch posting plan.
+//   3. A list of things a post must never say (untrue, clinical, or
+//      promises nobody has measured).
+//   4. A strict JSON answer, so the server can check links and length.
+// The server checks the answer again afterwards (links, red-flag words,
+// length) and shows any doubts on the draft, so nothing relies on the
+// model alone.
+
+const SOCIAL_PLATFORM_RULES_NL = {
+  instagram: `INSTAGRAM — warm, visual, written so a teacher would forward it to a colleague or a parent to a friend. Caption 50–130 words with short lines. NO web address anywhere: end with "Link in bio." on its own line when there is something to look at. After that, 5–8 Dutch hashtags on one line, chosen from or close to: #voorlezen #kinderboeken #basisonderwijs #opvoeding #rustinjehoofd #groep5 #groep6 #groep7 #groep8 #juf #meester #samenlezen. Never #meiden, #middelbareschool, #tieners. Also give "slides": 3–5 very short slide texts for a carousel (slide 1 a hook or quote of at most 10 words; the last slide points to the link in bio).`,
+  facebook: `FACEBOOK — conversational, 50–120 words, can open with a moment people recognise. NO web address in the post: if there is a link, end the post with "Link in de reacties." and put a short line plus {{APP_LINK}} in "firstComment". At most one hashtag, usually none.`,
+  linkedin: `LINKEDIN — for school leaders, intern begeleiders (IB'ers), school boards and educational psychologists. 80–150 words, plain and considered, never corporate. Frame it around the school day: calm in the group before learning, reading aloud, a short practice per chapter, mediawijsheid. NO web address in the post: end with "Meer informatie in de eerste reactie." and put a short line plus {{APP_LINK}} in "firstComment". No emoji. At most 3 hashtags, e.g. #onderwijs #basisonderwijs #voorlezen. Use "je"; use "u" only when the theme says the post is for school boards.`,
+  threads: `THREADS — one short, candid paragraph of at most 450 characters, written to parents, ending with a real question that invites replies. Put a short line plus {{APP_LINK}} in "firstComment". No hashtags.`,
+  bluesky: `BLUESKY — thoughtful and grounded, for teachers, educators and psychologists: the thinking behind the book. At most 280 characters INCLUDING 2–3 hashtags from #onderwijs #mentalegezondheid #pedagogiek #voorlezen. Put {{APP_LINK}} in "firstComment" with a short line.`,
+  pinterest: `PINTEREST — evergreen, found by search months later. "title": at most 90 characters, plainly descriptive, e.g. "Rustmoment voor de klas: samen langzaam uitademen". "content": the pin description, 2–4 sentences, at most 450 characters, with natural search words (voorlezen, basisonderwijs, groep 5–8, rustmoment, kinderboek) and no hashtags, no web address (the pin links to the app by itself). No "firstComment". The picture matters most: describe it in "pictureNote".`,
+  x: `X — at most 260 characters, worth bookmarking, no web address in the post; put {{APP_LINK}} with a short line in "firstComment". No hashtags.`,
+};
+const SOCIAL_PLATFORM_RULES_EN = {
+  instagram: `INSTAGRAM — warm, visual, forwardable. Caption 50–130 words with short lines. No web address: end with "Link in bio." Then 5–8 lowercase hashtags (#readaloud #childrensbooks #primaryteacher #bedtimestory …). Also give "slides": 3–5 very short carousel slide texts.`,
+  facebook: `FACEBOOK — conversational, 50–120 words. No web address in the post: end with "Link in the comments." and put a short line plus {{APP_LINK}} in "firstComment".`,
+  linkedin: `LINKEDIN — for school leaders and SENCOs, 80–150 words, plain, the school day: calm before learning, reading aloud, a short practice per chapter. No web address in the post: end with "More in the first comment." and put {{APP_LINK}} in "firstComment". No emoji, at most 3 hashtags.`,
+  threads: `THREADS — one short paragraph of at most 450 characters for parents, ending with a question. {{APP_LINK}} goes in "firstComment".`,
+  bluesky: `BLUESKY — at most 280 characters including 2–3 hashtags, thoughtful, for educators. {{APP_LINK}} goes in "firstComment".`,
+  pinterest: `PINTEREST — "title" at most 90 characters, plainly descriptive; "content" 2–4 sentences, at most 450 characters, searchable words, no hashtags, no web address. No "firstComment".`,
+  x: `X — at most 260 characters, no web address in the post; {{APP_LINK}} goes in "firstComment".`,
+};
+const SOCIAL_AUDIENCES = {
+  teachers: `TEACHERS — leerkrachten of groep 5–8 (children aged about 8–12) and intern begeleiders. What they worry about: a restless group after the break, worries and conflict in the group, too little time. What helps them: a read-aloud story with a short ready practice for each chapter (the Teacher's Guide), something they can use tomorrow.`,
+  parents: `PARENTS — parents (and grandparents) of children aged about 8–12. What they worry about: a child who worries, can't settle in the evening, or keeps things inside; screen time. What helps them: a story to read together, something small to try tonight, and the app as a short shared companion to the chapter.`,
+  sales: `SALES — this slot may ask for a purchase or a sign-up, using ONLY offers, prices and links that appear in the FACTS. One clear call to action. Still warm and useful first.`,
+  any: `ANY — write for teachers or parents, whichever suits the theme best; never a sales post.`,
+};
+const SOCIAL_NEVER = `NEVER, in any post or first comment:
+- Say anything about the book, the app, the authors, prices, offers or materials that is not in the FACTS. No invented products, downloads, lesson plans, whitepapers, school licences, discounts or dates.
+- Promise effects or safety: no "helpt tegen angst", "vermindert stress", "werkt", "veilig", "bewezen", "evidence-based", "wetenschappelijk bewezen", "pedagogisch verantwoord".
+- Make privacy or legal claims: no "geen tracking", "geen data", "privacy-first", "AVG-proof", "GDPR".
+- Quote statistics or research ("onderzoek laat zien", percentages, numbers about children).
+- Use clinical or heavy words: angststoornis, trauma, therapie, stoornis, diagnose, depressie, kwetsbare kinderen, schermverslaving, verslavend. "Zorgen", "piekeren", "onrustig", "overprikkeld", "faalangst" (sparingly) and "lekker in je vel" are fine.
+- Use brain or nervous-system jargon (zenuwstelsel, amygdala, brein, dopamine), or the words "rem", "brake" or "Moro".
+- Frame Mare as for girls only, or for teenagers or secondary school (no meiden, pubers, tieners, brugklas, mentoruur, zorgcoördinator, middelbare school). Mare is for boys and girls of about 8–12.
+- Speak to children directly, suggest a child uses social media, or place the app on a child's own phone. Children use the app on the family tablet with a grown-up beside them.
+- Call the app "offline" or "schermvrij". The BOOK is screen-free; the app is online, short and shared.
+- Invent quotes from Patricia, Per, teachers, parents or reviewers. A short invented line from a child, clearly as a recognisable moment ("Mam, mijn hoofd zit zo vol"), is fine.
+- Describe a specific scene from the book unless the FACTS describe it; otherwise speak about Mare's feelings in general terms.
+- Name or attack other apps or platforms. Contrast with "eindeloos scrollen" or "een eindeloze feed" is fine.
+- Use urgency tricks, hype words or exclamation-mark stacks. At most two emoji in a post (none on LinkedIn).`;
+const SOCIAL_FRAME = `THE HONEST FRAME FOR SCREEN TIME ("bewuste schermtijd"): the book is the heart and is screen-free; you read it together. The app is a short companion you use together: you read a chapter, the child explores the picture that belongs to it (tap, listen, look), and then the screen goes off again. It has a beginning and an end, unlike an endless feed. Use this when the theme touches on the app or screens; don't force it into every post.`;
+const SOCIAL_PILLARS = `PILLARS — pick the one that fits the theme and say which in "pillar":
+- practice: one small calming moment from the book or the Teacher's Guide, ready to use tonight or tomorrow (only practices the FACTS describe, or a simple general one such as slowly breathing out together, described plainly).
+- story: a moment of recognition from Mare's story (keep it general unless the FACTS give the scene).
+- behind: why calm comes before learning, reading aloud, Patricia's experience as described in the FACTS.
+- offer: the book, the app, the free sample — ONLY in a SALES slot.
+Roughly four useful posts for every one that asks for anything.`;
+
+function buildSocialWriterPrompt({ facts, lang }) {
+  const nl = lang !== 'en';
+  const rules = nl ? SOCIAL_PLATFORM_RULES_NL : SOCIAL_PLATFORM_RULES_EN;
+  return `You write social media posts for Mare — a children's book and its companion app — for an audience in the Netherlands${nl ? '' : ' (this time in English, for the UK)'}.
+
+LANGUAGE: ${nl ? 'plain, warm, everyday Dutch (Netherlands), as a Dutch teacher would write it. Use "je/jij". Never translated-sounding or American self-help language.' : 'plain, warm British English.'} Short sentences. Nothing clinical.
+
+FACTS — the only things you may state about the book, the app, the people and any offer:
+<facts>
+${String(facts || '').trim() || '(no facts given: write only general, useful posts and mention nothing specific)'}
+</facts>
+The free sample on the app's home page and the app itself are reached through the link token {{APP_LINK}}. Write {{APP_LINK}} exactly like that wherever a link belongs (only where the platform rules allow a link). Never write any other web address unless it appears word for word in the FACTS.
+
+AUDIENCES:
+${Object.values(SOCIAL_AUDIENCES).join('\n')}
+
+${SOCIAL_FRAME}
+
+${SOCIAL_PILLARS}
+
+PLATFORM RULES:
+${Object.values(rules).join('\n')}
+Any other platform: at most 450 characters, no web address in the post, {{APP_LINK}} in "firstComment".
+
+${SOCIAL_NEVER}
+
+Each post also gets a "pictureNote": one sentence telling whoever posts which picture or short video to attach (an illustration from the book, a page of the book being read, a Book Companion picture on a tablet, a calm classroom or bedtime moment without recognisable children's faces). Never suggest anything a child made.
+
+ANSWER with ONLY a JSON object, no markdown fences, no commentary:
+{"posts":[{"key":"<the key you were given>","pillar":"practice|story|behind|offer","content":"…","firstComment":"…","title":"…","slides":["…"],"pictureNote":"…"}]}
+Use "" or [] for fields that don't apply to that platform. Use \\n for line breaks inside strings.`;
+}
+
 module.exports = {
   AGE_REGISTER,
   DEFAULT_AGE_BAND,
@@ -273,4 +365,5 @@ module.exports = {
   buildMareHelperSystemPrompt,
   MARKETING_PLATFORM_KEYS,
   buildMarketingPrompt,
+  buildSocialWriterPrompt, // v83
 };

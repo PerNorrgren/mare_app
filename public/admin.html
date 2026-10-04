@@ -393,7 +393,14 @@
             <select id="sp-when"><option value="next" data-i18n="socNext">Next free posting time</option><option value="at" data-i18n="socAt">At a time I choose</option><option value="now" data-i18n="socNow">Now</option></select></div>
           <div class="field" id="sp-at-wrap" hidden><label for="sp-at" data-i18n="socDate">Date and time (your time)</label><input type="datetime-local" id="sp-at"></div>
         </div>
+        <div class="admin-form-row">
+          <div class="field"><label for="sp-audience" data-i18n="socFor">For</label><select id="sp-audience"><option value="any" data-i18n="socAudAny">Anyone</option><option value="teachers" data-i18n="socAudTeachers">Teachers</option><option value="parents" data-i18n="socAudParents">Parents</option><option value="sales" data-i18n="socAudSales">Sales</option></select></div>
+          <div class="field" id="sp-title-wrap" hidden><label for="sp-pin-title" data-i18n="socPinTitle">Pin title (Pinterest)</label><input type="text" id="sp-pin-title" maxlength="100"></div>
+        </div>
         <div class="field"><label for="sp-text" data-i18n="socText">Text</label><textarea id="sp-text" rows="7"></textarea><span class="soc-count" id="sp-count"></span></div>
+        <div class="field" id="sp-fc-wrap"><label for="sp-fc" data-i18n="socFirstComment">First comment (posted straight after, e.g. the link)</label><textarea id="sp-fc" rows="2"></textarea>
+          <p class="admin-empty-note" id="sp-link-note"></p></div>
+        <div class="soc-notes" id="sp-notes" hidden></div>
         <div class="field">
           <label data-i18n="socMedia">Picture or video (optional)</label>
           <div class="soc-media" id="sp-media"></div>
@@ -617,14 +624,33 @@
         <h3 class="soc-h" data-i18n="socChannels">Channels</h3>
         <div id="soc-channels"></div>
         <div class="soc-warn" id="soc-warn" hidden></div>
+        <div class="soc-row" id="soc-pin-row" hidden><span class="soc-p" data-i18n="socPinBoard">Pinterest board</span><select id="soc-pin-board"></select></div>
         <div class="soc-btns">
           <button type="button" class="btn-primary btn-small admin-only-tab" id="soc-save-channels" data-i18n="socSaveChannels">Save channels</button>
           <button type="button" class="btn-ghost btn-small" id="soc-refresh" data-i18n="socRefresh">Refresh list</button>
         </div>
+        <h3 class="soc-h" data-i18n="socHealth">Health</h3>
+        <p class="admin-empty-note" data-i18n="socHealthNote">Checked every hour. An email goes out once when a chosen channel stops working or a post fails, once when it works again, and at 08:00 if a posting time in the next 48 hours has nothing to post.</p>
+        <div id="soc-health"></div>
+        <div class="field soc-alert-field"><label for="soc-alert-emails" data-i18n="socAlertTo">Send these emails to</label><input type="text" id="soc-alert-emails" placeholder="per@deepermindfulness.org, …"></div>
+        <div class="soc-btns">
+          <button type="button" class="btn-ghost btn-small" id="soc-check-health" data-i18n="socCheckNow">Check health now</button>
+          <button type="button" class="btn-primary btn-small admin-only-tab" id="soc-save-alerts" data-i18n="socSaveAlerts">Save addresses</button>
+        </div>
         <h3 class="soc-h" data-i18n="socTimes">Posting times</h3>
-        <p class="admin-empty-note" data-i18n="socTimesNote">'Add to queue' puts a post in the next free time here (Dutch time). Times as 09:00, 16:00.</p>
-        <div id="soc-times"></div>
-        <div class="soc-btns"><button type="button" class="btn-primary btn-small admin-only-tab" id="soc-save-times" data-i18n="socSaveTimes">Save posting times</button></div>
+        <p class="admin-empty-note" data-i18n="socSlotsNote">Dutch time. 'Add to queue' puts a post in the next free time that fits who it is for. Sales posts only go in Sales times, and Sales times only take Sales posts. A platform with no channel chosen yet just waits.</p>
+        <div id="soc-slots"></div>
+        <div class="soc-btns">
+          <button type="button" class="btn-ghost btn-small admin-only-tab" id="soc-add-slot" data-no-busy data-i18n="socAddSlot">+ Add a posting time</button>
+          <button type="button" class="btn-primary btn-small admin-only-tab" id="soc-save-slots" data-i18n="socSaveTimes">Save posting times</button>
+        </div>
+      </div>
+
+      <div class="admin-card" id="social-facts-card">
+        <h2 data-i18n="socFactsTitle">Facts about Mare</h2>
+        <p class="admin-card-sub" data-i18n="socFactsDesc">The post writer may only say what is written here about the book, the app, the people and any offer. When something changes or isn't right, correct it here rather than in each post. The Amazon links from 'The book on Amazon' are added automatically.</p>
+        <textarea id="soc-facts" rows="18" class="soc-facts"></textarea>
+        <div class="soc-btns"><button type="button" class="btn-primary btn-small admin-only-tab" id="soc-save-facts" data-i18n="socSaveFacts">Save facts</button></div>
       </div>
 
       <div class="admin-card" id="social-queue-card">
@@ -635,28 +661,36 @@
           </div>
           <button type="button" class="btn-primary btn-small" id="soc-new" data-no-busy data-i18n="socNew">+ New post</button>
         </div>
+        <div class="soc-ahead">
+          <label for="soc-ahead-days" data-i18n="socAheadLabel">Write drafts for the empty posting times in the next</label>
+          <select id="soc-ahead-days"><option value="7" data-i18n="socAhead1">week</option><option value="14" data-i18n="socAhead2">2 weeks</option><option value="28" data-i18n="socAhead4">4 weeks</option></select>
+          <button type="button" class="btn-primary btn-small" id="soc-ahead-btn" data-i18n="socAheadBtn">✍ Write drafts</button>
+          <span class="soc-ahead-status" id="soc-ahead-status"></span>
+        </div>
+        <p class="admin-empty-note" data-i18n="socAheadNote">Drafts never go out by themselves: read them, change what you like, then Approve. A draft not approved by its time is skipped.</p>
         <div class="soc-tabs" role="tablist">
+          <button type="button" class="soc-tab" data-f="draft" data-no-busy data-i18n="socDrafts">Drafts</button>
           <button type="button" class="soc-tab on" data-f="queued" data-no-busy data-i18n="socUpcoming">Waiting</button>
           <button type="button" class="soc-tab" data-f="published" data-no-busy data-i18n="socPublished">Published</button>
           <button type="button" class="soc-tab" data-f="failed" data-no-busy data-i18n="socFailed">Failed</button>
         </div>
+        <div class="soc-btns" id="soc-approve-all-wrap" hidden><button type="button" class="btn-primary btn-small" id="soc-approve-all" data-i18n="socApproveAll">Approve all drafts</button></div>
         <div id="soc-queue"><p class="admin-empty-note" data-i18n="adminLoading">Loading…</p></div>
       </div>
 
       <div class="admin-card">
         <h2 data-i18n="adminMarketingGenTitle">Generate social posts</h2>
-        <p class="admin-card-sub" data-i18n="adminMarketingGenDesc">Paste a What's New item, a resource description, or any short piece of copy — get platform-ready posts to copy and post by hand. Nothing is posted automatically.</p>
+        <p class="admin-card-sub" data-i18n="socGenDesc">Paste something to work from (a What's New item, a chapter idea, a note from Patricia), or just write a theme. The writer follows the Dutch posting rules and the Facts about Mare. Read every post before it goes out.</p>
         <div class="field">
           <label for="mkt-source" data-i18n="adminMarketingSource">Source content</label>
           <textarea data-editor="plain" id="mkt-source" rows="4" placeholder="Paste source content here…"></textarea>
         </div>
         <div class="admin-form-row">
-          <label class="mkt-platform-check"><input type="checkbox" class="mkt-platform" value="facebook" checked> Facebook</label>
-          <label class="mkt-platform-check"><input type="checkbox" class="mkt-platform" value="instagram" checked> Instagram</label>
-          <label class="mkt-platform-check"><input type="checkbox" class="mkt-platform" value="linkedin"> LinkedIn</label>
-          <label class="mkt-platform-check"><input type="checkbox" class="mkt-platform" value="threads"> Threads</label>
+          <div class="field"><label for="mkt-theme" data-i18n="socTheme">Theme</label><input type="text" id="mkt-theme" maxlength="200"></div>
+          <div class="field"><label for="mkt-audience" data-i18n="socFor">For</label><select id="mkt-audience"><option value="any" data-i18n="socAudAny">Anyone</option><option value="teachers" data-i18n="socAudTeachers">Teachers</option><option value="parents" data-i18n="socAudParents">Parents</option><option value="sales" data-i18n="socAudSales">Sales</option></select></div>
+          <div class="field"><label for="mkt-lang" data-i18n="socLang">Language</label><select id="mkt-lang"><option value="nl">Nederlands</option><option value="en">English</option></select></div>
         </div>
-        <label class="mkt-platform-check"><input type="checkbox" id="mkt-include-cta" checked> <span data-i18n="adminMarketingIncludeCta">Include a hook + link to the app</span></label>
+        <div class="admin-form-row" id="mkt-platforms"></div>
         <p class="form-error" id="marketing-error" hidden></p>
         <button type="button" class="btn-primary" id="marketing-generate-btn" data-i18n="adminGenerate">✨ Generate</button>
         <div id="marketing-results"></div>

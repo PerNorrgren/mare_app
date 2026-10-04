@@ -108,3 +108,12 @@ html, body { margin: 0; height: 100%; background: #0B1712; overflow: hidden; ove
 .px-spot[class*="px-mask-"].revealed { opacity: 0; pointer-events: none; }
 .px-spot.px-timed.shown[class*="px-mask-"] { animation: px-fadein 0.4s ease-out both !important; }
 @keyframes px-fadein { from { opacity: 0; } to { opacity: 1; } }
+
+/* Mare App 7 (v83) — loading on a slow connection */
+.px-loading { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 22px 28px; border: 0; border-radius: 22px; background: #0B1712; box-shadow: 0 12px 40px rgba(0,0,0,0.5); color: var(--parch); font: 700 1.05rem 'Quicksand', sans-serif; z-index: 18; /* above "Tap to start", below Talk */ max-width: 80vw; text-align: center; }
+.px-loading[hidden] { display: none; }
+.px-load-ring { width: 46px; height: 46px; border-radius: 50%; border: 4px solid rgba(243,236,217,0.25); border-top-color: var(--gold); animation: px-load 0.9s linear infinite; }
+.px-loading.failed .px-load-ring { animation: none; border-color: var(--gold); border-top-color: var(--gold); }
+.px-loading.failed .px-load-ring::after { content: '↻'; display: flex; height: 100%; align-items: center; justify-content: center; color: var(--gold); font-size: 1.5rem; }
+@keyframes px-load { to { transform: rotate(360deg); } }
+.px-is-loading .px-bigplay { visibility: hidden; }

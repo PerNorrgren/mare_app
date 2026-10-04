@@ -25,6 +25,41 @@
     return r.json();
   }
 
+  // ── Mare App 7 (v83) — slow or dropped connection ──
+  // "Even laden…" appears only if loading takes longer than a moment (no
+  // flicker on a good connection). If a picture or video can't load (the
+  // connection dropped, or its link expired after a long pause), fresh
+  // links are fetched and it tries again, twice; then "tap to try again".
+  let loadTimer = null, retries = 0, retrying = false;
+  function loading(on) {
+    clearTimeout(loadTimer);
+    const el = $('px-loading');
+    if (!on) { el.hidden = true; el.classList.remove('failed'); document.body.classList.remove('px-is-loading'); return; }
+    if (!el.hidden && el.classList.contains('failed')) return;
+    loadTimer = setTimeout(() => { el.classList.remove('failed'); $('px-load-text').textContent = t('picturesLoading'); el.hidden = false; document.body.classList.add('px-is-loading'); }, 600);
+  }
+  function loadFailed() {
+    clearTimeout(loadTimer);
+    const el = $('px-loading');
+    el.classList.add('failed'); $('px-load-text').textContent = t('picturesLoadFailed'); el.hidden = false; document.body.classList.add('px-is-loading');
+  }
+  async function retryScene() {
+    if (retrying || !data) return;
+    if (retries >= 2) { loadFailed(); return; }
+    retries++; retrying = true;
+    loading(true);
+    const v = vid(), at = isVideo ? (v.currentTime || 0) : 0, wasPlaying = isVideo && !v.paused;
+    try {
+      await new Promise(r => setTimeout(r, 1200 * retries));
+      const lang = window.MareI18n ? window.MareI18n.locale : 'en';
+      const fresh = await getJson(`/api/pictures?chapter=${data.chapter}&lang=${lang}`);
+      if (fresh && fresh.chapter === data.chapter && fresh.scenes && fresh.scenes.length) data.scenes = fresh.scenes;
+      showScene(idx, true);
+      if (isVideo && at > 0) vid().addEventListener('loadedmetadata', () => { try { vid().currentTime = at; } catch { /* ignore */ } if (wasPlaying) playVideo(); }, { once: true });
+    } catch { loadFailed(); }
+    finally { retrying = false; }
+  }
+
   function stopSound() { if (audio) { audio.pause(); audio = null; } document.querySelectorAll('.px-spot.playing').forEach(s => s.classList.remove('playing')); }
 
   function closePop() {
@@ -177,7 +212,11 @@
   function loop() { tick(); if (isVideo && !vid().paused) raf = requestAnimationFrame(loop); }
   function setupVideo() {
     const v = vid();
-    v.addEventListener('loadedmetadata', () => { layout(); tick(); });
+    v.addEventListener('loadedmetadata', () => { layout(); tick(); loading(false); });
+    // v83: slow connection
+    v.addEventListener('waiting', () => { if (!v.paused) loading(true); });
+    ['playing', 'canplay', 'pause', 'seeked'].forEach(ev => v.addEventListener(ev, () => { if (ev !== 'canplay' || v.paused) loading(false); if (ev === 'playing') retries = 0; }));
+    v.addEventListener('error', () => { if (isVideo && v.getAttribute('src')) retryScene(); });
     v.addEventListener('play', () => { if (v.currentTime < 0.5) track('video_start', `${data.chapter}:${idx + 1}`); delete v.dataset.stoppedBySpot; $('px-bigplay').hidden = true; fmtBtn(); cancelAnimationFrame(raf); loop(); });
     v.addEventListener('pause', () => { fmtBtn(); tick(); });
     v.addEventListener('seeked', tick);
@@ -227,8 +266,10 @@
     frame.style.height = Math.round(h * s) + 'px';
   }
 
-  function showScene(i) {
+  function showScene(i, isRetry) {
     closePop();
+    if (!isRetry) retries = 0;
+    loading(false);
     idx = Math.max(0, Math.min(i, data.scenes.length - 1));
     const scene = data.scenes[idx];
     track('step_view', `${data.chapter}:${idx + 1}`);
@@ -241,14 +282,17 @@
     if (isVideo) {
       img.hidden = true; img.removeAttribute('src');
       v.hidden = false;
-      if (v.getAttribute('src') !== scene.video) { v.src = scene.video; v.load(); }
+      if (v.getAttribute('src') !== scene.video) { v.src = scene.video; v.load(); loading(true); }
       else { v.currentTime = 0; }
       fmtBtn();
     } else {
       v.pause(); v.hidden = true; v.removeAttribute('src'); v.load();
       img.hidden = false;
-      img.onload = layout;
+      img.onload = () => { layout(); loading(false); retries = 0; };
+      img.onerror = () => { if (!isVideo && img.getAttribute('src')) retryScene(); };
+      loading(true);
       img.src = scene.image;
+      if (img.complete && img.naturalWidth) { layout(); loading(false); }
     }
     const spots = $('px-spots');
     spots.innerHTML = '';
@@ -377,6 +421,7 @@
     $('px-prev').onclick = () => showScene(idx - 1);
     $('px-next').onclick = () => showScene(idx + 1);
     $('px-pop-close').onclick = closePop;
+    $('px-loading').onclick = () => { if ($('px-loading').classList.contains('failed')) { retries = 0; $('px-loading').classList.remove('failed'); retryScene(); } };
     $('px-talk-label').textContent = t('picturesTalk');
     $('px-talk').onclick = openTalk;
     $('px-talk-close').onclick = closeTalk;
