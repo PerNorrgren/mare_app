@@ -58,7 +58,7 @@ const LINK_TOKEN = '{{LINK}}';
 const ANY_LINK_RE = /https?:\/\/[^\s<>"')\]]+|\{\{LINK\}\}/gi;
 const DEFAULT_POST_LINKS = { parents: '/', teachers: '/teacher.html', sales: '/merchandise.html', any: '/' };
 // red flags the writer was told never to use: shown on the draft, not blocking
-const RED_FLAGS = ['angststoornis', 'trauma', 'therapie', 'stoornis', 'diagnose', 'depressie', 'kwetsba', 'verslav', 'zenuwstelsel', 'amygdala', 'dopamine', 'brein', 'bewezen', 'evidence', 'onderzoek laat', 'onderzoek toont', 'privacy', 'tracking', 'avg', 'gdpr', 'veilig', 'offline', 'schermvrij', 'meiden', 'meisjes', 'pubers', 'tieners', 'brugklas', 'mentoruur', 'zorgcoördinator', 'middelbare school', 'whitepaper', 'licentie', 'korting', 'moro', ' rem ', 'brake', '%'];
+const RED_FLAGS = ['angststoornis', 'trauma', 'therapie', 'stoornis', 'diagnose', 'depressie', 'kwetsba', 'verslav', 'zenuwstelsel', 'amygdala', 'dopamine', 'brein', 'bewezen', 'evidence', 'onderzoek laat', 'onderzoek toont', 'privacy', 'tracking', 'avg', 'gdpr', 'veilig', 'offline', 'schermvrij', 'meiden', 'meisjes', 'pubers', 'tieners', 'brugklas', 'mentoruur', 'zorgcoördinator', 'middelbare school', 'whitepaper', 'licentie', 'korting', 'moro', ' rem ', 'brake', '%', 'geen scherm', 'zonder scherm', 'telefoon'];
 
 const normPlatform = (p) => {
   const v = String(p || '').toLowerCase().trim();
@@ -550,6 +550,7 @@ function register(app, { db, auth, media, email, anthropic, model, publicUrl }) 
     const hay = ` ${(content + ' ' + firstComment + ' ' + (p.title || '')).toLowerCase()} `;
     const flags = RED_FLAGS.filter(w => hay.includes(w));
     if (flags.length) notes.warnings.push(`Check the wording: contains "${flags.map(w => w.trim()).join('", "')}".`);
+    if (LINK_IN_BIO.has(platform) && !/#\w/.test(content)) notes.warnings.push(`No hashtags: ${label(platform)} posts should end with 3–8 of them.`);
     return { content, firstComment, title: platform === 'pinterest' ? String(p.title || '').trim().slice(0, 100) : '', notes };
   }
   async function writePosts(items, lang) {

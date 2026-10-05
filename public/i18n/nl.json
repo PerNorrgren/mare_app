@@ -1613,5 +1613,7 @@
   "socLinkTokenTip": "De link voor dit soort bericht (Links in berichten, op de kaart Sociale media)",
   "socLinkGoesTo": "De link gaat naar {url}.",
   "pageStatusRemoved": "Niet meer in de app",
-  "socPictureUnreadable": "Deze afbeelding kan hier niet gelezen worden. Sla hem op als JPG of PNG en probeer opnieuw."
+  "socPictureUnreadable": "Deze afbeelding kan hier niet gelezen worden. Sla hem op als JPG of PNG en probeer opnieuw.",
+  "socDiscard": "Weggooien",
+  "socNotSavedYet": "Nog niet opgeslagen — druk op Kanalen opslaan"
 }

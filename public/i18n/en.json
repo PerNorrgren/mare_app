@@ -1613,5 +1613,7 @@
   "socLinkTokenTip": "The post link for this post type (Post links on the Social media card)",
   "socLinkGoesTo": "The post link goes to {url}.",
   "pageStatusRemoved": "No longer in the app",
-  "socPictureUnreadable": "This picture can't be read here. Save it as JPG or PNG and try again."
+  "socPictureUnreadable": "This picture can't be read here. Save it as JPG or PNG and try again.",
+  "socDiscard": "Discard",
+  "socNotSavedYet": "Not saved yet — press Save channels"
 }

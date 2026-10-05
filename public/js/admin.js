@@ -1640,7 +1640,7 @@
     return parts.join('');
   }
   // results: { platform: string (old history) | { content, firstComment, title, notes, audience } | { error } }
-  function renderMarketingResults(container, results) {
+  function renderMarketingResults(container, results, opts) {
     container.innerHTML = '';
     Object.keys(results || {}).forEach(platform => {
       const raw = results[platform];
@@ -1675,6 +1675,8 @@
         if (!confirm(t('socPublishConfirm', { p: socLabel(platform) }))) return;
         try { await api('/api/admin/social/publish', { method: 'POST', body: JSON.stringify(body) }); } catch (e) { alert(e.message); throw e; } finally { loadSocialQueue(); }
       });
+      // v86: throw a generated post away (Past posts keeps the batch until deleted there)
+      if (!(opts && opts.history)) mk('socDiscard', 'btn-ghost', () => { card.remove(); if (!container.querySelector('.mkt-result-card')) container.innerHTML = ''; }, true);
       if (r.title) { const ti = document.createElement('div'); ti.className = 'mkt-result-title'; ti.textContent = r.title; card.appendChild(ti); }
       const text = document.createElement('div');
       text.className = 'mkt-result-text';
@@ -1719,6 +1721,16 @@
         <select data-p="${escapeHtml(p)}" ${isAdmin ? '' : 'disabled'}><option value="">${escapeHtml(t('socNoChannel'))}</option>${opts.map(c => `<option value="${escapeHtml(c.id)}"${c.id === String(cur) ? ' selected' : ''}>${escapeHtml(c.name)} (id ${escapeHtml(c.id)})</option>`).join('')}</select>
         ${state}</div>`;
     }).join('');
+    // v86: a changed channel that isn't saved yet says so, and Save lights up
+    box.querySelectorAll('select[data-p]').forEach(sel => sel.addEventListener('change', () => {
+      const saved = String(socState.chosen[sel.dataset.p] || '');
+      const st = sel.parentElement.querySelector('.soc-ok, .soc-bad, .soc-off, .soc-unsaved-note');
+      if (sel.value !== saved) { if (st) { st.className = 'soc-unsaved-note'; st.textContent = t('socNotSavedYet'); } }
+      else loadSocial();
+      const any = [...box.querySelectorAll('select[data-p]')].some(x => x.value !== String(socState.chosen[x.dataset.p] || ''));
+      document.getElementById('soc-save-channels').classList.toggle('soc-unsaved', any);
+    }));
+    document.getElementById('soc-save-channels').classList.remove('soc-unsaved');
     const warn = document.getElementById('soc-warn');
     warn.hidden = !socState.notChosen.length;
     warn.textContent = socState.notChosen.length ? t('socOtherChannels', { list: socState.notChosen.map(c => `${socLabel(c.platform)}: ${c.name} (id ${c.id})`).join(', ') }) : '';
@@ -2044,7 +2056,7 @@
         source.textContent = item.source_text.length > 140 ? item.source_text.slice(0, 140) + '…' : item.source_text;
         row.appendChild(source);
         const resultsWrap = document.createElement('div');
-        renderMarketingResults(resultsWrap, item.results);
+        renderMarketingResults(resultsWrap, item.results, { history: true });
         row.appendChild(resultsWrap);
         const deleteBtn = document.createElement('button');
         deleteBtn.type = 'button';

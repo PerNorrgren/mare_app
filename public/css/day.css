@@ -2089,3 +2089,4 @@ button.an-card { font: inherit; text-align: left; border: 0; width: 100%; displa
 #soc-post-links input { flex: 1; min-width: 160px; font: inherit; font-size: 0.9rem; padding: 7px 10px; border-radius: 8px; border: 1.5px solid rgba(22,48,92,0.2); }
 .soc-open { font-size: 0.85rem; font-weight: 700; color: var(--navy); white-space: nowrap; }
 .soc-link { background: #E8F1FB; border-radius: 6px; padding: 0 5px; font-weight: 600; }
+.soc-unsaved-note { color: #8A6A12; font-weight: 700; }

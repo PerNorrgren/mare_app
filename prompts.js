@@ -313,7 +313,8 @@ const SOCIAL_NEVER = `NEVER, in any post or first comment:
 - Speak to children directly, suggest a child uses social media, or place the app on a child's own phone. Children use the app on the family tablet with a grown-up beside them.
 - Call the app "offline" or "schermvrij". The BOOK is screen-free; the app is online, short and shared.
 - Invent quotes from Patricia, Per, teachers, parents or reviewers. A short invented line from a child, clearly as a recognisable moment ("Mam, mijn hoofd zit zo vol"), is fine.
-- Describe a specific scene from the book unless the FACTS describe it; otherwise speak about Mare's feelings in general terms.
+- Invent anything about Mare's story: no events, objects, places or plot (not "Mare lost her phone", not "Mare met an owl") unless the FACTS say it. Use only what the FACTS say about her and the wood; otherwise speak of feelings in general terms, or about the reader's own child.
+- Say "geen scherm" or "zonder scherm" about the app. Only the BOOK is screen-free.
 - Name or attack other apps or platforms. Contrast with "eindeloos scrollen" or "een eindeloze feed" is fine.
 - Use urgency tricks, hype words or exclamation-mark stacks. At most two emoji in a post (none on LinkedIn).`;
 const SOCIAL_FRAME = `THE HONEST FRAME FOR SCREEN TIME ("bewuste schermtijd"): the book is the heart and is screen-free; you read it together. The app is a short companion you use together: you read a chapter, the child explores the picture that belongs to it (tap, listen, look), and then the screen goes off again. It has a beginning and an end, unlike an endless feed. Use this when the theme touches on the app or screens; don't force it into every post.`;
