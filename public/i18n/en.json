@@ -1541,7 +1541,7 @@
   "socPublishConfirm": "Publish this to {p} now?",
   "socGenNeedSource": "Paste something to work from, or write a theme.",
   "socNotePicture": "Picture to attach:",
-  "socNoteSlides": "Carousel slides:",
+  "socNoteSlides": "Slides / text on screen:",
   "socQueuedFor": "In the queue for {when}",
   "socFirstCommentShort": "First comment:",
   "socPinDefault": "Let BulkPublish choose (its 'BulkPublish' board)",
@@ -1563,7 +1563,7 @@
   "socApprove": "Approve",
   "socApproved": "Approved: it's in the queue.",
   "socLinkMoves": "On {p} a web address in the text moves to the first comment, for better reach.",
-  "socLinkBio": "Links can't be clicked in an Instagram caption: write 'Link in bio.' instead.",
+  "socLinkBio": "Links can't be clicked on {p}: write 'Link in bio.' instead.",
   "socHealthEmailed": "Checked. Something changed: emailed {n} address(es).",
   "socHealthNoNews": "Checked. Nothing new to report.",
   "socApproveAllConfirm": "Approve all drafts? Each goes out at its own time.",
@@ -1612,5 +1612,6 @@
   "socOpenPage": "Open ↗",
   "socLinkTokenTip": "The post link for this post type (Post links on the Social media card)",
   "socLinkGoesTo": "The post link goes to {url}.",
-  "pageStatusRemoved": "No longer in the app"
+  "pageStatusRemoved": "No longer in the app",
+  "socPictureUnreadable": "This picture can't be read here. Save it as JPG or PNG and try again."
 }

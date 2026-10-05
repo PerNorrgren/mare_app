@@ -1541,7 +1541,7 @@
   "socPublishConfirm": "Dit nu op {p} plaatsen?",
   "socGenNeedSource": "Plak iets om vanuit te werken, of schrijf een thema.",
   "socNotePicture": "Foto of video erbij:",
-  "socNoteSlides": "Dia's voor de carrousel:",
+  "socNoteSlides": "Dia's / tekst in beeld:",
   "socQueuedFor": "In de wachtrij voor {when}",
   "socFirstCommentShort": "Eerste reactie:",
   "socPinDefault": "Laat BulkPublish kiezen (het bord 'BulkPublish')",
@@ -1563,7 +1563,7 @@
   "socApprove": "Goedkeuren",
   "socApproved": "Goedgekeurd: het staat in de wachtrij.",
   "socLinkMoves": "Op {p} gaat een webadres in de tekst naar de eerste reactie, voor een groter bereik.",
-  "socLinkBio": "Links zijn niet klikbaar in een Instagram-tekst: schrijf 'Link in bio.'",
+  "socLinkBio": "Links zijn niet klikbaar op {p}: schrijf 'Link in bio.'",
   "socHealthEmailed": "Gecontroleerd. Er is iets veranderd: e-mail naar {n} adres(sen).",
   "socHealthNoNews": "Gecontroleerd. Niets nieuws te melden.",
   "socApproveAllConfirm": "Alle concepten goedkeuren? Elk gaat op zijn eigen tijd online.",
@@ -1612,5 +1612,6 @@
   "socOpenPage": "Openen ↗",
   "socLinkTokenTip": "De link voor dit soort bericht (Links in berichten, op de kaart Sociale media)",
   "socLinkGoesTo": "De link gaat naar {url}.",
-  "pageStatusRemoved": "Niet meer in de app"
+  "pageStatusRemoved": "Niet meer in de app",
+  "socPictureUnreadable": "Deze afbeelding kan hier niet gelezen worden. Sla hem op als JPG of PNG en probeer opnieuw."
 }

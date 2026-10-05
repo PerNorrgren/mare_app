@@ -1873,7 +1873,7 @@
     const noLink = socState && (socState.noLinkPlatforms || []).includes(p);
     const aud = document.getElementById('sp-audience').value;
     const goes = socState && socState.postLinksFull ? ' ' + t('socLinkGoesTo', { url: socState.postLinksFull[aud] || socState.postLinksFull.any }) : '';
-    document.getElementById('sp-link-note').textContent = (noLink ? t('socLinkMoves', { p: socLabel(p) }) : p === 'instagram' ? t('socLinkBio') : '') + goes;
+    document.getElementById('sp-link-note').textContent = (noLink ? t('socLinkMoves', { p: socLabel(p) }) : ['instagram', 'tiktok'].includes(p) ? t('socLinkBio', { p: socLabel(p) }) : '') + goes;
   }
   // open the post window: r = existing post (edit), a copy (id null), or a generated post
   function openSocialPost(r) {
@@ -1910,12 +1910,25 @@
     document.getElementById('sp-text').addEventListener('input', socCount);
     document.getElementById('sp-platform').addEventListener('change', socCount);
     document.getElementById('sp-audience').addEventListener('change', socCount);
+    // a PNG/GIF/HEIC the browser can read → JPG (white behind transparent parts)
+    async function socToJpg(file) {
+      const url = URL.createObjectURL(file);
+      try {
+        const img = await new Promise((ok, bad) => { const i = new Image(); i.onload = () => ok(i); i.onerror = () => bad(new Error(t('socPictureUnreadable'))); i.src = url; });
+        const c = document.createElement('canvas'); c.width = img.naturalWidth; c.height = img.naturalHeight;
+        const g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height); g.drawImage(img, 0, 0);
+        const blob = await new Promise(ok => c.toBlob(ok, 'image/jpeg', 0.92));
+        return new File([blob], file.name.replace(/\.[^.]+$/, '') + '.jpg', { type: 'image/jpeg' });
+      } finally { URL.revokeObjectURL(url); }
+    }
     document.getElementById('sp-file').addEventListener('change', async (e) => {
-      const file = e.target.files[0]; if (!file) return;
+      let file = e.target.files[0]; if (!file) return;
       const isVid = (file.type || '').startsWith('video/');
       if (isVid && !/\.mp4$/i.test(file.name)) { alert(t('adminVidMp4Only')); e.target.value = ''; return; }
       const el = document.getElementById('sp-media'); el.innerHTML = `<span class="soc-spin"></span> ${escapeHtml(t('adminUploading'))}`;
       try {
+        // v85: pictures are saved as JPG (TikTok takes no PNG), so one picture works everywhere
+        if (!isVid && !/^image\/(jpeg|webp)$/.test(file.type || '')) file = await socToJpg(file);
         const key = `social/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, '_').slice(-80)}`;
         const { url } = await api('/api/admin/upload-url', { method: 'POST', body: JSON.stringify({ key, contentType: file.type || 'application/octet-stream' }) });
         const put = await fetch(url, { method: 'PUT', headers: { 'Content-Type': file.type || 'application/octet-stream' }, body: file });
