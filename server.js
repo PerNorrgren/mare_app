@@ -154,6 +154,15 @@ app.post('/api/parent/signup', async (req, res) => {
     if (db.getParentByEmail(rawEmail)) return res.status(409).json({ error: 'Email already registered' });
     const hash = await auth.hashPassword(password);
     const id = db.createParent({ email: rawEmail, passwordHash: hash, name });
+    // v87 Comms: the newsletter tick on the sign-up form (unticked by
+    // default). They saw the question, so the app never asks again.
+    try {
+      const b = req.body || {};
+      const lists = b.newsConsent && Array.isArray(b.newsLists) ? b.newsLists : [];
+      const uniq = [...new Set(lists)];
+      for (const list of uniq) comms.subscribe({ email: rawEmail, name, list, locale: b.locale, source: 'signup', confirmed: true, parentId: id, consentText: comms.consentFor(uniq, b.locale) });
+      db.run(`UPDATE parents SET news_asked_at = ? WHERE id = ?`, [new Date().toISOString(), id]);
+    } catch (e) { console.error('signup newsletter choice failed:', e.message); }
     const token = auth.createToken({ role: 'parent', id, name, email: rawEmail });
     res.cookie(auth.COOKIE_NAME, token, auth.COOKIE_OPTIONS);
     res.json({ ok: true, id });
@@ -628,6 +637,8 @@ require('./social').register(app, { db, auth, media, email, anthropic, model: TA
 // letters use PUBLIC_URL (the live site; see email.js).
 require('./marepost').register(app, { db, auth, email, anthropic, model: TALK_MODEL,
   appUrl: PUBLIC_URL });
+// Mare App 8 (v87) — Comms: opt-in newsletters for parents and teachers, welcome series
+const comms = require('./comms').register(app, { db, auth, email, anthropic, model: TALK_MODEL, publicUrl: PUBLIC_URL });
 
 app.get('/api/books/:slug', (req, res) => {
   const book = db.getBookBySlug(req.params.slug);
@@ -2415,6 +2426,14 @@ app.post('/api/teacher/signup-request', async (req, res) => {
   if (!firstName || !lastName || !rawEmail) return res.status(400).json({ error: 'Missing fields' });
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(rawEmail)) return res.status(400).json({ error: 'That doesn\'t look like a valid email address' });
   db.createTeacherSignupRequest({ firstName, lastName, email: rawEmail, school });
+  // v87 Comms: the newsletter tick (unticked by default). No account yet,
+  // so the address is confirmed by email before anything is sent.
+  if ((req.body || {}).newsConsent) {
+    try {
+      const row = comms.subscribe({ email: rawEmail, name: `${firstName} ${lastName}`.trim(), list: 'teachers', locale: req.body.locale, source: 'teacher-request', confirmed: false });
+      comms.sendConfirm([row]).catch(e => console.error('teacher request confirm failed:', e.message));
+    } catch (e) { console.error('teacher request newsletter failed:', e.message); }
+  }
   const config = db.getAppConfig();
   if (config && config.contact_email) {
     email.sendTeacherSignupRequestNotification(config.contact_email, { firstName, lastName, email: rawEmail, school })

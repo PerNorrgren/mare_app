@@ -843,4 +843,4 @@ function register(app, { db, auth, media, email, anthropic, model, publicUrl }) 
   return { publish, runDue, nextSlot, checkHealth, dailyGapMail, gapsAhead };
 }
 
-module.exports = { register, BASE_PLATFORMS, normPlatform };
+module.exports = { register, BASE_PLATFORMS, normPlatform, RED_FLAGS, DEFAULT_FACTS }; // v87: Comms uses the same facts and red flags

@@ -10,7 +10,7 @@
 <link rel="stylesheet" href="/css/style.css">
 <link rel="stylesheet" href="/css/day.css">
 </head>
-<body class="day auth-atmosphere" id="page-body">
+<body class="day auth-atmosphere" id="page-body" data-news-offer="teacher">
 
 <div class="bg-slideshow-wrap" id="bg-slideshow"></div>
 <div class="bg-veil"></div>
@@ -102,6 +102,9 @@
       <p data-i18n="teacherBelongingBody">Mare's classroom tools are still young, built alongside the teachers actually using them. What you ask for and what works in your room genuinely shapes what gets built next — not a suggestion box, a real conversation with the two people writing it.</p>
     </div>
 
+    <!-- v87 Comms: newsletter for teachers (no account needed) -->
+    <div data-news="teachers"></div>
+
     <div class="teacher-cta-row">
       <a href="/teacher-login.html" class="btn-primary" data-i18n="teacherCtaSignIn">Sign in</a>
     </div>
@@ -127,6 +130,8 @@
     <div class="teacher-cta-row">
       <button type="button" class="btn-ghost" id="ask-question-btn" data-i18n="teacherAskQuestion">Ask a question about the app</button>
     </div>
+    <!-- v87 Comms: own newsletter switch -->
+    <div class="hub-section"><div data-news="teachers"></div></div>
   </section>
 
 </main>
@@ -169,6 +174,7 @@
 <script src="/js/track.js"></script>
 <script src="/js/mare-helper-widget.js"></script>
 <script src="/js/bg-slideshow.js"></script>
+<script src="/js/news-signup.js"></script>
 <script src="/js/teacher.js"></script>
 <script>window.MareBgSlideshow.init('bg-slideshow', ['/images/mare-front-cover.jpg', '/images/mare-back-cover.jpg']);</script>
 <script src="/js/viewas-bar.js"></script>

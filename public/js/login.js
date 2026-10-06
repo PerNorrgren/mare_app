@@ -86,7 +86,11 @@
     }
 
     const endpoint = `/api/parent/${state.mode}`;
-    const body = state.mode === 'signup' ? { email, password, name } : { email, password };
+    const newsWho = (document.querySelector('input[name="f-news-who"]:checked') || {}).value || 'parents';
+    const newsConsent = document.getElementById('f-news').checked;
+    const body = state.mode === 'signup'
+      ? { email, password, name, newsConsent, newsLists: newsConsent ? (newsWho === 'both' ? ['parents', 'teachers'] : [newsWho]) : [], locale: window.MareI18n.locale }
+      : { email, password };
 
     const submitBtn = document.getElementById('submit-btn');
     submitBtn.disabled = true;
@@ -178,6 +182,13 @@
   }
 
   async function init() {
+    // v87 Comms: the newsletter tick shows who it's for; its words follow the choice
+    const newsLabel = () => {
+      const who = (document.querySelector('input[name="f-news-who"]:checked') || {}).value || 'parents';
+      document.getElementById('f-news-label').textContent = window.MareI18n.t(who === 'both' ? 'newsConsentBoth' : (who === 'teachers' ? 'newsConsentTeachers' : 'newsConsentParents'));
+    };
+    document.getElementById('f-news').addEventListener('change', (e) => { document.getElementById('f-news-lists').hidden = !e.target.checked; });
+    document.querySelectorAll('input[name="f-news-who"]').forEach(r => r.addEventListener('change', newsLabel));
     await window.MareI18n.ready;
     setupLangSwitch();
     setupModeSwitch();

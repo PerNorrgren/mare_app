@@ -65,6 +65,7 @@
     document.getElementById('forgot-success').hidden = true;
     document.getElementById('auth-heading').textContent = window.MareI18n.t('forgotPasswordHeading');
     document.getElementById('auth-sub').hidden = true;
+    loginLinks(false);
   }
   function showLoginForm() {
     document.getElementById('forgot-form').hidden = true;
@@ -72,6 +73,11 @@
     document.getElementById('auth-form').hidden = false;
     document.getElementById('auth-sub').hidden = false;
     document.getElementById('auth-heading').textContent = window.MareI18n.t('authHeadingLogin');
+    loginLinks(true);
+  }
+  // v87: the "forgot password" and "request access" links belong to the sign-in view only
+  function loginLinks(show) {
+    ['forgot-link', 'register-link'].forEach(id => { const a = document.getElementById(id); if (a && a.parentElement) a.parentElement.hidden = !show; });
   }
   function showRegisterForm() {
     document.getElementById('auth-form').hidden = true;
@@ -80,6 +86,7 @@
     document.getElementById('register-success').hidden = true;
     document.getElementById('auth-heading').textContent = window.MareI18n.t('teacherRegisterHeading');
     document.getElementById('auth-sub').hidden = true;
+    loginLinks(false);
   }
   function setupForgotPassword() {
     document.getElementById('forgot-link').addEventListener('click', (e) => {
@@ -143,7 +150,7 @@
         const res = await fetch('/api/teacher/signup-request', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ firstName, lastName, email, school }),
+          body: JSON.stringify({ firstName, lastName, email, school, newsConsent: document.getElementById('r-news').checked, locale: window.MareI18n.locale }), // v87
         });
         const data = await res.json();
         if (!res.ok) {
@@ -153,7 +160,8 @@
           return;
         }
         document.getElementById('register-success').hidden = false;
-        document.getElementById('register-form').querySelectorAll('.field').forEach(f => { f.hidden = true; });
+        document.getElementById('register-form').querySelectorAll('.field, #r-news-row').forEach(f => { f.hidden = true; });
+        if (document.getElementById('r-news').checked) { const s = document.getElementById('register-success'); s.textContent = `${s.textContent} ${window.MareI18n.t('newsCheckInbox')}`; }
         btn.hidden = true;
       } catch {
         document.getElementById('register-error').textContent = window.MareI18n.t('errorGeneric');

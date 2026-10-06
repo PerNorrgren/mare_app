@@ -79,6 +79,7 @@
       <button type="button" class="admin-tab" data-tab="resources" data-i18n="adminTabResources">Teacher Resources</button>
       <button type="button" class="admin-tab" data-tab="pages" data-i18n="adminTabPages">Pages</button>
       <button type="button" class="admin-tab" data-tab="messaging" data-i18n="adminTabMessaging">Messaging</button>
+      <button type="button" class="admin-tab" data-tab="comms" data-i18n="adminTabComms">Comms</button>
       <button type="button" class="admin-tab" data-tab="marketing" data-i18n="adminTabMarketing">Sales &amp; Marketing</button>
       <button type="button" class="admin-tab" data-tab="showcase" data-i18n="adminTabShowcase">Showcase Page</button>
       <button type="button" class="admin-tab" data-tab="clubmare" data-i18n="adminTabClubMare">Club Mare</button>
@@ -305,6 +306,83 @@
           <button type="button" class="btn-primary" id="new-whats-new-btn" data-i18n="adminNewWhatsNew">+ New item</button>
         </div>
         <div id="whats-new-list"><p class="admin-empty-note" data-i18n="adminLoading">Loading…</p></div>
+      </div>
+    </div>
+
+    <!-- ── Mare App 8 (v87) — Comms: opt-in email lists, newsletters, welcome series ── -->
+    <div class="admin-panel" id="panel-comms">
+      <div class="admin-card">
+        <div class="admin-card-header-row">
+          <div>
+            <h2 data-i18n="cmListsTitle">Email lists</h2>
+            <p class="admin-card-sub" data-i18n="cmListsDesc">Only people who ticked a box are on a list. People who signed up on the site are added once they confirm by email.</p>
+          </div>
+          <div class="cm-head-btns">
+            <button type="button" class="btn-ghost" id="cm-add-btn" data-no-busy data-i18n="cmAddPerson">+ Add someone</button>
+            <a class="btn-ghost" href="/api/admin/comms/subscribers.csv" id="cm-csv" data-no-busy data-i18n="cmDownload">Download list</a>
+          </div>
+        </div>
+        <div class="stat-grid cm-counts" id="cm-counts"></div>
+        <div class="cm-filters">
+          <select id="cm-f-list" aria-label="List"><option value="" data-i18n="cmAllLists">Both lists</option><option value="parents" data-i18n="cmListParents">Parents</option><option value="teachers" data-i18n="cmListTeachers">Teachers</option></select>
+          <select id="cm-f-status" aria-label="Status"><option value="" data-i18n="cmAnyStatus">Everyone</option><option value="active" data-i18n="cmStatusActive">On the list</option><option value="pending" data-i18n="cmStatusPending">Waiting to confirm</option><option value="stopped" data-i18n="cmStatusStopped">Stopped</option></select>
+          <input type="search" id="cm-f-q" data-i18n-placeholder="cmSearch" placeholder="Search name or email">
+        </div>
+        <div class="stat-detail-scroll"><table class="admin-table cm-subs" id="cm-subs"></table></div>
+      </div>
+
+      <div class="admin-card">
+        <div class="admin-card-header-row">
+          <div>
+            <h2 data-i18n="cmNewslettersTitle">Newsletters</h2>
+            <p class="admin-card-sub" id="cm-nl-desc"></p>
+          </div>
+        </div>
+        <div class="cm-new-row">
+          <div class="field"><label for="cm-new-list" data-i18n="cmForList">For</label>
+            <select id="cm-new-list"><option value="parents" data-i18n="cmListParents">Parents</option><option value="teachers" data-i18n="cmListTeachers">Teachers</option></select></div>
+          <div class="field cm-notes-field"><label for="cm-notes" data-i18n="cmNotes">Notes for the app's draft (optional)</label>
+            <textarea id="cm-notes" rows="2" maxlength="1200" data-i18n-placeholder="cmNotesPh" placeholder="A theme, something new to mention, a season…"></textarea></div>
+        </div>
+        <div class="whisper-q-btns">
+          <button type="button" class="btn-primary btn-small" id="cm-write-btn" data-i18n="cmWrite">Write a draft</button>
+          <button type="button" class="btn-ghost btn-small" id="cm-blank-btn" data-i18n="cmBlank">New empty newsletter</button>
+        </div>
+        <p class="form-error" id="cm-nl-error" hidden></p>
+        <div id="cm-newsletters"><p class="admin-empty-note" data-i18n="adminLoading">Loading…</p></div>
+      </div>
+
+      <div class="admin-card">
+        <h2 data-i18n="cmWelcomeTitle">Welcome emails</h2>
+        <p class="admin-card-sub" id="cm-welcome-desc"></p>
+        <div id="cm-welcome"></div>
+      </div>
+
+      <div class="admin-card">
+        <h2 data-i18n="cmTimesTitle">Send times (Dutch time)</h2>
+        <p class="admin-card-sub" data-i18n="cmTimesDesc">Approved newsletters go out at the next time for their list. Welcome emails use the same time of day.</p>
+        <div class="cm-times" id="cm-times"></div>
+        <button type="button" class="btn-primary btn-small" id="cm-times-save" data-i18n="adminSaveChanges">Save</button>
+      </div>
+    </div>
+
+    <!-- Comms: add someone -->
+    <div class="admin-modal-backdrop" id="cm-add-modal" hidden>
+      <div class="admin-modal-card">
+        <h3 data-i18n="cmAddTitle">Add someone to a list</h3>
+        <div class="field"><label for="cm-add-email" data-i18n="fieldEmail">Email</label><input type="email" id="cm-add-email"></div>
+        <div class="field"><label for="cm-add-name" data-i18n="cmFirstName">First name</label><input type="text" id="cm-add-name" maxlength="80"></div>
+        <div class="admin-form-row">
+          <div class="field"><label for="cm-add-list" data-i18n="cmForList">For</label><select id="cm-add-list"><option value="parents" data-i18n="cmListParents">Parents</option><option value="teachers" data-i18n="cmListTeachers">Teachers</option></select></div>
+          <div class="field"><label for="cm-add-locale" data-i18n="cmLanguage">Language</label><select id="cm-add-locale"><option value="nl">Nederlands</option><option value="en">English</option></select></div>
+        </div>
+        <div class="field"><label for="cm-add-note" data-i18n="cmAddNote">How they asked (optional)</label><input type="text" id="cm-add-note" maxlength="200" data-i18n-placeholder="cmAddNotePh" placeholder="e.g. at the school fair, by email"></div>
+        <label class="acc-checkbox-row"><input type="checkbox" id="cm-add-asked"> <span data-i18n="cmAddAsked">This person asked to be on this list.</span></label>
+        <p class="form-error" id="cm-add-error" hidden></p>
+        <div class="admin-modal-btns">
+          <button type="button" class="btn-ghost" id="cm-add-close-btn" data-no-busy data-i18n="adminCancel">Cancel</button>
+          <button type="button" class="btn-primary" id="cm-add-save" data-i18n="cmAddSave">Add</button>
+        </div>
       </div>
     </div>
 

@@ -60,6 +60,17 @@
         <input type="password" id="f-confirm" name="confirm" autocomplete="new-password">
       </div>
 
+      <!-- Mare App 8 (v87) — Comms: newsletter, unticked by default -->
+      <div class="signup-only news-signup-block" hidden>
+        <label class="acc-checkbox-row"><input type="checkbox" id="f-news"> <span id="f-news-label" data-i18n="newsConsentParents">Yes, send me Mare's newsletter for parents (at most once a week, stop any time).</span></label>
+        <fieldset class="news-choice" id="f-news-lists" hidden>
+          <legend data-i18n="newsIAm">I am a…</legend>
+          <label><input type="radio" name="f-news-who" value="parents" checked> <span data-i18n="newsWhoParent">Parent</span></label>
+          <label><input type="radio" name="f-news-who" value="teachers"> <span data-i18n="newsWhoTeacher">Teacher</span></label>
+          <label><input type="radio" name="f-news-who" value="both"> <span data-i18n="newsWhoBoth">Both</span></label>
+        </fieldset>
+      </div>
+
       <p class="form-error" id="form-error" hidden></p>
 
       <button type="submit" class="btn-primary btn-full" id="submit-btn" data-i18n="submitLogin">Log in</button>

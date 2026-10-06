@@ -2090,3 +2090,65 @@ button.an-card { font: inherit; text-align: left; border: 0; width: 100%; displa
 .soc-open { font-size: 0.85rem; font-weight: 700; color: var(--navy); white-space: nowrap; }
 .soc-link { background: #E8F1FB; border-radius: 6px; padding: 0 5px; font-weight: 600; }
 .soc-unsaved-note { color: #8A6A12; font-weight: 700; }
+
+/* ── Mare App 8 (v87) — Comms: newsletter form, switch, one-time question, admin ── */
+.home-news { max-width: 760px; margin: 8px auto 26px; padding: 0 clamp(12px, 3vw, 20px); }
+.news-card { max-width: 720px; margin: 0 auto 24px; }
+#public-view .news-card { margin-top: 24px; }
+.news-card .whisper-form { margin-bottom: 0; }
+.news-card .whisper-form .acc-checkbox-row { color: var(--navy); align-items: flex-start; }
+.news-card .whisper-form .acc-checkbox-row input { margin-top: 3px; flex: 0 0 auto; }
+.news-card > .acc-checkbox-row { color: #F3ECD9; font-size: 1rem; }
+.news-switch-note { font-size: 0.85rem; color: rgba(243,236,217,0.75); margin: 0; }
+.news-card .news-flash { margin: 8px 0 0; }
+.news-fields { display: flex; gap: 10px; flex-wrap: wrap; }
+.news-fields .field { flex: 1; min-width: 180px; }
+.news-choice[hidden], .news-fields[hidden] { display: none; }
+.news-choice { border: none; padding: 0; margin: 0 0 12px; display: flex; gap: 14px; flex-wrap: wrap; align-items: center; color: var(--navy); }
+.news-choice legend { font-weight: 700; font-size: 0.9rem; padding: 0; margin-bottom: 6px; float: left; width: 100%; }
+.news-choice label { display: inline-flex; align-items: center; gap: 6px; font-size: 0.95rem; cursor: pointer; }
+.news-hp { position: absolute !important; left: -9999px !important; width: 1px; height: 1px; opacity: 0; }
+.news-signup-block { margin: 4px 0 10px; }
+.news-signup-block .acc-checkbox-row { align-items: flex-start; }
+.news-signup-block .acc-checkbox-row input { margin-top: 3px; flex: 0 0 auto; }
+.auth-atmosphere .news-signup-block .news-choice, .auth-atmosphere .news-signup-block .acc-checkbox-row, .auth-atmosphere #r-news-row { color: var(--parchment); }
+.auth-atmosphere .news-signup-block .news-choice legend { color: var(--parchment); }
+.news-signup-block .news-choice { margin: 2px 0 6px 26px; }
+#r-news-row { align-items: flex-start; }
+#r-news-row input { margin-top: 3px; flex: 0 0 auto; }
+.acc-news { margin-top: 18px; padding-top: 14px; border-top: 1px solid rgba(22,48,92,0.12); }
+.news-switch-head { font-weight: 700; color: var(--navy); margin: 0 0 8px; }
+.news-switch-plain .news-switch-note { color: var(--navy-soft); }
+.news-offer .admin-modal-card { max-width: 440px; }
+.news-offer .admin-modal-card p { line-height: 1.55; }
+/* admin */
+.cm-head-btns { display: flex; gap: 8px; flex-wrap: wrap; }
+.cm-head-btns a { text-decoration: none; }
+.cm-counts { margin-bottom: 14px; }
+.cm-filters { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+.cm-filters select, .cm-filters input { padding: 8px 10px; border-radius: 10px; border: 1.5px solid rgba(22,48,92,0.18); font: inherit; background: #fff; color: var(--navy); }
+.cm-filters input { flex: 1; min-width: 180px; }
+.cm-subs td { vertical-align: top; }
+.cm-subs small { color: var(--navy-soft); }
+.cm-row-btns { white-space: nowrap; }
+.cm-st { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 0.8rem; font-weight: 700; background: rgba(22,48,92,0.08); }
+.cm-st-active { background: rgba(70,150,90,0.16); color: #23663a; }
+.cm-st-pending { background: rgba(234,192,102,0.25); color: #7a5a12; }
+.cm-st-stopped { background: rgba(160,60,60,0.12); color: #8a2f2f; }
+.cm-new-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-start; }
+.cm-new-row .field { min-width: 160px; }
+.cm-notes-field { flex: 1; min-width: 240px !important; }
+.cm-notes-field textarea { width: 100%; }
+#cm-newsletters, #cm-welcome { margin-top: 16px; display: grid; gap: 14px; }
+.cm-nl-by { margin-left: auto; font-size: 0.8rem; color: var(--navy-soft); }
+.cm-sched { font-weight: 700; color: var(--navy); margin: 4px 0 10px; }
+.cm-list-pick { max-width: 220px; }
+.cm-warn { margin: 0 0 10px; padding: 10px 14px 10px 30px; border-radius: 12px; background: rgba(234,192,102,0.18); color: #6b4c0c; font-size: 0.88rem; }
+.cm-warn li { margin: 2px 0; }
+.cm-pick { margin-top: 10px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.cm-pick input { padding: 7px 10px; border-radius: 10px; border: 1.5px solid rgba(22,48,92,0.18); font: inherit; }
+.cm-welcome .cm-on { margin: 0 0 0 auto; }
+.cm-times { display: grid; gap: 10px; margin: 6px 0 14px; }
+.cm-time-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.cm-time-row strong { min-width: 110px; }
+.cm-time-row select, .cm-time-row input { padding: 7px 10px; border-radius: 10px; border: 1.5px solid rgba(22,48,92,0.18); font: inherit; background: #fff; color: var(--navy); }

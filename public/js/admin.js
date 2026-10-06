@@ -153,6 +153,7 @@
     setupWhisper();
     setupTextChanges();
     setupMarePosts();
+    setupComms(); // v87
     setupRiddles();
     setupAdminSettings();
     loadOverview();
@@ -172,6 +173,7 @@
     loadWhisper();
     loadTextChanges();
     loadMarePosts();
+    loadComms(); // v87
     loadRiddles();
     loadMarketingStats();
     loadShowcaseContent();
@@ -236,6 +238,7 @@
         if (target === 'directory') { loadDirectory(); loadAdminSettings(); }
         if (target === 'companion') { loadCompanionAdmin(); loadPictures(); }
         if (target === 'analytics') loadAnalytics();
+        if (target === 'comms') loadComms(); // v87
       });
     });
   }
@@ -3945,6 +3948,274 @@
       } catch (ex) { err.textContent = ex.message || t('errorGeneric'); err.hidden = false; }
       e.target.disabled = false;
       e.target.textContent = label;
+    });
+  }
+
+
+  // ── Mare App 8 (v87) — Comms: email lists, newsletters, welcome series ──
+  let cmData = null;
+  const cmWhen = (iso) => (iso ? new Date(iso).toLocaleString(window.MareI18n.locale === 'nl' ? 'nl-NL' : 'en-GB', { timeZone: 'Europe/Amsterdam', weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' }) : '');
+  const cmDay = (d) => new Date(Date.UTC(2024, 0, 7 + d)).toLocaleDateString(window.MareI18n.locale === 'nl' ? 'nl-NL' : 'en-GB', { weekday: 'long', timeZone: 'UTC' });
+  const cmListName = (l) => t(l === 'teachers' ? 'cmListTeachers' : 'cmListParents');
+  // a Dutch-time "YYYY-MM-DDTHH:MM" for the date-time box, a day ahead at the list's time
+  function cmDefaultAt(list) {
+    const tm = (cmData && cmData.times[list] && cmData.times[list].time) || '20:30';
+    const d = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Amsterdam' }).format(new Date(Date.now() + 864e5));
+    return `${d}T${tm}`;
+  }
+  function cmWarn(list) {
+    return (list || []).length ? `<ul class="cm-warn">${list.map(w => `<li>${escapeHtml(w)}</li>`).join('')}</ul>` : '';
+  }
+
+  async function loadComms() {
+    try { cmData = await api('/api/admin/comms'); } catch { return; }
+    const c = cmData.counts;
+    document.getElementById('cm-counts').innerHTML = ['parents', 'teachers'].map(l => `
+      <div class="stat-item"><div class="stat-value">${c[l].active}</div><div class="stat-label">${escapeHtml(cmListName(l))}</div>
+      <div class="stat-sub">${escapeHtml(t('cmCountsSub', { pending: c[l].pending, stopped: c[l].stopped }))}</div></div>`).join('');
+    const tm = cmData.times;
+    document.getElementById('cm-nl-desc').textContent = t('cmNewslettersDesc', {
+      parents: `${cmDay(tm.parents.day)} ${tm.parents.time}`, teachers: `${cmDay(tm.teachers.day)} ${tm.teachers.time}` });
+    document.getElementById('cm-welcome-desc').textContent = t('cmWelcomeDesc', { a: cmData.welcomeDays[0], b: cmData.welcomeDays[1] });
+    document.getElementById('cm-write-btn').hidden = !cmData.canWrite;
+    renderCmNewsletters();
+    renderCmWelcome();
+    renderCmTimes();
+    loadCmSubs();
+  }
+
+  async function loadCmSubs() {
+    const q = new URLSearchParams({ list: document.getElementById('cm-f-list').value, status: document.getElementById('cm-f-status').value, q: document.getElementById('cm-f-q').value.trim() });
+    let rows = [];
+    try { rows = (await api(`/api/admin/comms/subscribers?${q}`)).subscribers || []; } catch { return; }
+    const table = document.getElementById('cm-subs');
+    if (!rows.length) { table.innerHTML = `<tr><td class="admin-empty-note">${escapeHtml(t('cmNobody'))}</td></tr>`; return; }
+    const isAdmin = cmData && cmData.isAdmin;
+    const st = (s) => t(s === 'active' ? 'cmStatusActive' : s === 'pending' ? 'cmStatusPending' : 'cmStatusStopped');
+    table.innerHTML = `<thead><tr><th>${escapeHtml(t('cmColName'))}</th><th>${escapeHtml(t('fieldEmail'))}</th><th>${escapeHtml(t('cmForList'))}</th><th>${escapeHtml(t('cmColStatus'))}</th><th>${escapeHtml(t('cmColJoined'))}</th><th></th></tr></thead><tbody>` +
+      rows.map(r => `<tr data-id="${escapeHtml(r.id)}">
+        <td>${escapeHtml(r.name || '—')}</td><td>${escapeHtml(r.email)}</td>
+        <td>${escapeHtml(cmListName(r.list))} · ${escapeHtml(r.locale.toUpperCase())}</td>
+        <td><span class="cm-st cm-st-${escapeHtml(r.status)}">${escapeHtml(st(r.status))}</span>${r.stopped_at ? `<br><small>${escapeHtml(fmtDate(r.stopped_at))}</small>` : ''}</td>
+        <td title="${escapeHtml(r.consent_text)}">${escapeHtml(fmtDate(r.consented_at || r.created_at))}<br><small>${escapeHtml(t('cmSrc_' + r.source) !== 'cmSrc_' + r.source ? t('cmSrc_' + r.source) : r.source_text)}</small></td>
+        <td class="cm-row-btns">${r.status !== 'stopped' ? `<button type="button" class="btn-ghost btn-small" data-a="stop">${escapeHtml(t('cmStop'))}</button>` : ''}
+          ${isAdmin ? `<button type="button" class="btn-ghost btn-small" data-a="del">${escapeHtml(t('cmRemove'))}</button>` : ''}</td></tr>`).join('') + '</tbody>';
+    table.querySelectorAll('[data-a]').forEach(b => b.addEventListener('click', async () => {
+      const id = b.closest('tr').dataset.id;
+      if (b.dataset.a === 'stop') {
+        if (!confirm(t('cmStopConfirm'))) return;
+        await api(`/api/admin/comms/subscribers/${id}/stop`, { method: 'POST' });
+      } else {
+        if (!confirm(t('cmRemoveConfirm'))) return;
+        await api(`/api/admin/comms/subscribers/${id}`, { method: 'DELETE' });
+      }
+      loadComms();
+    }));
+  }
+
+  function renderCmNewsletters() {
+    const box = document.getElementById('cm-newsletters');
+    const list = cmData.newsletters || [];
+    if (!list.length) { box.innerHTML = `<p class="admin-empty-note">${escapeHtml(t('cmNoNewsletters'))}</p>`; return; }
+    box.innerHTML = '';
+    list.forEach(n => box.appendChild(cmNewsletterCard(n)));
+  }
+  function cmEditor(item) {
+    return `<div class="admin-form-row">
+        <div class="field"><label>${escapeHtml(t('cmSubjectNl'))}</label><input type="text" class="cm-s-nl" maxlength="200"></div>
+        <div class="field"><label>${escapeHtml(t('cmSubjectEn'))}</label><input type="text" class="cm-s-en" maxlength="200"></div>
+      </div>
+      <div class="admin-form-row">
+        <div class="field"><label>${escapeHtml(t('cmBodyNl'))}</label><textarea data-editor="plain" class="cm-b-nl" rows="14" maxlength="8000"></textarea></div>
+        <div class="field"><label>${escapeHtml(t('cmBodyEn'))}</label><textarea data-editor="plain" class="cm-b-en" rows="14" maxlength="8000"></textarea></div>
+      </div>
+      <p class="admin-empty-note">${escapeHtml(t('cmTokensHint'))}</p>
+      <div class="cm-warn-box">${cmWarn(item.warnings)}</div>`;
+  }
+  function cmFill(card, item) {
+    const q = (s) => card.querySelector(s);
+    q('.cm-s-nl').value = item.subject_nl || ''; q('.cm-s-en').value = item.subject_en || '';
+    q('.cm-b-nl').value = item.body_nl || ''; q('.cm-b-en').value = item.body_en || '';
+  }
+  const cmFields = (card) => ({
+    subject_nl: card.querySelector('.cm-s-nl').value, subject_en: card.querySelector('.cm-s-en').value,
+    body_nl: card.querySelector('.cm-b-nl').value, body_en: card.querySelector('.cm-b-en').value,
+  });
+
+  function cmNewsletterCard(n) {
+    const card = document.createElement('div');
+    card.className = 'whisper-p-row cm-nl';
+    const people = cmData.counts[n.list].active;
+    const statusKey = { draft: 'cmStDraft', scheduled: 'cmStScheduled', sending: 'cmStSending', sent: 'cmStSent' }[n.status] || 'cmStDraft';
+    const head = `<div class="whisper-p-head"><strong>${escapeHtml(cmListName(n.list))}</strong>
+      <span class="whisper-p-status ${n.status === 'draft' ? '' : 'whisper-p-status-open'}">${escapeHtml(t(statusKey))}</span>
+      <span class="cm-nl-by">${escapeHtml(/ \[app\]$/.test(n.created_by || '') ? t('cmByApp', { name: n.created_by.replace(/ \[app\]$/, '') }) : (n.created_by || ''))}</span></div>`;
+    if (n.status === 'sent' || n.status === 'sending') {
+      card.innerHTML = `${head}<p class="admin-empty-note">${escapeHtml(n.status === 'sent'
+        ? t('cmSentLine', { when: cmWhen(n.sent_at), n: n.sent_count ?? 0, failed: n.failed_count ?? 0 })
+        : t('cmSendingLine'))}</p>
+        <details><summary>${escapeHtml(n.subject_nl || n.subject_en)}</summary><p style="white-space:pre-line;">${escapeHtml(n.body_nl || n.body_en)}</p>
+        ${n.subject_en && n.subject_nl ? `<hr><p><strong>${escapeHtml(n.subject_en)}</strong></p><p style="white-space:pre-line;">${escapeHtml(n.body_en)}</p>` : ''}</details>`;
+      return card;
+    }
+    const nextAt = cmData.next[n.list];
+    card.innerHTML = `${head}
+      ${n.status === 'scheduled' ? `<p class="cm-sched">${escapeHtml(t('cmScheduledLine', { when: cmWhen(n.scheduled_for), n: people }))}</p>` : ''}
+      <div class="field cm-list-pick" ${n.status === 'draft' ? '' : 'hidden'}><label>${escapeHtml(t('cmForList'))}</label>
+        <select class="cm-list"><option value="parents">${escapeHtml(t('cmListParents'))}</option><option value="teachers">${escapeHtml(t('cmListTeachers'))}</option></select></div>
+      ${cmEditor(n)}
+      <p class="form-success cm-ok" hidden></p><p class="form-error cm-err" hidden></p>
+      <div class="whisper-q-btns">
+        <button type="button" class="btn-ghost btn-small" data-a="save">${escapeHtml(t('adminSaveChanges'))}</button>
+        <button type="button" class="btn-ghost btn-small" data-a="test">${escapeHtml(t('cmTestMe'))}</button>
+        ${n.status === 'draft'
+          ? `<button type="button" class="btn-primary btn-small" data-a="approve">${escapeHtml(nextAt ? t('cmApproveFor', { when: cmWhen(nextAt) }) : t('cmApprove'))}</button>
+             <button type="button" class="btn-ghost btn-small" data-a="pick" data-no-busy>${escapeHtml(t('cmPickTime'))}</button>`
+          : `<button type="button" class="btn-ghost btn-small" data-a="unschedule">${escapeHtml(t('cmUnschedule'))}</button>`}
+        <button type="button" class="btn-ghost btn-small" data-a="now">${escapeHtml(t('cmSendNow', { n: people }))}</button>
+        <button type="button" class="btn-ghost btn-small" data-a="del">${escapeHtml(t('cmDelete'))}</button>
+      </div>
+      <div class="cm-pick" hidden>
+        <label>${escapeHtml(t('cmPickLabel'))} <input type="datetime-local" class="cm-at"></label>
+        <button type="button" class="btn-primary btn-small" data-a="approve-at">${escapeHtml(t('cmApproveAt'))}</button>
+      </div>`;
+    cmFill(card, n);
+    card.querySelector('.cm-list').value = n.list;
+    card.querySelector('.cm-at').value = cmDefaultAt(n.list);
+    const q = (s) => card.querySelector(s);
+    const say = (ok, msg) => { q('.cm-ok').hidden = !ok; q('.cm-err').hidden = ok; (ok ? q('.cm-ok') : q('.cm-err')).textContent = msg; };
+    const save = async () => {
+      const body = cmFields(card);
+      if (n.status === 'draft') body.list = q('.cm-list').value;
+      const out = await api(`/api/admin/comms/newsletters/${n.id}`, { method: 'PATCH', body: JSON.stringify(body) });
+      q('.cm-warn-box').innerHTML = cmWarn(out.newsletter && out.newsletter.warnings);
+      return out;
+    };
+    const act = async (fn) => { try { await fn(); } catch (e) { say(false, e.message || t('errorGeneric')); throw e; } };
+    card.querySelectorAll('[data-a]').forEach(b => b.addEventListener('click', () => act(async () => {
+      const a = b.dataset.a;
+      if (a === 'save') { await save(); say(true, t('adminSaved')); }
+      if (a === 'test') { await save(); const out = await api(`/api/admin/comms/newsletters/${n.id}/test`, { method: 'POST' }); say(true, t('cmTestSent', { to: out.to, langs: out.languages.join(' + ') })); }
+      if (a === 'pick') { q('.cm-pick').hidden = !q('.cm-pick').hidden; }
+      if (a === 'approve' || a === 'approve-at') {
+        await save();
+        const body = a === 'approve-at' ? { at: q('.cm-at').value } : {};
+        const out = await api(`/api/admin/comms/newsletters/${n.id}/approve`, { method: 'POST', body: JSON.stringify(body) });
+        alert(t('cmApprovedAlert', { when: cmWhen(out.scheduledFor) }));
+        await loadComms();
+      }
+      if (a === 'unschedule') { await api(`/api/admin/comms/newsletters/${n.id}/unschedule`, { method: 'POST' }); await loadComms(); }
+      if (a === 'now') {
+        if (!confirm(t('cmSendNowConfirm', { n: people, list: cmListName(n.list) }))) return;
+        await save();
+        await api(`/api/admin/comms/newsletters/${n.id}/send-now`, { method: 'POST' });
+        await loadComms();
+        setTimeout(loadComms, 8000);
+      }
+      if (a === 'del') {
+        if (!confirm(t('cmDeleteConfirm'))) return;
+        await api(`/api/admin/comms/newsletters/${n.id}`, { method: 'DELETE' });
+        await loadComms();
+      }
+    })));
+    return card;
+  }
+
+  function renderCmWelcome() {
+    const box = document.getElementById('cm-welcome');
+    box.innerHTML = '';
+    (cmData.welcome || []).forEach(w => {
+      const card = document.createElement('div');
+      card.className = 'whisper-p-row cm-welcome';
+      card.innerHTML = `<div class="whisper-p-head"><strong>${escapeHtml(t('cmWelcomeName', { list: cmListName(w.list), day: cmData.welcomeDays[w.step] }))}</strong>
+          <label class="acc-checkbox-row cm-on"><input type="checkbox" class="cm-active"${w.active ? ' checked' : ''}> <span>${escapeHtml(t('cmWelcomeOn'))}</span></label></div>
+        ${cmEditor(w)}
+        <p class="form-success cm-ok" hidden></p><p class="form-error cm-err" hidden></p>
+        <div class="whisper-q-btns">
+          <button type="button" class="btn-ghost btn-small" data-a="save">${escapeHtml(t('adminSaveChanges'))}</button>
+          <button type="button" class="btn-ghost btn-small" data-a="test">${escapeHtml(t('cmTestMe'))}</button>
+        </div>`;
+      cmFill(card, w);
+      const q = (s) => card.querySelector(s);
+      const say = (ok, msg) => { q('.cm-ok').hidden = !ok; q('.cm-err').hidden = ok; (ok ? q('.cm-ok') : q('.cm-err')).textContent = msg; };
+      const save = async (extra) => {
+        const out = await api(`/api/admin/comms/welcome/${w.id}`, { method: 'PUT', body: JSON.stringify({ ...cmFields(card), ...(extra || {}) }) });
+        q('.cm-warn-box').innerHTML = cmWarn(out.welcome && out.welcome.warnings);
+        return out;
+      };
+      q('[data-a="save"]').addEventListener('click', async () => { try { await save(); say(true, t('adminSaved')); } catch (e) { say(false, e.message); throw e; } });
+      q('[data-a="test"]').addEventListener('click', async () => {
+        try { await save(); const out = await api(`/api/admin/comms/welcome/${w.id}/test`, { method: 'POST' }); say(true, t('cmTestSent', { to: out.to, langs: out.languages.join(' + ') })); }
+        catch (e) { say(false, e.message); throw e; }
+      });
+      q('.cm-active').addEventListener('change', async (e) => {
+        const on = e.target.checked;
+        e.target.disabled = true;
+        try { await save({ active: on }); say(true, t(on ? 'cmWelcomeNowOn' : 'cmWelcomeNowOff')); }
+        catch (err) { e.target.checked = !on; say(false, err.message); }
+        e.target.disabled = false;
+      });
+      box.appendChild(card);
+    });
+  }
+
+  function renderCmTimes() {
+    const box = document.getElementById('cm-times');
+    box.innerHTML = ['parents', 'teachers'].map(l => `<div class="cm-time-row" data-list="${l}">
+      <strong>${escapeHtml(cmListName(l))}</strong>
+      <select class="cm-t-day">${[1, 2, 3, 4, 5, 6, 0].map(d => `<option value="${d}"${d === cmData.times[l].day ? ' selected' : ''}>${escapeHtml(cmDay(d))}</option>`).join('')}</select>
+      <input type="time" class="cm-t-time" value="${escapeHtml(cmData.times[l].time)}" step="300">
+      <span class="admin-empty-note">${escapeHtml(cmData.next[l] ? t('cmNextLine', { when: cmWhen(cmData.next[l]) }) : '')}</span></div>`).join('');
+  }
+
+  function setupComms() {
+    document.querySelectorAll('#panel-comms [data-i18n-placeholder], #cm-add-modal [data-i18n-placeholder]').forEach(el => { el.placeholder = t(el.getAttribute('data-i18n-placeholder')); });
+    let qt = null;
+    document.getElementById('cm-f-list').addEventListener('change', loadCmSubs);
+    document.getElementById('cm-f-status').addEventListener('change', loadCmSubs);
+    document.getElementById('cm-f-q').addEventListener('input', () => { clearTimeout(qt); qt = setTimeout(loadCmSubs, 300); });
+    const err = document.getElementById('cm-nl-error');
+    document.getElementById('cm-blank-btn').addEventListener('click', async () => {
+      err.hidden = true;
+      try { await api('/api/admin/comms/newsletters', { method: 'POST', body: JSON.stringify({ list: document.getElementById('cm-new-list').value }) }); await loadComms(); }
+      catch (e) { err.textContent = e.message; err.hidden = false; throw e; }
+    });
+    document.getElementById('cm-write-btn').addEventListener('click', async (e) => {
+      err.hidden = true;
+      const btn = e.currentTarget, label = btn.textContent;
+      btn.textContent = t('cmWriting');
+      try {
+        await api('/api/admin/comms/newsletters/write', { method: 'POST', body: JSON.stringify({ list: document.getElementById('cm-new-list').value, notes: document.getElementById('cm-notes').value }) });
+        document.getElementById('cm-notes').value = '';
+        await loadComms();
+      } catch (ex) { err.textContent = ex.message; err.hidden = false; throw ex; }
+      finally { btn.textContent = label; }
+    });
+    document.getElementById('cm-times-save').addEventListener('click', async () => {
+      const body = {};
+      document.querySelectorAll('#cm-times .cm-time-row').forEach(r => { body[r.dataset.list] = { day: Number(r.querySelector('.cm-t-day').value), time: r.querySelector('.cm-t-time').value }; });
+      await api('/api/admin/comms/times', { method: 'PUT', body: JSON.stringify(body) });
+      await loadComms();
+    });
+    // add someone
+    const modal = document.getElementById('cm-add-modal');
+    document.getElementById('cm-add-btn').addEventListener('click', () => {
+      ['cm-add-email', 'cm-add-name', 'cm-add-note'].forEach(id => { document.getElementById(id).value = ''; });
+      document.getElementById('cm-add-asked').checked = false;
+      document.getElementById('cm-add-error').hidden = true;
+      modal.hidden = false;
+    });
+    document.getElementById('cm-add-close-btn').addEventListener('click', () => { modal.hidden = true; });
+    document.getElementById('cm-add-save').addEventListener('click', async () => {
+      const er = document.getElementById('cm-add-error'); er.hidden = true;
+      try {
+        await api('/api/admin/comms/subscribers', { method: 'POST', body: JSON.stringify({
+          email: document.getElementById('cm-add-email').value, name: document.getElementById('cm-add-name').value,
+          list: document.getElementById('cm-add-list').value, locale: document.getElementById('cm-add-locale').value,
+          note: document.getElementById('cm-add-note').value, asked: document.getElementById('cm-add-asked').checked }) });
+        modal.hidden = true;
+        await loadComms();
+      } catch (e) { er.textContent = e.message; er.hidden = false; throw e; }
     });
   }
 

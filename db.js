@@ -1130,6 +1130,35 @@ Volgende maand verschijnt er een nieuw raadsel uit het Fluisterbos. 🌲🔎', ?
     try { db.run(`ALTER TABLE app_config ADD COLUMN ${c}`); } catch {}
   }
 
+  // ── Mare App 8 (v87) — Comms: two opt-in email lists (parents,
+  // teachers), newsletters that wait for approval, a welcome series.
+  // See comms.js. One row per email per list; a stop keeps the row
+  // (status 'stopped') so the consent history stays.
+  db.run(`CREATE TABLE IF NOT EXISTS comms_subscribers (
+    id TEXT PRIMARY KEY, email TEXT NOT NULL, name TEXT NOT NULL DEFAULT '',
+    list TEXT NOT NULL, locale TEXT NOT NULL DEFAULT 'nl',
+    status TEXT NOT NULL DEFAULT 'pending', source TEXT NOT NULL DEFAULT '',
+    consent_text TEXT NOT NULL DEFAULT '', consented_at TEXT, confirmed_at TEXT, stopped_at TEXT,
+    confirm_sent_at TEXT, parent_id TEXT, teacher_id TEXT,
+    welcome_step INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT DEFAULT (datetime('now')), UNIQUE (email, list))`);
+  db.run(`CREATE TABLE IF NOT EXISTS comms_newsletters (
+    id TEXT PRIMARY KEY, list TEXT NOT NULL,
+    subject_nl TEXT NOT NULL DEFAULT '', body_nl TEXT NOT NULL DEFAULT '',
+    subject_en TEXT NOT NULL DEFAULT '', body_en TEXT NOT NULL DEFAULT '',
+    status TEXT NOT NULL DEFAULT 'draft', scheduled_for TEXT, sent_at TEXT,
+    recipient_count INTEGER, sent_count INTEGER, failed_count INTEGER,
+    created_by TEXT, created_at TEXT DEFAULT (datetime('now')), updated_at TEXT DEFAULT (datetime('now')))`);
+  db.run(`CREATE TABLE IF NOT EXISTS comms_sent (item TEXT NOT NULL, subscriber_id TEXT NOT NULL, ok INTEGER NOT NULL DEFAULT 1,
+    at TEXT DEFAULT (datetime('now')), PRIMARY KEY (item, subscriber_id))`);
+  db.run(`CREATE TABLE IF NOT EXISTS comms_welcome (
+    id TEXT PRIMARY KEY, list TEXT NOT NULL, step INTEGER NOT NULL, active INTEGER NOT NULL DEFAULT 0,
+    subject_nl TEXT NOT NULL DEFAULT '', body_nl TEXT NOT NULL DEFAULT '',
+    subject_en TEXT NOT NULL DEFAULT '', body_en TEXT NOT NULL DEFAULT '', updated_at TEXT)`);
+  try { db.run(`ALTER TABLE app_config ADD COLUMN comms_options_json TEXT`); } catch {}
+  try { db.run(`ALTER TABLE parents ADD COLUMN news_asked_at TEXT`); } catch {}
+  try { db.run(`ALTER TABLE teachers ADD COLUMN news_asked_at TEXT`); } catch {}
+
   // ── Mare App 5 — Talk to Mare in the pictures: what Mare knows.
   // companion_practices.summary = a short private summary of the chapter
   // (never shown; Mare only gets chapters up to the family's chapter, so

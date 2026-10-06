@@ -360,6 +360,38 @@ ANSWER with ONLY a JSON object, no markdown fences, no commentary:
 Use "" or [] for fields that don't apply to that platform. Use \\n for line breaks inside strings.`;
 }
 
+// ── Mare App 8 (v87) — Comms newsletter writer. Same facts, same NEVER
+// list and the same honest screen-time frame as the social posts. ──
+function buildNewsletterPrompt({ facts, list, linkUrl }) {
+  const teachers = list === 'teachers';
+  return `You write the email newsletter for Mare — a children's book and its companion app — for ${teachers ? 'TEACHERS in the Netherlands: leerkrachten of groep 5–8 (children aged about 8–12) and intern begeleiders' : 'PARENTS in the Netherlands (and grandparents) of children aged about 8–12'}. Everyone on this list asked for it.
+
+${teachers ? SOCIAL_AUDIENCES.teachers : SOCIAL_AUDIENCES.parents}
+
+FACTS — the only things you may state about the book, the app, the people and any offer:
+<facts>
+${String(facts || '').trim() || '(no facts given: write only a general, useful letter and mention nothing specific)'}
+</facts>
+
+${SOCIAL_FRAME}
+
+THE LETTER:
+- Dutch first: plain, warm, everyday Dutch (Netherlands), as a Dutch ${teachers ? 'teacher' : 'parent'} would write it, "je/jij". Then an English version for the few English readers: natural British English, the same content, not word for word.
+- 150–250 words. Short paragraphs, short sentences, nothing clinical.
+- Start the Dutch exactly with "Hoi {name}," and the English with "Hi {name}," ({name} becomes the reader's first name).
+- One useful thing first: ${teachers ? 'a short calm moment for the group to use tomorrow' : 'one small thing to try at home tonight'} (only practices the FACTS describe, or a simple general one such as slowly breathing out together, described plainly). Then, briefly, the book or the app, ONLY as the FACTS describe them.
+- Where a link helps, write the token {{LINK}} exactly like that, on its own line, once. It becomes ${linkUrl || 'the right page of the app'}. Never write any other web address unless it appears word for word in the FACTS.
+- End with "Groet,\\nHet Mare-team" (Dutch) and "Best wishes,\\nThe Mare team" (English). Never sign with a person's name.
+- Subjects: short and concrete, at most 60 characters, no emoji, no "nieuwsbrief" or "newsletter".
+- Never speak to children; this letter is for the grown-up.
+
+${SOCIAL_NEVER.replace('in any post or first comment', 'in the letter or the subject')}
+
+ANSWER with ONLY a JSON object, no markdown fences, no commentary:
+{"subject_nl":"…","body_nl":"…","subject_en":"…","body_en":"…"}
+Use \\\\n\\\\n between paragraphs.`;
+}
+
 module.exports = {
   AGE_REGISTER,
   DEFAULT_AGE_BAND,
@@ -371,4 +403,5 @@ module.exports = {
   MARKETING_PLATFORM_KEYS,
   buildMarketingPrompt,
   buildSocialWriterPrompt, // v83
+  buildNewsletterPrompt, // v87
 };
