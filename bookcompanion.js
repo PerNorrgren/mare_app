@@ -94,6 +94,8 @@ function register(app, { db, auth, email, anthropic, model, publicUrl }) {
       ratingPercent: (db.getAppConfig() || {}).rating_discount_percent || 10,
       messages: db.mareMessagesForParent(parent.id),
       pictureTalk: parent.picture_talk !== 0,
+      // v89 — codes the child found in the treasure chest, so the grown-up has them too
+      treasures: db.all(`SELECT t.chapter_no AS chapter, t.code, o.discount_value AS percent, o.expires_at AS expires FROM treasure_codes t LEFT JOIN offers o ON o.code = t.code WHERE t.parent_id = ? ORDER BY t.chapter_no`, [parent.id]),
     });
   });
   // Mare App 5 — the family's switch for "Talk to Mare" in the pictures.

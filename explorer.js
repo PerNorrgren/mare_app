@@ -13,6 +13,7 @@ const KEY_OK = /^pictures\/[A-Za-z0-9._\/-]+$/;
 // v88 — spot pictures that ship with the app (public/images/mare-spot-*.png), always in the library
 const BUILTIN_ICON = /^\/images\/mare-spot-[a-z0-9-]+\.(png|webp|jpg)$/;
 const fs = require('fs');
+const crypto = require('crypto');
 const path = require('path');
 
 function register(app, { db, auth, media, email, publicUrl }) {
@@ -95,6 +96,81 @@ function register(app, { db, auth, media, email, publicUrl }) {
     return out;
   }
 
+  // ── v89 — treasure chest: each correct quiz answer in the chapter adds a
+  // diamond; when every quiz is answered right the chest opens and shows a
+  // personal shop code (one per family per chapter, kept). Staff and
+  // teachers previewing get an example code; nothing is created for them.
+  const CHEST_OPEN = '/images/mare-spot-treasure-chest.png';
+  function treasureCfg() {
+    let o = {}; try { o = JSON.parse((db.getAppConfig() || {}).treasure_json || '{}') || {}; } catch { o = {}; }
+    const okKey = (k) => typeof k === 'string' && (KEY_OK.test(k) || BUILTIN_ICON.test(k)) ? k : null;
+    return {
+      chapters: (Array.isArray(o.chapters) ? o.chapters : []).map(Number).filter(n => Number.isInteger(n) && n > 0),
+      percent: Math.round(clamp(o.percent == null ? 10 : o.percent, 1, 90)),
+      days: Math.round(clamp(o.days == null ? 90 : o.days, 7, 730)),
+      closedKey: okKey(o.closedKey), openKey: okKey(o.openKey),
+    };
+  }
+  // the quiz spots of a chapter that count (active steps, with answers)
+  function chapterQuizIds(chapterNo) {
+    const ids = [];
+    for (const s of db.pictureScenes(chapterNo, true)) {
+      for (const p of db.pictureSpots(s.id)) if (p.type === 'quiz' && parseQuiz(p.quiz_json).answers.length) ids.push(p.id);
+    }
+    return ids;
+  }
+  function treasureCodeFor(parentId, chapterNo) {
+    const row = db.get(`SELECT t.code, o.expires_at FROM treasure_codes t LEFT JOIN offers o ON o.code = t.code WHERE t.parent_id = ? AND t.chapter_no = ?`, [parentId, chapterNo]);
+    return row ? { code: row.code, expires: row.expires_at || null } : null;
+  }
+  async function treasureFor(chapterNo, user) {
+    const cfg = treasureCfg();
+    if (!cfg.chapters.includes(chapterNo)) return null;
+    const total = chapterQuizIds(chapterNo).length;
+    if (!total) return null;
+    const done = user.role === 'parent' ? treasureCodeFor(user.id, chapterNo) : null;
+    return { total, preview: user.role !== 'parent', percent: cfg.percent, closed: cfg.closedKey ? await url(cfg.closedKey) : null, open: (cfg.openKey ? await url(cfg.openKey) : null) || CHEST_OPEN, done };
+  }
+  app.post('/api/pictures/treasure', family, (req, res) => {
+    const chapterNo = Math.round(Number(req.body && req.body.chapter));
+    const cfg = treasureCfg();
+    if (!cfg.chapters.includes(chapterNo)) return res.status(400).json({ error: 'No treasure chest in this chapter.' });
+    const need = chapterQuizIds(chapterNo);
+    const have = new Set(Array.isArray(req.body.spots) ? req.body.spots.map(String) : []);
+    if (!need.length || need.some(id => !have.has(id))) return res.status(400).json({ error: 'Not every question has been answered yet.' });
+    if (req.user.role !== 'parent') return res.json({ ok: true, preview: true, code: 'VOORBEELD', percent: cfg.percent });
+    let got = treasureCodeFor(req.user.id, chapterNo);
+    if (!got) {
+      let code = null;
+      for (let i = 0; i < 6 && !code; i++) { const c = 'SCHAT' + crypto.randomBytes(3).toString('hex').toUpperCase(); if (!db.getOfferByCode(c)) code = c; }
+      const expires = new Date(Date.now() + cfg.days * 864e5).toISOString().slice(0, 10);
+      db.createOffer({ code, description: `Treasure chest, chapter ${chapterNo} (${cfg.percent}%, one family)`, discountType: 'percent', discountValue: cfg.percent, expiresAt: expires });
+      db.run(`INSERT OR IGNORE INTO treasure_codes (parent_id, chapter_no, code) VALUES (?,?,?)`, [req.user.id, chapterNo, code]);
+      got = treasureCodeFor(req.user.id, chapterNo);
+    }
+    res.json({ ok: true, code: got.code, expires: got.expires, percent: cfg.percent });
+  });
+  // staff: the settings, and how many quizzes each chapter has
+  app.get('/api/admin/treasure', staff, async (req, res) => {
+    const cfg = treasureCfg();
+    const quizzes = {};
+    for (const p of db.companionPractices()) quizzes[p.chapter_no] = chapterQuizIds(p.chapter_no).length;
+    const codes = db.get(`SELECT COUNT(*) AS n FROM treasure_codes`) || { n: 0 };
+    res.json({ ...cfg, closedUrl: cfg.closedKey ? await url(cfg.closedKey) : null, openUrl: (cfg.openKey ? await url(cfg.openKey) : null) || CHEST_OPEN,
+      quizzes, chapters: cfg.chapters, titles: db.companionPractices().map(p => ({ no: p.chapter_no, title: p.chapter_title_en })), codesGiven: codes.n || 0 });
+  });
+  app.put('/api/admin/treasure', staff, (req, res) => {
+    const b = req.body || {}, cur = treasureCfg();
+    const okKey = (k) => (k === null || k === '' ? null : (typeof k === 'string' && (KEY_OK.test(k) || BUILTIN_ICON.test(k)) ? k : undefined));
+    const next = { ...cur };
+    if (Array.isArray(b.chapters)) next.chapters = [...new Set(b.chapters.map(Number).filter(n => db.companionPractice(n)))].sort((x, y) => x - y);
+    if (b.percent !== undefined) next.percent = Math.round(clamp(b.percent, 1, 90));
+    if (b.days !== undefined) next.days = Math.round(clamp(b.days, 7, 730));
+    for (const k of ['closedKey', 'openKey']) if (b[k] !== undefined) { const v = okKey(b[k]); if (v === undefined) return res.status(400).json({ error: 'Bad picture' }); next[k] = v; }
+    db.run(`UPDATE app_config SET treasure_json = ? WHERE id = 'default'`, [JSON.stringify(next)]);
+    res.json({ ok: true });
+  });
+
   // The child's view: the family's current chapter (or ?chapter=).
   app.get('/api/pictures', family, async (req, res) => {
     let chapterNo = Number(req.query.chapter) || 0;
@@ -114,6 +190,7 @@ function register(app, { db, auth, media, email, publicUrl }) {
       chapterTitle: p ? ((nl && p.chapter_title_nl) || p.chapter_title_en) : '',
       talk, // Mare App 5 — show the "Talk to Mare" bubble (family switch on, has a child)
       scenes: await publicScenes(chapterNo, nl),
+      treasure: await treasureFor(chapterNo, req.user), // v89
     });
   });
   // Cheap check the iPad polls: which chapter is the family on now?

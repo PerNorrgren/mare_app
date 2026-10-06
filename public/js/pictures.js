@@ -108,6 +108,126 @@
     if (again) again.onclick = () => { stopSound(); audio = new Audio(spot.audio); audio.play().catch(() => {}); };
   }
 
+
+  // ── Mare App 8 (v89) — the treasure chest for the quizzes ──────────────
+  // Every quiz in the chapter answered right adds a diamond (once per
+  // question). With all of them, the chest opens and shows a shop code to
+  // show a grown-up. Diamonds are remembered on this device (families) or
+  // for this tab (staff and teacher previews, which get an example code).
+  const GEM_COLOURS = ['#ff9ad5', '#9fdcff', '#c7a6ff', '#ffe08a', '#a6f0d0'];
+  const gemSvg = (i) => `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12l4 6-10 12L2 9z" fill="${GEM_COLOURS[i % GEM_COLOURS.length]}"/><path d="M2 9h20M6 3l3 6 3-6 3 6 3-6M9 9l3 12 3-12" fill="none" stroke="rgba(255,255,255,0.75)" stroke-width="0.9" stroke-linejoin="round"/><path d="M7 4.5l1.6 3" stroke="#fff" stroke-width="1.2" stroke-linecap="round"/></svg>`;
+  let chestRight = new Set();
+  const chestStore = () => (data && data.treasure && data.treasure.preview ? sessionStorage : localStorage);
+  const chestKey = () => `px-chest-${data.chapter}`;
+  function chestSave() { try { chestStore().setItem(chestKey(), JSON.stringify([...chestRight])); } catch { /* private mode */ } }
+  function setupChest() {
+    const old = $('px-chest'); if (old) old.remove();
+    const tr = data && data.treasure;
+    if (!tr) return;
+    try { chestRight = new Set(JSON.parse(chestStore().getItem(chestKey()) || '[]')); } catch { chestRight = new Set(); }
+    const el = document.createElement('button');
+    el.type = 'button'; el.id = 'px-chest'; el.className = 'px-chest';
+    el.innerHTML = `<img class="px-chest-img" alt="" draggable="false"><span class="px-chest-gems"></span>`;
+    el.addEventListener('click', () => {
+      if (tr.done) return showTreasure(tr.done);
+      const n = Math.min(chestRight.size, tr.total);
+      $('px-hint').textContent = t('picturesTreasureHint', { n, total: tr.total });
+      $('px-hint').hidden = false;
+      clearTimeout(el._h); el._h = setTimeout(() => { $('px-hint').hidden = true; }, 4000);
+    });
+    document.body.appendChild(el);
+    renderChest();
+    // all answered before but the chest never opened (e.g. the connection dropped): open it now
+    if (!tr.done && chestRight.size >= tr.total) finishChest();
+  }
+  function renderChest() {
+    const tr = data.treasure, el = $('px-chest'); if (!tr || !el) return;
+    const full = !!tr.done;
+    const n = full ? tr.total : Math.min(chestRight.size, tr.total);
+    const img = el.querySelector('.px-chest-img');
+    const src = full ? tr.open : (tr.closed || tr.open);
+    if (img.getAttribute('src') !== src) img.src = src;
+    el.classList.toggle('full', full);
+    el.classList.toggle('dim', !full && !tr.closed); // no closed picture: the open chest, dark until it fills
+    el.style.setProperty('--fill', String(tr.total ? n / tr.total : 0));
+    el.setAttribute('aria-label', full ? t('picturesTreasureOpenAgain') : t('picturesTreasureHint', { n, total: tr.total }));
+    el.querySelector('.px-chest-gems').innerHTML = Array.from({ length: tr.total }, (_, i) => `<i class="${i < n ? 'on' : ''}">${gemSvg(i)}</i>`).join('');
+  }
+  function chime(notes) {
+    try {
+      const A = window.AudioContext || window.webkitAudioContext; if (!A) return;
+      const ctx = chime.ctx || (chime.ctx = new A());
+      notes.forEach((f, i) => {
+        const o = ctx.createOscillator(), g = ctx.createGain(), at = ctx.currentTime + i * 0.11;
+        o.type = 'sine'; o.frequency.value = f;
+        g.gain.setValueAtTime(0.0001, at); g.gain.exponentialRampToValueAtTime(0.18, at + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, at + 0.5);
+        o.connect(g).connect(ctx.destination); o.start(at); o.stop(at + 0.55);
+      });
+    } catch { /* no sound is fine */ }
+  }
+  // a right answer: a diamond flies from the answer into the chest
+  function chestAnswer(spotId, fromEl) {
+    const tr = data && data.treasure;
+    if (!tr || tr.done || chestRight.has(spotId)) return;
+    chestRight.add(spotId); chestSave();
+    const el = $('px-chest'); if (!el) return;
+    const slot = el.querySelectorAll('.px-chest-gems i')[Math.min(chestRight.size, tr.total) - 1];
+    const a = fromEl.getBoundingClientRect(), b = (slot || el).getBoundingClientRect();
+    const gem = document.createElement('div');
+    gem.className = 'px-flygem'; gem.innerHTML = gemSvg(chestRight.size - 1);
+    gem.style.left = (a.left + a.width / 2) + 'px'; gem.style.top = (a.top + a.height / 2) + 'px';
+    document.body.appendChild(gem);
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      gem.style.transform = `translate(${b.left + b.width / 2 - (a.left + a.width / 2)}px, ${b.top + b.height / 2 - (a.top + a.height / 2)}px) scale(0.6) rotate(360deg)`;
+      gem.style.opacity = '0.9';
+    }));
+    setTimeout(() => {
+      gem.remove(); renderChest(); chime([988, 1319]);
+      el.classList.remove('bump'); void el.offsetWidth; el.classList.add('bump');
+      if (chestRight.size >= tr.total) setTimeout(finishChest, 500);
+    }, 900);
+  }
+  let finishing = false;
+  async function finishChest() {
+    const tr = data && data.treasure;
+    if (!tr || tr.done || finishing) return;
+    finishing = true;
+    try {
+      const r = await fetch('/api/pictures/treasure', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ chapter: data.chapter, spots: [...chestRight] }) });
+      const out = await r.json().catch(() => ({}));
+      if (!r.ok) {
+        // the questions changed since: keep only diamonds for questions that still exist
+        const live = new Set(data.scenes.flatMap(s => s.spots).filter(sp => sp.type === 'quiz').map(sp => sp.id));
+        chestRight = new Set([...chestRight].filter(id => live.has(id))); chestSave(); renderChest();
+        return;
+      }
+      tr.done = { code: out.code, expires: out.expires || null, percent: out.percent, preview: !!out.preview };
+      renderChest();
+      showTreasure(tr.done);
+      track('treasure_open', `${data.chapter}:chest`);
+    } catch { /* offline: tries again next time the pictures open */ }
+    finally { finishing = false; }
+  }
+  function showTreasure(done) {
+    const tr = data.treasure;
+    if (!$('px-pop').hidden) closePop(); // the last question's window makes way for the chest
+    let box = $('px-treasure');
+    if (box) box.remove();
+    box = document.createElement('div');
+    box.id = 'px-treasure'; box.className = 'px-treasure';
+    box.innerHTML = `<div class="px-treasure-card" role="dialog" aria-modal="true" aria-labelledby="px-tr-title">
+      <div class="px-treasure-chest"><img src="${esc(tr.open)}" alt="" draggable="false"><span class="px-sparkles">${'<i></i>'.repeat(14)}</span></div>
+      <h2 id="px-tr-title">${esc(t('picturesTreasureTitle'))}</h2>
+      <p>${esc(t('picturesTreasureBody'))}</p>
+      <div class="px-treasure-code">${esc(done.code)}</div>
+      <p class="px-treasure-show">${esc(t('picturesTreasureShow', { percent: done.percent || tr.percent }))}</p>
+      ${done.preview ? `<p class="px-treasure-note">${esc(t('picturesTreasurePreview'))}</p>` : ''}
+      <button type="button" class="px-again px-carry" id="px-tr-close">${esc(t('picturesDone'))}</button></div>`;
+    document.body.appendChild(box);
+    chime([784, 988, 1175, 1568]);
+    $('px-tr-close').onclick = () => box.remove();
+  }
+
   // v74 — a little quiz: tap an answer; wrong = try again, right = carry on.
   function openQuiz(spot) {
     const q = spot.quiz;
@@ -130,6 +250,7 @@
         msg.textContent = q.right || t('picturesQuizRight');
         msg.className = 'px-quiz-msg right';
         $('px-carry').hidden = false;
+        chestAnswer(spot.id, b); // v89
       } else {
         b.classList.add('wrong'); b.disabled = true;
         msg.textContent = q.wrong || t('picturesQuizWrong');
@@ -350,11 +471,13 @@
       $('px-spots').innerHTML = ''; $('px-img').removeAttribute('src');
       $('px-prev').hidden = $('px-next').hidden = true; $('px-dots').innerHTML = ''; $('px-found').hidden = true;
       $('px-talk').hidden = true;
+      setupChest(); // v89: (none without pictures)
       return;
     }
     $('px-empty').hidden = true;
     $('px-talk').hidden = !data.talk;
     showScene(0);
+    setupChest(); // v89
     if (!sessionStorage.getItem('px-hinted')) {
       $('px-hint').textContent = t('picturesHint');
       $('px-hint').hidden = false;

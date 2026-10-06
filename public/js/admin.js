@@ -154,6 +154,7 @@
     setupTextChanges();
     setupMarePosts();
     setupComms(); // v87
+    setupTreasure(); // v89
     setupRiddles();
     setupAdminSettings();
     loadOverview();
@@ -174,6 +175,7 @@
     loadTextChanges();
     loadMarePosts();
     loadComms(); // v87
+    loadTreasure(); // v89
     loadRiddles();
     loadMarketingStats();
     loadShowcaseContent();
@@ -236,7 +238,7 @@
         if (target === 'emaillog' && currentUser && currentUser.role === 'admin') loadEmailLog();
         if (target === 'backups' && currentUser && currentUser.role === 'admin') loadBackups();
         if (target === 'directory') { loadDirectory(); loadAdminSettings(); }
-        if (target === 'companion') { loadCompanionAdmin(); loadPictures(); }
+        if (target === 'companion') { loadCompanionAdmin(); loadPictures(); loadTreasure(); }
         if (target === 'analytics') loadAnalytics();
         if (target === 'comms') loadComms(); // v87
       });
@@ -4102,6 +4104,55 @@
     });
   }
 
+
+
+  // ── Mare App 8 (v89) — treasure chest settings ──
+  let trData = null;
+  async function loadTreasure() {
+    try { trData = await api('/api/admin/treasure'); } catch { return; }
+    const on = new Set(trData.chapters);
+    document.getElementById('tr-chapters').innerHTML = trData.titles.map(c => {
+      const n = trData.quizzes[c.no] || 0;
+      return `<label class="${n ? '' : 'noquiz'}" title="${escapeHtml(c.title || '')}"><input type="checkbox" value="${c.no}"${on.has(c.no) ? ' checked' : ''}> ${c.no} <small>(${escapeHtml(t('adminTrQuizCount', { n }))})</small></label>`;
+    }).join('');
+    document.getElementById('tr-percent').value = trData.percent;
+    document.getElementById('tr-days').value = trData.days;
+    document.getElementById('tr-given').textContent = t('adminTrGiven', { n: trData.codesGiven });
+    trPics();
+  }
+  function trPics() {
+    const box = document.getElementById('tr-pics');
+    const slot = (which) => {
+      const key = trData[which + 'Key'], src = trData[which + 'Url'];
+      const showDim = which === 'closed' && !key;
+      return `<div class="tr-pic" data-which="${which}"><strong>${escapeHtml(t(which === 'closed' ? 'adminTrClosed' : 'adminTrOpen'))}</strong>
+        <img src="${escapeHtml(showDim ? trData.openUrl : src || '')}" alt=""${showDim ? ' class="dim"' : ''}>
+        <small class="admin-empty-note">${escapeHtml(t(which === 'closed' ? (key ? 'adminTrOwn' : 'adminTrClosedNone') : (key ? 'adminTrOwn' : 'adminTrOpenDefault')))}</small>
+        <span><label class="btn-ghost btn-small">${escapeHtml(t('adminSpotPicUpload'))}<input type="file" accept="image/*" hidden></label>
+        ${key ? ` <a href="#" class="tr-rm">${escapeHtml(t('adminSpotRemove'))}</a>` : ''}</span></div>`;
+    };
+    box.innerHTML = slot('closed') + slot('open');
+    box.querySelectorAll('.tr-pic').forEach(el => {
+      const which = el.dataset.which;
+      el.querySelector('input[type=file]').addEventListener('change', async (e) => {
+        const file = e.target.files[0]; if (!file) return;
+        try {
+          const key = await picUpload(file, 'spot-icons');
+          await api('/api/admin/treasure', { method: 'PUT', body: JSON.stringify({ [which + 'Key']: key }) });
+          await loadTreasure();
+        } catch (err) { alert(err.message || t('errorGeneric')); }
+      });
+      const rm = el.querySelector('.tr-rm');
+      if (rm) rm.addEventListener('click', async (e) => { e.preventDefault(); await api('/api/admin/treasure', { method: 'PUT', body: JSON.stringify({ [which + 'Key']: null }) }); await loadTreasure(); });
+    });
+  }
+  function setupTreasure() {
+    document.getElementById('tr-save').addEventListener('click', async () => {
+      const chapters = [...document.querySelectorAll('#tr-chapters input:checked')].map(i => Number(i.value));
+      await api('/api/admin/treasure', { method: 'PUT', body: JSON.stringify({ chapters, percent: Number(document.getElementById('tr-percent').value), days: Number(document.getElementById('tr-days').value) }) });
+      await loadTreasure();
+    });
+  }
 
   // ── Mare App 8 (v87) — Comms: email lists, newsletters, welcome series ──
   let cmData = null;

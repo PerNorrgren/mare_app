@@ -65,6 +65,17 @@
     box.querySelectorAll('.cp-star').forEach(b => b.addEventListener('click', () => { stars = Number(b.dataset.n); renderStars(); }));
   }
 
+  // v89 — the treasure chest codes, with the date they run until
+  function renderTreasures() {
+    const box = $('cp-treasure'), list = data.treasures || [];
+    box.hidden = !list.length;
+    if (!list.length) return;
+    const nl = window.MareI18n.locale === 'nl';
+    const day = (d) => d ? new Date(d + 'T12:00:00Z').toLocaleDateString(nl ? 'nl-NL' : 'en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) : '';
+    box.innerHTML = `<p class="cp-treasure-title">💎 ${esc(t('companionTreasureTitle'))}</p>` + list.map(x =>
+      `<p class="cp-treasure-row">${esc(t('companionTreasureRow', { n: x.chapter, percent: x.percent || '', date: day(x.expires) }))} <strong class="cp-treasure-code">${esc(x.code)}</strong></p>`).join('');
+  }
+
   function renderRating() {
     const r = data.rating;
     $('cp-rate-body').textContent = r ? t('companionRateThanks') : t('companionRateBody', { percent: data.ratingPercent });
@@ -105,6 +116,7 @@
     from.innerHTML = data.children.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('') + `<option value="">${esc(t('companionMsgFromMe'))}</option>`;
     renderMessages();
     renderRating();
+    renderTreasures(); // v89
     const pt = $('cp-picture-talk');
     if (pt) {
       pt.checked = data.pictureTalk !== false;

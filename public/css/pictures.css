@@ -127,3 +127,42 @@ html, body { margin: 0; height: 100%; background: #0B1712; overflow: hidden; ove
 .px-spot.px-iconspot.px-noglow.found { opacity: 0.75; }
 .px-spot.px-iconspot.px-timed.shown.px-noglow { animation: px-popin 0.5s ease-out both; }
 .px-spot.px-iconspot.beckon { border: 0; box-shadow: none; }
+
+/* ── Mare App 8 (v89) — treasure chest for the quizzes ── */
+.px-chest { position: fixed; left: calc(14px + env(safe-area-inset-left, 0px)); bottom: calc(18px + env(safe-area-inset-bottom, 0px)); z-index: 16;
+  width: clamp(96px, 13vw, 150px); padding: 0; border: 0; background: none; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 4px; --fill: 0; }
+.px-chest-img { width: 100%; height: auto; display: block; pointer-events: none;
+  filter: drop-shadow(0 6px 14px rgba(0,0,0,0.55)) drop-shadow(0 0 calc(4px + var(--fill) * 18px) rgba(255, 214, 120, calc(0.2 + var(--fill) * 0.6))); transition: filter 0.6s; }
+.px-chest.dim .px-chest-img { filter: brightness(calc(0.38 + var(--fill) * 0.5)) saturate(calc(0.25 + var(--fill) * 0.75)) drop-shadow(0 6px 14px rgba(0,0,0,0.55)) drop-shadow(0 0 calc(var(--fill) * 16px) rgba(255, 214, 120, calc(var(--fill) * 0.7))); }
+.px-chest-gems { display: flex; gap: 3px; flex-wrap: wrap; justify-content: center; background: rgba(0,0,0,0.45); padding: 4px 8px; border-radius: 999px; }
+.px-chest-gems i { width: 22px; height: 22px; display: block; opacity: 0.28; filter: grayscale(1); transition: opacity 0.4s, filter 0.4s, transform 0.4s; }
+.px-chest-gems i.on { opacity: 1; filter: drop-shadow(0 0 4px rgba(255,255,255,0.8)); transform: scale(1.12); }
+.px-chest-gems svg { width: 100%; height: 100%; display: block; }
+.px-chest.bump { animation: px-chest-bump 0.5s cubic-bezier(.2,1.6,.4,1); }
+.px-chest.full .px-chest-img { animation: px-chest-glow 2.6s ease-in-out infinite; }
+@keyframes px-chest-bump { 0% { transform: scale(1); } 40% { transform: scale(1.14) rotate(-3deg); } 100% { transform: scale(1); } }
+@keyframes px-chest-glow { 0%, 100% { filter: drop-shadow(0 6px 14px rgba(0,0,0,0.5)) drop-shadow(0 0 14px rgba(255,214,120,0.6)); } 50% { filter: drop-shadow(0 6px 14px rgba(0,0,0,0.5)) drop-shadow(0 0 28px rgba(255,224,140,0.95)); } }
+.px-flygem { position: fixed; z-index: 17; width: 44px; height: 44px; margin: -22px 0 0 -22px; pointer-events: none; transition: transform 0.85s cubic-bezier(.45,-0.25,.35,1), opacity 0.85s; filter: drop-shadow(0 0 10px rgba(255,255,255,0.9)); }
+.px-flygem svg { width: 100%; height: 100%; }
+.px-treasure { position: fixed; inset: 0; z-index: 19; background: radial-gradient(circle at 50% 40%, rgba(80,50,10,0.75), rgba(0,0,0,0.85)); display: flex; align-items: center; justify-content: center; padding: 18px; animation: px-in 0.4s ease-out; }
+.px-treasure-card { background: #FFFBF1; color: var(--navy); border-radius: 26px; padding: 22px 24px 20px; max-width: 460px; width: 100%; text-align: center; box-shadow: 0 20px 60px rgba(0,0,0,0.6); border: 2px solid var(--gold); }
+.px-treasure-card h2 { font-family: 'Fraunces', serif; font-size: 1.6rem; margin: 6px 0 6px; }
+.px-treasure-card p { margin: 0 0 10px; line-height: 1.45; font-weight: 600; }
+.px-treasure-chest { position: relative; width: min(260px, 60vw); margin: -70px auto 0; }
+.px-treasure-chest img { width: 100%; display: block; animation: px-chest-open 0.9s cubic-bezier(.2,1.5,.4,1) both, px-chest-glow 2.6s ease-in-out 0.9s infinite; }
+@keyframes px-chest-open { from { transform: scale(0.3) translateY(60px); opacity: 0; } to { transform: scale(1) translateY(0); opacity: 1; } }
+.px-sparkles { position: absolute; inset: 0; pointer-events: none; }
+.px-sparkles i { position: absolute; left: 50%; top: 45%; width: 8px; height: 8px; border-radius: 50%; background: #fff6c8; box-shadow: 0 0 10px 3px rgba(255,230,150,0.9); opacity: 0; animation: px-spark 1.6s ease-out infinite; }
+.px-sparkles i:nth-child(odd) { background: #ffd3f0; }
+.px-sparkles i:nth-child(1) { --dx: -120px; --dy: -90px; animation-delay: 0.9s; } .px-sparkles i:nth-child(2) { --dx: 110px; --dy: -100px; animation-delay: 1s; }
+.px-sparkles i:nth-child(3) { --dx: -60px; --dy: -140px; animation-delay: 1.15s; } .px-sparkles i:nth-child(4) { --dx: 70px; --dy: -150px; animation-delay: 1.25s; }
+.px-sparkles i:nth-child(5) { --dx: -150px; --dy: -20px; animation-delay: 1.4s; } .px-sparkles i:nth-child(6) { --dx: 150px; --dy: -30px; animation-delay: 1.5s; }
+.px-sparkles i:nth-child(7) { --dx: 0px; --dy: -170px; animation-delay: 1.6s; } .px-sparkles i:nth-child(8) { --dx: -100px; --dy: -60px; animation-delay: 1.75s; }
+.px-sparkles i:nth-child(9) { --dx: 95px; --dy: -55px; animation-delay: 1.85s; } .px-sparkles i:nth-child(10) { --dx: -30px; --dy: -120px; animation-delay: 1.95s; }
+.px-sparkles i:nth-child(11) { --dx: 40px; --dy: -110px; animation-delay: 2.05s; } .px-sparkles i:nth-child(12) { --dx: -135px; --dy: -120px; animation-delay: 2.15s; }
+.px-sparkles i:nth-child(13) { --dx: 130px; --dy: -125px; animation-delay: 2.25s; } .px-sparkles i:nth-child(14) { --dx: 10px; --dy: -80px; animation-delay: 2.35s; }
+@keyframes px-spark { 0% { opacity: 0; transform: translate(0, 0) scale(0.4); } 20% { opacity: 1; } 100% { opacity: 0; transform: translate(var(--dx), var(--dy)) scale(1.2); } }
+.px-treasure-code { font: 800 clamp(1.6rem, 6vw, 2.2rem) 'Quicksand', sans-serif; letter-spacing: 0.12em; background: var(--gold); color: var(--navy); border-radius: 16px; padding: 10px 14px; margin: 6px auto 12px; display: inline-block; user-select: all; -webkit-user-select: all; }
+.px-treasure-show { font-size: 0.95rem; }
+.px-treasure-note { font-size: 0.85rem; color: #7a5a12; }
+@media (prefers-reduced-motion: reduce) { .px-flygem { transition-duration: 0.01s; } .px-treasure-chest img, .px-chest.full .px-chest-img, .px-sparkles i { animation: none; opacity: 1; } .px-sparkles { display: none; } }

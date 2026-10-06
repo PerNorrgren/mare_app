@@ -2179,3 +2179,18 @@ button.an-card { font: inherit; text-align: left; border: 0; width: 100%; displa
 .look-pic-opts { margin-top: 8px; }
 .look-opacity { display: flex; align-items: center; gap: 8px; font-size: 0.9rem; color: var(--navy); }
 .look-opacity input { flex: 1; max-width: 240px; }
+
+/* ── v89: treasure chest (Book Companion) ── */
+.cp-treasure { margin-top: 14px; padding: 12px 14px; border-radius: 14px; background: rgba(234,192,102,0.14); border: 1px solid rgba(234,192,102,0.5); }
+.cp-treasure-title { margin: 0 0 6px; font-weight: 700; color: var(--gold); }
+.cp-treasure-row { margin: 4px 0; color: #F3ECD9; }
+.cp-treasure-code { display: inline-block; margin-left: 6px; padding: 2px 10px; border-radius: 8px; background: var(--gold); color: var(--navy); letter-spacing: 0.08em; user-select: all; }
+.tr-chapters { display: flex; flex-wrap: wrap; gap: 6px 14px; margin: 6px 0 14px; }
+.tr-chapters label { display: inline-flex; gap: 6px; align-items: center; font-size: 0.9rem; color: var(--navy); }
+.tr-chapters label small { color: var(--navy-soft); }
+.tr-chapters label.noquiz { opacity: 0.55; }
+.tr-pics { display: flex; gap: 18px; flex-wrap: wrap; margin: 6px 0 14px; }
+.tr-pic { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
+.tr-pic img { width: 130px; height: 120px; object-fit: contain; border-radius: 10px; background: #12261c; }
+.tr-pic img.dim { filter: brightness(0.4) saturate(0.3); }
+#tr-card .field-label { display: block; font-weight: 700; color: var(--navy); margin-top: 6px; }

@@ -1157,6 +1157,11 @@ Volgende maand verschijnt er een nieuw raadsel uit het Fluisterbos. 🌲🔎', ?
     subject_en TEXT NOT NULL DEFAULT '', body_en TEXT NOT NULL DEFAULT '', updated_at TEXT)`);
   try { db.run(`ALTER TABLE app_config ADD COLUMN comms_options_json TEXT`); } catch {}
   try { db.run(`ALTER TABLE parents ADD COLUMN news_asked_at TEXT`); } catch {}
+  // ── Mare App 8 (v89) — treasure chest for the quizzes: settings in
+  // app_config.treasure_json, one personal shop code per family per chapter.
+  try { db.run(`ALTER TABLE app_config ADD COLUMN treasure_json TEXT`); } catch {}
+  db.run(`CREATE TABLE IF NOT EXISTS treasure_codes (parent_id TEXT NOT NULL, chapter_no INTEGER NOT NULL, code TEXT NOT NULL,
+    created_at TEXT DEFAULT (datetime('now')), PRIMARY KEY (parent_id, chapter_no))`);
   try { db.run(`ALTER TABLE teachers ADD COLUMN news_asked_at TEXT`); } catch {}
 
   // ── Mare App 5 — Talk to Mare in the pictures: what Mare knows.

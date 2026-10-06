@@ -954,6 +954,20 @@
         <div id="pic-flow"></div>
         <div id="pic-list" hidden></div>
       </div>
+      <!-- Mare App 8 (v89) — treasure chest for the quizzes -->
+      <div class="admin-card" id="tr-card">
+        <h2 data-i18n="adminTrTitle">Treasure chest for the quizzes</h2>
+        <p class="admin-card-sub" data-i18n="adminTrDesc">In the chapters ticked here, a chest sits in the corner of the pictures. Each quiz answered right adds a diamond. When every quiz in the chapter is right, the chest opens and shows a personal shop code for the child to show their grown-up. The code also appears in the parent's Book Companion.</p>
+        <label class="field-label" data-i18n="adminTrChapters">Chapters with a treasure chest</label>
+        <div class="tr-chapters" id="tr-chapters"></div>
+        <div class="admin-form-row">
+          <div class="field"><label for="tr-percent" data-i18n="adminTrPercent">Discount (%)</label><input type="number" id="tr-percent" min="1" max="90"></div>
+          <div class="field"><label for="tr-days" data-i18n="adminTrDays">Code works for (days)</label><input type="number" id="tr-days" min="7" max="730"></div>
+        </div>
+        <div class="tr-pics" id="tr-pics"></div>
+        <p class="admin-empty-note" id="tr-given"></p>
+        <button type="button" class="btn-primary btn-small" id="tr-save" data-i18n="adminSaveChanges">Save</button>
+      </div>
       <div class="admin-card">
         <h2 data-i18n="adminCompanionMessages">Messages to Mare</h2>
         <p class="admin-card-sub" data-i18n="adminCompanionMessagesDesc">Answer as Mare.</p>

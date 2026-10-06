@@ -1596,6 +1596,9 @@ async function finalizeCheckoutSession(session) {
     db.setOrderPaidDetails(order.id, { name: cd.name || sd.name, email: cd.email, address });
     // Mare App 5 — count the stock down, once, when the order becomes paid.
     db.reduceStockForOrder(order.id);
+    // v89 — a treasure chest code works once: switched off when its order is paid
+    const usedCode = session.metadata && session.metadata.offerCode;
+    if (usedCode && /^SCHAT[0-9A-F]+$/.test(usedCode)) db.run(`UPDATE offers SET active = 0 WHERE code = ?`, [usedCode]);
   }
   const fresh = db.getOrderBySession(session.id);
   if (!fresh.notified_at) {
