@@ -117,3 +117,13 @@ html, body { margin: 0; height: 100%; background: #0B1712; overflow: hidden; ove
 .px-loading.failed .px-load-ring::after { content: '↻'; display: flex; height: 100%; align-items: center; justify-content: center; color: var(--gold); font-size: 1.5rem; }
 @keyframes px-load { to { transform: rotate(360deg); } }
 .px-is-loading .px-bigplay { visibility: hidden; }
+
+/* ── v88: a picture as the spot ── */
+.px-spot.px-iconspot { border: 0; border-radius: 0; background: none; box-shadow: none; aspect-ratio: auto; min-height: 0; display: flex; align-items: center; justify-content: center; }
+.px-spot.px-iconspot[style*="--spot"] { background: none; box-shadow: none; }
+.px-spot.px-iconspot img { display: block; width: 100%; height: auto; pointer-events: none; -webkit-user-drag: none; filter: drop-shadow(0 0 7px color-mix(in srgb, var(--spot, #FFE9A8) 80%, transparent)) drop-shadow(0 0 16px color-mix(in srgb, var(--spot, #FFE9A8) 45%, transparent)); }
+.px-spot.px-iconspot.px-noglow { animation: none; opacity: 1; }
+.px-spot.px-iconspot.px-noglow img { filter: none; }
+.px-spot.px-iconspot.px-noglow.found { opacity: 0.75; }
+.px-spot.px-iconspot.px-timed.shown.px-noglow { animation: px-popin 0.5s ease-out both; }
+.px-spot.px-iconspot.beckon { border: 0; box-shadow: none; }

@@ -317,6 +317,15 @@
         spots.appendChild(b);
         return;
       }
+      if (look.iconUrl) { // v88: the spot is a picture, as see-through as staff chose; glow optional
+        b.classList.add('px-iconspot');
+        if (look.glow === false) b.classList.add('px-noglow');
+        b.style.aspectRatio = '';
+        const im = document.createElement('img');
+        im.src = look.iconUrl; im.alt = ''; im.draggable = false;
+        im.style.opacity = look.opacity == null ? 1 : look.opacity;
+        b.appendChild(im);
+      }
       b.style.animationDelay = (n * 0.37) + 's';
       b.setAttribute('aria-label', sp.title || t('picturesSecret'));
       b.addEventListener('click', (e) => { e.stopPropagation(); openSpot(sp, b); });

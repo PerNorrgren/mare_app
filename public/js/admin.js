@@ -428,7 +428,15 @@
   // v76 — spot look: { colour, mode, shape, h, reveal }
   function lookOf(sp) {
     let o = {}; try { o = JSON.parse(sp.look_json || '{}') || {}; } catch { o = {}; }
-    return { colour: o.colour || '', mode: o.mode === 'colour' ? 'colour' : 'blur', shape: o.shape === 'circle' ? 'circle' : 'rect', h: o.h == null ? null : Number(o.h), reveal: !!o.reveal };
+    return { colour: o.colour || '', mode: o.mode === 'colour' ? 'colour' : 'blur', shape: o.shape === 'circle' ? 'circle' : 'rect', h: o.h == null ? null : Number(o.h), reveal: !!o.reveal,
+      icon: o.icon || null, opacity: o.opacity == null ? 1 : Number(o.opacity), glow: o.glow !== false }; // v88: a picture as the spot
+  }
+  // v88 — playback addresses of spot pictures (asked once each)
+  const spotIconUrls = new Map();
+  function spotIconUrl(key) {
+    if (/^\/images\//.test(key || '')) return Promise.resolve(key); // shipped with the app
+    if (!spotIconUrls.has(key)) spotIconUrls.set(key, api('/api/playback-url?key=' + encodeURIComponent(key)).then(r => r.url).catch(() => ''));
+    return spotIconUrls.get(key);
   }
   const flowT = (s) => { s = Math.max(0, Number(s) || 0); const m = Math.floor(s / 60); return `${m}:${String(Math.floor(s - m * 60)).padStart(2, '0')}`; };
   // the chapter's steps in their order (as the child meets them)
@@ -691,6 +699,12 @@
         if (sp.type === 'mask') { // v76: shown as the child will see it
           d.classList.add('pic-mask-' + lk.mode, 'pic-shape-' + lk.shape);
           if (lk.shape === 'rect') { d.style.aspectRatio = 'auto'; d.style.height = ((lk.h || sp.r * 2) * 100) + '%'; }
+        } else if (lk.icon) { // v88: the spot's own picture, as see-through as chosen
+          d.classList.add('pic-iconspot');
+          if (!lk.glow) d.classList.add('pic-noglow');
+          const im = document.createElement('img'); im.alt = ''; im.draggable = false; im.style.opacity = lk.opacity;
+          spotIconUrl(lk.icon).then(u => { if (u) im.src = u; });
+          d.appendChild(im);
         }
         d.title = sp.title_en || sp.type;
         // drag to move; click to edit
@@ -733,7 +747,7 @@
 
     // Mare App 5 — show the uploaded file's own name (the stored key is
     // pictures/<folder>/<timestamp>-<name>), and let sounds be played here.
-    function fileNameOf(key) { return String(key || '').split('/').pop().replace(/^\d{10,}-/, ''); }
+    function fileNameOf(key) { return String(key || '').split('/').pop().replace(/^\d{10,}-/, '').replace(/^mare-spot-/, ''); }
     function mediaField(label, key, accept, folder, sp) {
       const has = sp[key];
       return `<div class="field pic-media" data-key="${key}" data-accept="${accept}" data-folder="${folder}"><label>${escapeHtml(label)}</label>
@@ -767,7 +781,19 @@
           ${type === 'mask' ? `<div class="field"><label>${escapeHtml(t('adminMaskMode'))}</label><select class="sp-mask-mode"><option value="blur"${lk.mode === 'blur' ? ' selected' : ''}>${escapeHtml(t('adminMaskBlur'))}</option><option value="colour"${lk.mode === 'colour' ? ' selected' : ''}>${escapeHtml(t('adminMaskSolid'))}</option></select></div>
           <div class="field"><label>${escapeHtml(t('adminMaskShape'))}</label><select class="sp-mask-shape"><option value="rect"${lk.shape === 'rect' ? ' selected' : ''}>${escapeHtml(t('adminMaskRect'))}</option><option value="circle"${lk.shape === 'circle' ? ' selected' : ''}>${escapeHtml(t('adminMaskCircle'))}</option></select></div>` : ''}
         </div>
-        ${type === 'mask' ? `<label class="vid-pause"><input type="checkbox" class="sp-mask-reveal"${lk.reveal ? ' checked' : ''}> ${escapeHtml(t('adminMaskReveal'))}</label>` : ''}`; })()}
+        ${type === 'mask' ? `<label class="vid-pause"><input type="checkbox" class="sp-mask-reveal"${lk.reveal ? ' checked' : ''}> ${escapeHtml(t('adminMaskReveal'))}</label>` : `<div class="field look-pic" data-icon="${escapeHtml(lk.icon || '')}">
+          <label>${escapeHtml(t('adminSpotPic'))}</label>
+          <div class="look-pic-row">
+            ${lk.icon ? `<img class="look-pic-thumb" alt=""><a href="#" class="look-pic-rm">${escapeHtml(t('adminSpotRemove'))}</a>` : ''}
+            <label class="btn-ghost btn-small">${escapeHtml(t(lk.icon ? 'adminSpotPicChange' : 'adminSpotPicUpload'))}<input type="file" class="look-pic-file" accept="image/*" hidden></label>
+            <button type="button" class="btn-ghost btn-small look-pic-choose" data-no-busy>${escapeHtml(t('adminSpotPicChoose'))}</button>
+          </div>
+          <div class="look-pic-lib" hidden></div>
+          ${lk.icon ? `<div class="look-pic-opts">
+            <label class="look-opacity">${escapeHtml(t('adminSpotOpacity'))} <input type="range" class="sp-opacity" min="0" max="0.9" step="0.05" value="${(1 - lk.opacity).toFixed(2)}"> <span class="sp-opacity-val">${Math.round((1 - lk.opacity) * 100)}%</span></label>
+            <label class="vid-pause"><input type="checkbox" class="sp-glow"${lk.glow ? ' checked' : ''}> ${escapeHtml(t('adminSpotGlow'))}</label>
+          </div>` : `<p class="admin-empty-note">${escapeHtml(t('adminSpotPicHint'))}</p>`}
+        </div>`}`; })()}
         ${video ? `<div class="admin-form-row vid-times">
           <div class="field"><label>${escapeHtml(t('adminVidFrom'))}</label><div class="vid-tin"><input type="number" class="sp-t-start" min="0" step="0.1" value="${sp.t_start == null ? '' : sp.t_start}"><button type="button" class="btn-ghost btn-small sp-now-start" data-no-busy>${escapeHtml(t('adminVidNow'))}</button></div></div>
           <div class="field"><label>${escapeHtml(t('adminVidTo'))}</label><div class="vid-tin"><input type="number" class="sp-t-end" min="0" step="0.1" value="${sp.t_end == null ? '' : sp.t_end}" placeholder="${escapeHtml(t('adminVidEnd'))}"><button type="button" class="btn-ghost btn-small sp-now-end" data-no-busy>${escapeHtml(t('adminVidNow'))}</button></div></div>
@@ -799,7 +825,9 @@
         if (q('.sp-video-url')) b.video_url = q('.sp-video-url').value;
         if (q('.sp-colour')) { // v76
           const lk = lookOf(sp);
-          const look = { colour: q('.sp-colour').dataset.cleared ? null : q('.sp-colour').value, mode: lk.mode, shape: lk.shape, h: lk.h, reveal: lk.reveal };
+          const look = { colour: q('.sp-colour').dataset.cleared ? null : q('.sp-colour').value, mode: lk.mode, shape: lk.shape, h: lk.h, reveal: lk.reveal,
+            icon: q('.look-pic') ? (q('.look-pic').dataset.icon || null) : lk.icon,
+            opacity: q('.sp-opacity') ? 1 - Number(q('.sp-opacity').value) : lk.opacity, glow: q('.sp-glow') ? q('.sp-glow').checked : lk.glow };
           if (q('.sp-mask-mode')) { look.mode = q('.sp-mask-mode').value; look.shape = q('.sp-mask-shape').value; look.reveal = q('.sp-mask-reveal').checked; look.h = q('.sp-mask-h') ? Number(q('.sp-mask-h').value) : lk.h; }
           if (!q('.sp-colour').dataset.touched && !lk.colour && sp.type !== 'mask') look.colour = null; // untouched: keep the standard gold
           b.look = look;
@@ -867,6 +895,34 @@
         q('.sp-colour-reset').addEventListener('click', (e) => { e.preventDefault(); q('.sp-colour').dataset.cleared = '1'; q('.sp-colour').dataset.touched = '1'; liveLook(); });
       }
       ['.sp-mask-mode', '.sp-mask-reveal', '.sp-mask-h'].forEach(sel => { if (q(sel)) q(sel).addEventListener('input', liveLook); });
+      // v88 — the spot's picture: upload, choose one used before, remove (each saved at once); transparency and glow show live
+      if (q('.look-pic')) {
+        const pic = q('.look-pic');
+        const setIcon = async (key) => {
+          pic.dataset.icon = key || '';
+          const body = typed();
+          await working(form, () => api(`/api/admin/picture-spots/${sp.id}`, { method: 'PATCH', body: JSON.stringify(body) }));
+          applyLocal(body); drawSpots(); drawForm(sp);
+        };
+        if (q('.look-pic-thumb')) spotIconUrl(pic.dataset.icon).then(u => { if (u && q('.look-pic-thumb')) q('.look-pic-thumb').src = u; });
+        q('.look-pic-file').addEventListener('change', async (e) => {
+          const file = e.target.files[0]; if (!file) return;
+          try { await setIcon(await working(form, () => picUpload(file, 'spot-icons'))); } catch (err) { say(false, err.message || t('errorGeneric')); }
+        });
+        if (q('.look-pic-rm')) q('.look-pic-rm').addEventListener('click', async (e) => { e.preventDefault(); await setIcon(null); });
+        q('.look-pic-choose').addEventListener('click', async () => {
+          const lib = q('.look-pic-lib');
+          if (!lib.hidden) { lib.hidden = true; return; }
+          lib.hidden = false; lib.textContent = t('adminLoading');
+          let icons = [];
+          try { icons = (await api('/api/admin/picture-spot-icons')).icons || []; } catch { /* empty */ }
+          lib.innerHTML = icons.length ? icons.map(i => `<button type="button" class="look-pic-pick" data-key="${escapeHtml(i.key)}" title="${escapeHtml(fileNameOf(i.key))}"><img src="${escapeHtml(i.url || '')}" alt=""></button>`).join('')
+            : `<p class="admin-empty-note">${escapeHtml(t('adminSpotPicNone'))}</p>`;
+          lib.querySelectorAll('.look-pic-pick').forEach(b => b.addEventListener('click', () => setIcon(b.dataset.key)));
+        });
+        if (q('.sp-opacity')) q('.sp-opacity').addEventListener('input', () => { q('.sp-opacity-val').textContent = Math.round(Number(q('.sp-opacity').value) * 100) + '%'; liveLook(); });
+        if (q('.sp-glow')) q('.sp-glow').addEventListener('change', liveLook);
+      }
       if (q('.sp-mask-shape')) q('.sp-mask-shape').addEventListener('change', () => { liveLook(); drawForm(sp); });
       if (q('.sp-try')) q('.sp-try').addEventListener('click', () => {
         // try it on top of this picture/video, with what is typed now
@@ -1614,6 +1670,7 @@
     });
   }
   function renderGenPlatforms() {
+    if (!document.querySelector('#mkt-media .mkt-slot *')) mktSlots(); // v88
     const box = document.getElementById('mkt-platforms'); if (!box || !socState) return;
     const was = new Set(Array.from(box.querySelectorAll('.mkt-platform:checked')).map(i => i.value));
     const first = !box.children.length;
@@ -1643,6 +1700,89 @@
     return parts.join('');
   }
   // results: { platform: string (old history) | { content, firstComment, title, notes, audience } | { error } }
+
+  // ── v88: upload a picture or video for social posts (shared by the post
+  // window and the Generate card). Pictures are saved as JPG (TikTok takes
+  // no PNG), so one picture works everywhere. Returns { key, type, url }.
+  async function socUploadFile(file) {
+    const isVid = (file.type || '').startsWith('video/') || /\.mp4$/i.test(file.name);
+    if (isVid && !/\.mp4$/i.test(file.name)) throw new Error(t('adminVidMp4Only'));
+    if (!isVid && !/^image\/(jpeg|webp)$/.test(file.type || '')) {
+      const url = URL.createObjectURL(file);
+      try {
+        const img = await new Promise((ok, bad) => { const i = new Image(); i.onload = () => ok(i); i.onerror = () => bad(new Error(t('socPictureUnreadable'))); i.src = url; });
+        const c = document.createElement('canvas'); c.width = img.naturalWidth; c.height = img.naturalHeight;
+        const g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height); g.drawImage(img, 0, 0);
+        const blob = await new Promise(ok => c.toBlob(ok, 'image/jpeg', 0.92));
+        file = new File([blob], file.name.replace(/\.[^.]+$/, '') + '.jpg', { type: 'image/jpeg' });
+      } finally { URL.revokeObjectURL(url); }
+    }
+    const type = isVid ? 'video/mp4' : (file.type || 'image/jpeg');
+    const key = `social/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, '_').slice(-80)}`;
+    const { url } = await api('/api/admin/upload-url', { method: 'POST', body: JSON.stringify({ key, contentType: type }) });
+    const put = await fetch(url, { method: 'PUT', headers: { 'Content-Type': type }, body: file });
+    if (!put.ok) throw new Error(t('adminErrorUploadFailed'));
+    return { key, type: isVid ? 'video' : 'image', url: URL.createObjectURL(file) };
+  }
+
+  // the batch's picture and video, and which one each generated post uses
+  const mktMedia = { image: null, video: null };
+  const MKT_VIDEO_FIRST = new Set(['tiktok', 'instagram']);
+  function mktDefault(platform) {
+    const order = MKT_VIDEO_FIRST.has(platform) ? ['video', 'image'] : ['image', 'video'];
+    return order.find(k => mktMedia[k]) || 'none';
+  }
+  function mktSlots() {
+    document.querySelectorAll('#mkt-media .mkt-slot').forEach(slot => {
+      const kind = slot.dataset.kind, m = mktMedia[kind];
+      slot.innerHTML = m
+        ? `${kind === 'video' ? `<video src="${escapeHtml(m.url)}" muted controls preload="metadata"></video>` : `<img src="${escapeHtml(m.url)}" alt="">`}
+           <button type="button" class="btn-ghost btn-small" data-rm data-no-busy>${escapeHtml(t('socRemoveMedia'))}</button>`
+        : `<label class="btn-ghost btn-small soc-upload"><span>${escapeHtml(t(kind === 'video' ? 'mktAddVideo' : 'mktAddPicture'))}</span>
+           <input type="file" accept="${kind === 'video' ? 'video/mp4,.mp4' : 'image/*'}" hidden></label>`;
+      const rm = slot.querySelector('[data-rm]');
+      if (rm) rm.addEventListener('click', () => { mktMedia[kind] = null; mktSlots(); mktRefreshCards(); });
+      const inp = slot.querySelector('input[type=file]');
+      if (inp) inp.addEventListener('change', async (e) => {
+        const file = e.target.files[0]; if (!file) return;
+        slot.innerHTML = `<span class="soc-spin"></span> ${escapeHtml(t('adminUploading'))}`;
+        try {
+          const m2 = await socUploadFile(file);
+          if (m2.type !== kind) throw new Error(t(kind === 'video' ? 'mktNotVideo' : 'mktNotPicture'));
+          mktMedia[kind] = m2;
+        } catch (err) { alert(err.message || t('errorGeneric')); }
+        mktSlots(); mktRefreshCards();
+      });
+    });
+  }
+  // after the picture/video changes: every post's choice (kept where it still exists)
+  function mktRefreshCards() {
+    document.querySelectorAll('.mkt-result-card[data-platform]').forEach(card => {
+      const sel = card.querySelector('.mkt-media-pick'); if (!sel) return;
+      let v = card.dataset.picked === '1' ? sel.value : mktDefault(card.dataset.platform);
+      if (v !== 'none' && !mktMedia[v]) v = mktDefault(card.dataset.platform);
+      sel.innerHTML = ['image', 'video', 'none'].filter(k => k === 'none' || mktMedia[k])
+        .map(k => `<option value="${k}">${escapeHtml(t(k === 'image' ? 'mktMediaPicture' : k === 'video' ? 'mktMediaVideo' : 'mktMediaNone'))}</option>`).join('');
+      sel.value = v;
+      mktCardState(card);
+    });
+  }
+  function mktCardState(card) {
+    const p = card.dataset.platform, v = card.querySelector('.mkt-media-pick').value;
+    const needs = ((socState && socState.needsMedia) || []).includes(p);
+    const warn = card.querySelector('.mkt-media-warn');
+    warn.textContent = needs && v === 'none' ? t('mktNeedsMedia', { p: socLabel(p) }) : '';
+    warn.hidden = !warn.textContent;
+    const pub = card.querySelector('[data-publish]');
+    if (pub) pub.hidden = needs && v === 'none';
+  }
+  // what a generated post sends, with the chosen picture/video
+  function mktMediaFor(card) {
+    const sel = card && card.querySelector('.mkt-media-pick');
+    const m = sel && sel.value !== 'none' ? mktMedia[sel.value] : null;
+    return m ? { mediaKey: m.key, mediaType: m.type, aiMedia: document.getElementById('mkt-ai').checked } : { mediaKey: null, mediaType: null, aiMedia: false };
+  }
+
   function renderMarketingResults(container, results, opts) {
     container.innerHTML = '';
     Object.keys(results || {}).forEach(platform => {
@@ -1650,6 +1790,7 @@
       const r = typeof raw === 'string' ? { content: raw } : (raw || {});
       const card = document.createElement('div');
       card.className = 'mkt-result-card';
+      card.dataset.platform = platform;
       const header = document.createElement('div');
       header.className = 'mkt-result-platform';
       const lab = document.createElement('span');
@@ -1668,16 +1809,26 @@
       header.appendChild(copyBtn);
       const post = { platform, content: r.content, first_comment: r.firstComment || '', title: r.title || '', audience: r.audience || 'any', notes: r.notes || null };
       const body = { platform, content: r.content, firstComment: r.firstComment || '', title: r.title || '', audience: r.audience || 'any', notes: r.notes || null };
+      card._body = body;
       const mk = (key, cls, fn, noBusy) => { const b = document.createElement('button'); b.type = 'button'; b.className = `${cls} btn-sm`; b.textContent = t(key); if (noBusy) b.setAttribute('data-no-busy', ''); b.addEventListener('click', fn); header.appendChild(b); return b; };
-      mk('socEditFirst', 'btn-ghost', () => openSocialPost(post), true);
+      // v88: Picture / Video / None for this post, from the batch's uploads
+      const pick = document.createElement('select');
+      pick.className = 'mkt-media-pick';
+      pick.setAttribute('aria-label', t('mktMediaFor', { p: socLabel(platform) }));
+      pick.addEventListener('change', () => { card.dataset.picked = '1'; mktCardState(card); });
+      header.appendChild(pick);
+      mk('socEditFirst', 'btn-ghost', () => {
+        const m = mktMediaFor(card), u = m.mediaKey ? mktMedia[m.mediaType] : null;
+        openSocialPost({ ...post, media_key: m.mediaKey, media_type: m.mediaType, ai_media: m.aiMedia ? 1 : 0, mediaUrl: u && u.url });
+      }, true);
       mk('socAddToQueue', 'btn-ghost', async () => {
-        try { const d = await api('/api/admin/social/queue', { method: 'POST', body: JSON.stringify({ ...body, scheduledFor: 'next' }) }); socNote(t('socQueuedFor', { when: socWhen(d.scheduledFor) })); }
+        try { const d = await api('/api/admin/social/queue', { method: 'POST', body: JSON.stringify({ ...body, ...mktMediaFor(card), scheduledFor: 'next' }) }); socNote(t('socQueuedFor', { when: socWhen(d.scheduledFor) })); card.classList.add('mkt-done'); }
         catch (e) { alert(e.message); throw e; } finally { loadSocialQueue(); }
       });
-      if (!(socState && socState.needsMedia || []).includes(platform)) mk('socPublishNow', 'btn-primary', async () => {
+      mk('socPublishNow', 'btn-primary', async () => {
         if (!confirm(t('socPublishConfirm', { p: socLabel(platform) }))) return;
-        try { await api('/api/admin/social/publish', { method: 'POST', body: JSON.stringify(body) }); } catch (e) { alert(e.message); throw e; } finally { loadSocialQueue(); }
-      });
+        try { await api('/api/admin/social/publish', { method: 'POST', body: JSON.stringify({ ...body, ...mktMediaFor(card) }) }); card.classList.add('mkt-done'); } catch (e) { alert(e.message); throw e; } finally { loadSocialQueue(); }
+      }).setAttribute('data-publish', '');
       // v86: throw a generated post away (Past posts keeps the batch until deleted there)
       if (!(opts && opts.history)) mk('socDiscard', 'btn-ghost', () => { card.remove(); if (!container.querySelector('.mkt-result-card')) container.innerHTML = ''; }, true);
       if (r.title) { const ti = document.createElement('div'); ti.className = 'mkt-result-title'; ti.textContent = r.title; card.appendChild(ti); }
@@ -1688,8 +1839,29 @@
       if (r.firstComment) { const fc = document.createElement('div'); fc.className = 'soc-fc'; fc.innerHTML = `<b>${escapeHtml(t('socFirstCommentShort'))}</b> ${withLink(r.firstComment, r.audience || 'any')}`; card.appendChild(fc); }
       const notes = socNotesHtml(r.notes);
       if (notes) { const n = document.createElement('div'); n.className = 'soc-notes'; n.innerHTML = notes; card.appendChild(n); }
+      const warn = document.createElement('p'); warn.className = 'form-error mkt-media-warn'; warn.hidden = true; card.appendChild(warn);
       container.appendChild(card);
     });
+    mktRefreshCards();
+    // v88: add every post in this batch to the queue in one go, each with its own picture/video choice
+    if (!(opts && opts.history) && container.querySelector('.mkt-result-card[data-platform]')) {
+      const row = document.createElement('div');
+      row.className = 'mkt-all-row';
+      row.innerHTML = `<button type="button" class="btn-primary">${escapeHtml(t('mktAddAll'))}</button><span class="admin-empty-note"></span>`;
+      container.prepend(row);
+      row.querySelector('button').addEventListener('click', async () => {
+        const cards = [...container.querySelectorAll('.mkt-result-card[data-platform]:not(.mkt-done)')];
+        const done = [], failed = [];
+        for (const card of cards) {
+          const b = card._body; if (!b) continue;
+          try { await api('/api/admin/social/queue', { method: 'POST', body: JSON.stringify({ ...b, ...mktMediaFor(card), scheduledFor: 'next' }) }); done.push(socLabel(b.platform)); card.classList.add('mkt-done'); }
+          catch (e) { failed.push(`${socLabel(b.platform)}: ${e.message}`); }
+        }
+        loadSocialQueue();
+        row.querySelector('span').textContent = (done.length ? t('mktAddAllDone', { n: done.length, list: done.join(', ') }) : '') + (failed.length ? ' ' + t('mktAddAllFailed', { list: failed.join(' · ') }) : '');
+        if (failed.length && !done.length) throw new Error('none');
+      });
+    }
   }
 
   // ── Mare App 6 (v82) / Mare App 7 (v83) — social media publishing ──────
@@ -1925,31 +2097,10 @@
     document.getElementById('sp-text').addEventListener('input', socCount);
     document.getElementById('sp-platform').addEventListener('change', socCount);
     document.getElementById('sp-audience').addEventListener('change', socCount);
-    // a PNG/GIF/HEIC the browser can read → JPG (white behind transparent parts)
-    async function socToJpg(file) {
-      const url = URL.createObjectURL(file);
-      try {
-        const img = await new Promise((ok, bad) => { const i = new Image(); i.onload = () => ok(i); i.onerror = () => bad(new Error(t('socPictureUnreadable'))); i.src = url; });
-        const c = document.createElement('canvas'); c.width = img.naturalWidth; c.height = img.naturalHeight;
-        const g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height); g.drawImage(img, 0, 0);
-        const blob = await new Promise(ok => c.toBlob(ok, 'image/jpeg', 0.92));
-        return new File([blob], file.name.replace(/\.[^.]+$/, '') + '.jpg', { type: 'image/jpeg' });
-      } finally { URL.revokeObjectURL(url); }
-    }
     document.getElementById('sp-file').addEventListener('change', async (e) => {
-      let file = e.target.files[0]; if (!file) return;
-      const isVid = (file.type || '').startsWith('video/');
-      if (isVid && !/\.mp4$/i.test(file.name)) { alert(t('adminVidMp4Only')); e.target.value = ''; return; }
+      const file = e.target.files[0]; if (!file) return;
       const el = document.getElementById('sp-media'); el.innerHTML = `<span class="soc-spin"></span> ${escapeHtml(t('adminUploading'))}`;
-      try {
-        // v85: pictures are saved as JPG (TikTok takes no PNG), so one picture works everywhere
-        if (!isVid && !/^image\/(jpeg|webp)$/.test(file.type || '')) file = await socToJpg(file);
-        const key = `social/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, '_').slice(-80)}`;
-        const { url } = await api('/api/admin/upload-url', { method: 'POST', body: JSON.stringify({ key, contentType: file.type || 'application/octet-stream' }) });
-        const put = await fetch(url, { method: 'PUT', headers: { 'Content-Type': file.type || 'application/octet-stream' }, body: file });
-        if (!put.ok) throw new Error(t('adminErrorUploadFailed'));
-        socMedia = { key, type: isVid ? 'video' : 'image', url: URL.createObjectURL(file) };
-      } catch (err) { alert(err.message || t('errorGeneric')); }
+      try { socMedia = await socUploadFile(file); } catch (err) { alert(err.message || t('errorGeneric')); }
       e.target.value = ''; socMediaShow();
     });
     document.getElementById('sp-save').addEventListener('click', async () => {

@@ -10,6 +10,10 @@
 // ──────────────────────────────────────────────────────────────────────
 const TYPES = ['sound', 'voice', 'popup', 'video', 'quiz', 'write', 'mask']; // v74: + quiz, write to Mare; v76: + mask
 const KEY_OK = /^pictures\/[A-Za-z0-9._\/-]+$/;
+// v88 — spot pictures that ship with the app (public/images/mare-spot-*.png), always in the library
+const BUILTIN_ICON = /^\/images\/mare-spot-[a-z0-9-]+\.(png|webp|jpg)$/;
+const fs = require('fs');
+const path = require('path');
 
 function register(app, { db, auth, media, email, publicUrl }) {
   const family = auth.requireAuthApi(['parent', 'teacher', 'admin', 'support', 'editor']); // v71: teachers preview too
@@ -17,6 +21,7 @@ function register(app, { db, auth, media, email, publicUrl }) {
 
   async function url(key) {
     if (!key) return null;
+    if (BUILTIN_ICON.test(key)) return key; // shipped with the app
     try { return await media.getPlaybackUrl(key); } catch { return null; }
   }
   const clamp = (n, lo, hi) => Math.max(lo, Math.min(hi, Number(n) || 0));
@@ -56,6 +61,10 @@ function register(app, { db, auth, media, email, publicUrl }) {
       shape: o.shape === 'circle' ? 'circle' : 'rect',
       h: o.h == null ? null : clamp(o.h, 0.02, 1),
       reveal: !!o.reveal,
+      // v88 — a picture as the spot (staff-uploaded only), how see-through it is, and whether it glows
+      icon: typeof o.icon === 'string' && (KEY_OK.test(o.icon) || BUILTIN_ICON.test(o.icon)) ? o.icon : null,
+      opacity: o.opacity == null ? 1 : clamp(o.opacity, 0.1, 1),
+      glow: o.glow !== false,
     };
   }
 
@@ -78,7 +87,7 @@ function register(app, { db, auth, media, email, publicUrl }) {
           tEnd: p.t_end == null ? null : p.t_end,
           pause: !!p.pause_on_show,
           quiz: p.type === 'quiz' ? await publicQuiz(p.quiz_json, nl) : null,
-          look: parseLook(p.look_json),
+          look: await (async () => { const l = parseLook(p.look_json); return { ...l, icon: undefined, iconUrl: l.icon ? await url(l.icon) : null }; })(),
         });
       }
       out.push({ id: s.id, title: (nl && s.title_nl) || s.title_en || '', image: await url(s.image_key), video: s.video_key ? await url(s.video_key) : null, spots });
@@ -210,6 +219,15 @@ function register(app, { db, auth, media, email, publicUrl }) {
     catch (e) { res.status(400).json({ error: e.message }); }
   });
   app.delete('/api/admin/picture-spots/:id', staff, (req, res) => { db.deletePictureSpot(req.params.id); res.json({ ok: true }); });
+  // v88 — every picture already used as a spot, to choose again
+  app.get('/api/admin/picture-spot-icons', staff, async (req, res) => {
+    const keys = new Set();
+    try { fs.readdirSync(path.join(__dirname, 'public', 'images')).filter(f => BUILTIN_ICON.test('/images/' + f)).sort().forEach(f => keys.add('/images/' + f)); } catch { /* none */ }
+    for (const r of db.all(`SELECT look_json FROM picture_spots WHERE look_json LIKE '%"icon"%'`)) { const l = parseLook(r.look_json); if (l.icon) keys.add(l.icon); }
+    const icons = [];
+    for (const key of keys) icons.push({ key, url: await url(key) });
+    res.json({ icons });
+  });
 }
 
 module.exports = { register };
