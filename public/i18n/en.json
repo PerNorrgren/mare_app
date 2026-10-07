@@ -1769,7 +1769,7 @@
   "adminNotifyGroupLabel": "Notification group",
   "adminNotifyAdd": "+ Add",
   "adminNotifyTest": "Send a test to the group",
-  "adminNotifyGroupNote": "Each address gets its own copy of every staff email: new orders, teacher access requests and questions, messages children write to Mare, the daily summary of text changes, and social media alerts. Add or remove addresses, then press Save.",
+  "adminNotifyGroupNote": "Each address gets its own copy of every staff email: new orders, teacher access requests and questions, messages children write to Mare, the daily summary of text changes, social media alerts, and a copy of every social media post once it is live (with a link to it). Add or remove addresses, then press Save.",
   "adminNotifyEmpty": "No addresses yet: notifications go nowhere.",
   "adminNotifyBad": "Not an email address: {email}",
   "adminNotifyTestSent": "Test sent to {to}.",

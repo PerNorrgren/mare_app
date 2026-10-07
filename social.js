@@ -409,7 +409,7 @@ function register(app, { db, auth, media, email, anthropic, model, publicUrl }) 
   async function sendRow(r) {
     try {
       const out = await publish(r.platform, { content: r.content, firstComment: r.first_comment, title: r.title, mediaKey: r.media_key, mediaType: r.media_type, aiMedia: !!r.ai_media, audience: r.audience || 'any' });
-      db.runBatch([[`UPDATE social_queue SET status = 'published', published_at = ?, bp_post_id = ?, channel_id = ?, error = NULL WHERE id = ?`, [new Date().toISOString(), out.id, out.channelId, r.id]]]);
+      db.runBatch([[`UPDATE social_queue SET status = 'published', published_at = ?, bp_post_id = ?, channel_id = ?, error = NULL, confirm_state = 'pending', confirm_checks = 0 WHERE id = ?`, [new Date().toISOString(), out.id, out.channelId, r.id]]]);
       return { ok: true };
     } catch (e) {
       db.runBatch([[`UPDATE social_queue SET status = 'failed', error = ?, alerted = 0 WHERE id = ?`, [String(e.message || e).slice(0, 400), r.id]]]);
@@ -431,12 +431,67 @@ function register(app, { db, auth, media, email, anthropic, model, publicUrl }) 
         db.runBatch([[`UPDATE social_queue SET status = 'sending' WHERE id = ? AND status = 'queued'`, [r.id]]]);
         await sendRow(r);
       }
+      await confirmPosted(); // v91
     } catch (e) { console.error('social queue run failed:', e.message); }
     finally { running = false; }
   }
   setInterval(runDue, 2 * 60 * 1000).unref();
   // a post left 'sending' by a restart goes back in the queue
   setTimeout(() => { try { db.runBatch([[`UPDATE social_queue SET status = 'queued' WHERE status = 'sending'`, []]]); } catch { /* table may not exist yet */ } }, 5000).unref();
+
+  // ── v91 — a copy of every post to the notification group, once BulkPublish
+  // says it is live (with its link), or that it failed or may not have
+  // gone out. Checked every 2 minutes after posting, for up to an hour.
+  async function confirmPosted() {
+    const rows = db.allRows(`SELECT * FROM social_queue WHERE status = 'published' AND confirm_state = 'pending' ORDER BY published_at LIMIT 10`);
+    for (const r of rows) {
+      let state = null, url = null, err = null;
+      if (!r.bp_post_id) state = 'sent'; // BulkPublish gave no id back: say it was sent, without a confirmation
+      else {
+        try {
+          const d = await bp('GET', `/posts/${encodeURIComponent(r.bp_post_id)}`);
+          const post = (d && d.post) || d || {};
+          const plats = Array.isArray(post.postPlatforms) ? post.postPlatforms : [];
+          const mine = plats.find(x => String(x.platform || '').toLowerCase() === r.platform) || plats[0] || null;
+          const st = mine ? mine.status : post.status;
+          if (st === 'published') { state = 'live'; url = (mine && mine.platformUrl) || null; }
+          else if (st === 'failed') { state = 'failed'; err = (mine && mine.errorMessage) || 'BulkPublish could not post it.'; }
+          else if (st === 'unconfirmed') state = 'unconfirmed';
+        } catch (e) { /* BulkPublish busy: try again next round */ }
+      }
+      const checks = (r.confirm_checks || 0) + 1;
+      if (!state && checks >= 30) state = 'slow'; // still processing after about an hour
+      if (!state) { db.runBatch([[`UPDATE social_queue SET confirm_checks = ? WHERE id = ?`, [checks, r.id]]]); continue; }
+      const upd = [[`UPDATE social_queue SET confirm_state = ?, platform_url = ?, confirm_checks = ? WHERE id = ?`, [state, url, checks, r.id]]];
+      if (state === 'failed') upd.push([`UPDATE social_queue SET status = 'failed', error = ?, alerted = 1 WHERE id = ?`, [String(err).slice(0, 400), r.id]]);
+      db.runBatch(upd);
+      try { await mailPostCopy({ ...r, platform_url: url }, state, err); } catch (e) { console.error('post copy email failed:', e.message); }
+    }
+  }
+  async function mailPostCopy(r, state, err) {
+    const to = alertTo();
+    if (!to.length || !email) return;
+    const p = label(r.platform);
+    const when = localWhen(r.published_at || new Date().toISOString(), 'en');
+    const head = {
+      live: [`✓ Posted on ${p}`, `The post is live on ${p} (${when}, Dutch time).`],
+      sent: [`Sent to ${p}`, `The post was handed to BulkPublish for ${p} (${when}, Dutch time). BulkPublish gave no way to check it, so have a look on ${p}.`],
+      failed: [`✗ Not posted on ${p}`, `BulkPublish could not post this on ${p}: ${esc(err || '')}. It is under Past posts as failed; edit it to try again.`],
+      unconfirmed: [`? Check ${p}`, `BulkPublish sent this to ${p}, but ${p} never confirmed it. Look on ${p}: if the post is not there, edit it in the app to send it again.`],
+      slow: [`? Still waiting for ${p}`, `After an hour, ${p} is still processing this post (this can happen with video). Look on ${p} later.`],
+    }[state];
+    const audience = { teachers: 'Teachers', parents: 'Parents', sales: 'Sales' }[r.audience] || 'Anyone';
+    const box = (t) => `<div style="white-space:pre-wrap;background:#F4F1E8;border-radius:10px;padding:12px 14px;margin:6px 0 14px;color:#16305C;">${esc(t)}</div>`;
+    let html = `<div style="font-family:Arial,sans-serif;color:#16305C;max-width:560px;"><p style="font-size:1.05rem;"><strong>${esc(head[1])}</strong></p>`;
+    if (r.platform_url) html += `<p><a href="${esc(r.platform_url)}" style="display:inline-block;background:#EAC066;color:#16305C;text-decoration:none;font-weight:bold;padding:9px 16px;border-radius:999px;">View the post on ${esc(p)}</a></p>`;
+    html += `<p style="color:#6b7a99;font-size:0.9rem;">For: ${audience}${r.theme ? ` · Theme: ${esc(r.theme)}` : ''}${r.media_key ? ` · With ${r.media_type === 'video' ? 'a video' : 'a picture'}` : ''}</p>`;
+    if (r.title && r.platform === 'pinterest') html += `<p><strong>Title:</strong> ${esc(r.title)}</p>`;
+    html += box(fillLink(r.content, r.audience || 'any'));
+    if (r.first_comment && FIRST_COMMENT_OK.has(r.platform)) html += `<p style="margin-bottom:0;"><strong>First comment:</strong></p>${box(fillLink(r.first_comment, r.audience || 'any'))}`;
+    html += `<p style="font-size:0.85rem;color:#6b7a99;"><a href="${APP_LINK}admin.html" style="color:#6b7a99;">${APP_LINK}admin.html</a> → Sales &amp; Marketing → Social media</p></div>`;
+    const subject = `Mare: ${head[0]} — ${String(r.content || '').replace(/\s+/g, ' ').slice(0, 50)}${String(r.content || '').length > 50 ? '…' : ''}`;
+    await email.sendEmail(to, subject, html, { kind: 'social_post_copy' });
+  }
 
   // ── health: channels, failed posts, empty slots ──
   const alertTo = () => db.getNotifyEmails(); // v90: the notification group (Settings)

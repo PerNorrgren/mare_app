@@ -1769,7 +1769,7 @@
   "adminNotifyGroupLabel": "Meldingengroep",
   "adminNotifyAdd": "+ Toevoegen",
   "adminNotifyTest": "Stuur een test naar de groep",
-  "adminNotifyGroupNote": "Elk adres krijgt een eigen kopie van elke melding voor het team: nieuwe bestellingen, toegangsaanvragen en vragen van leerkrachten, berichten die kinderen aan Mare schrijven, het dagelijkse overzicht van tekstwijzigingen en de meldingen over sociale media. Voeg adressen toe of haal ze weg en druk dan op Opslaan.",
+  "adminNotifyGroupNote": "Elk adres krijgt een eigen kopie van elke melding voor het team: nieuwe bestellingen, toegangsaanvragen en vragen van leerkrachten, berichten die kinderen aan Mare schrijven, het dagelijkse overzicht van tekstwijzigingen, de meldingen over sociale media en een kopie van elk bericht op sociale media zodra het online staat (met een link ernaartoe). Voeg adressen toe of haal ze weg en druk dan op Opslaan.",
   "adminNotifyEmpty": "Nog geen adressen: meldingen gaan nergens heen.",
   "adminNotifyBad": "Geen e-mailadres: {email}",
   "adminNotifyTestSent": "Test verstuurd naar {to}.",
