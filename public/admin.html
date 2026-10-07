@@ -386,6 +386,18 @@
       </div>
     </div>
 
+    <!-- v92: one social post, opened from its line -->
+    <div class="admin-modal-backdrop" id="soc-detail" hidden>
+      <div class="admin-modal-card soc-detail-card" role="dialog" aria-modal="true">
+        <div id="soc-detail-body"></div>
+      </div>
+    </div>
+    <!-- v92: one platform, its whole history, full page -->
+    <div class="soc-full" id="soc-full" hidden>
+      <div class="soc-full-head"><h2 id="soc-full-title"></h2><button type="button" class="btn-ghost btn-small" id="soc-full-close" data-no-busy data-i18n="adminClose">Close</button></div>
+      <div class="soc-full-list" id="soc-full-list"></div>
+    </div>
+
     <!-- Broadcast compose modal -->
     <div class="admin-modal-backdrop" id="broadcast-modal" hidden>
       <div class="admin-modal-card admin-modal-card-wide">
@@ -713,14 +725,10 @@
           <span class="soc-ahead-status" id="soc-ahead-status"></span>
         </div>
         <p class="admin-empty-note" data-i18n="socAheadNote">Drafts never go out by themselves: read them, change what you like, then Approve. A draft not approved by its time is skipped.</p>
-        <div class="soc-tabs" role="tablist">
-          <button type="button" class="soc-tab" data-f="draft" data-no-busy data-i18n="socDrafts">Drafts</button>
-          <button type="button" class="soc-tab on" data-f="queued" data-no-busy data-i18n="socUpcoming">Waiting</button>
-          <button type="button" class="soc-tab" data-f="published" data-no-busy data-i18n="socPublished">Published</button>
-          <button type="button" class="soc-tab" data-f="failed" data-no-busy data-i18n="socFailed">Failed</button>
-        </div>
+        <!-- v92: one box per chosen platform, one line per post; tick which boxes to show -->
+        <div class="soc-show" id="soc-show"></div>
         <div class="soc-btns" id="soc-approve-all-wrap" hidden><button type="button" class="btn-primary btn-small" id="soc-approve-all" data-i18n="socApproveAll">Approve all drafts</button></div>
-        <div id="soc-queue"><p class="admin-empty-note" data-i18n="adminLoading">Loading…</p></div>
+        <div id="soc-queue" class="soc-boxes"><p class="admin-empty-note" data-i18n="adminLoading">Loading…</p></div>
       </div>
 
       <div class="admin-card">

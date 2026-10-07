@@ -121,12 +121,15 @@ function register(app, { db, auth, media, email, anthropic, model, publicUrl }) 
 
   async function bp(method, path, body) {
     const key = process.env.BULKPUBLISH_API_KEY;
-    if (!key) throw new Error('BulkPublish is not set up yet: add BULKPUBLISH_API_KEY (from the Mare organization) in Railway.');
+    if (!key) throw new Error('Posting is not set up: the BulkPublish key is missing. In Railway, open the mare_app service, click Variables, add BULKPUBLISH_API_KEY with the key from Mare\'s BulkPublish organization, and wait for it to restart. Then press Try again.');
     const res = await fetch(`${BP}${path}`, { method, headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
       const raw = data && (data.error || data.message);
-      throw new Error((raw && (typeof raw === 'string' ? raw : raw.message || JSON.stringify(raw))) || `BulkPublish returned ${res.status}`);
+      const said = (raw && (typeof raw === 'string' ? raw : raw.message || JSON.stringify(raw))) || `error ${res.status}`;
+      throw new Error(res.status === 401 || res.status === 403
+        ? 'BulkPublish did not accept Mare\'s key. Log in to app.bulkpublish.com with Mare\'s login, make a new API key under Settings, put it in Railway under Variables as BULKPUBLISH_API_KEY, and wait for it to restart. Then press Try again.'
+        : `BulkPublish said: "${said}". Wait a few minutes and press Try again. If the same message comes back, log in to app.bulkpublish.com and look at this platform under Channels.`);
     }
     return data;
   }
@@ -157,6 +160,17 @@ function register(app, { db, auth, media, email, anthropic, model, publicUrl }) 
   const fillLink = (text, audience) => String(text || '').split(LINK_TOKEN).join(linkFor(audience));
   // what's wrong with a channel, if anything ('' = fine)
   const channelProblem = (ch) => !ch ? 'gone' : ch.needsReconnect || ch.tokenStatus === 'expired' ? 'reconnect' : !ch.active ? 'inactive' : !ch.available ? 'paused' : '';
+  // v92 — what to DO about a channel problem, as plain steps
+  function channelFix(platform, problem) {
+    const p = label(platform);
+    return {
+      none: `${p} has no account chosen yet. Scroll down to Channels on this page, choose Mare's ${p} account, press Save channels, then press Try again.`,
+      gone: `Mare's ${p} account is no longer connected to BulkPublish. Log in to app.bulkpublish.com with Mare's login, click Connect channel, choose ${p} and log in to Mare's ${p}. Then come back here, choose it under Channels, press Save channels, and press Try again.`,
+      reconnect: `The ${p} login in BulkPublish has run out. Log in to app.bulkpublish.com with Mare's login, find ${p} under Channels, click Reconnect and log in to Mare's ${p}. Then press Try again.`,
+      inactive: `${p} is switched off in BulkPublish. Log in to app.bulkpublish.com with Mare's login, find ${p} under Channels and switch it on. Then press Try again.`,
+      paused: `BulkPublish has paused ${p} for a while. Wait an hour, then press Try again. If it still doesn't work, log in to app.bulkpublish.com and look at ${p} under Channels.`,
+    }[problem];
+  }
   const PROBLEM_TEXT = {
     gone: "isn't connected in Mare's BulkPublish organization any more",
     reconnect: 'needs reconnecting in BulkPublish (its login has expired)',
@@ -174,13 +188,13 @@ function register(app, { db, auth, media, email, anthropic, model, publicUrl }) 
   async function uploadMedia(key) {
     const url = await media.getPlaybackUrl(key);
     const fileRes = await fetch(url);
-    if (!fileRes.ok) throw new Error(`Could not read the picture/video (${fileRes.status}).`);
+    if (!fileRes.ok) throw new Error('The picture or video could not be read. Click Edit, remove it, add it again, press Save, then press Try again.');
     const type = (fileRes.headers.get('content-type') || 'application/octet-stream').split(';')[0];
     const form = new FormData();
     form.append('file', new Blob([Buffer.from(await fileRes.arrayBuffer())], { type }), key.split('/').pop());
     const up = await fetch(`${BP}/media`, { method: 'POST', headers: { Authorization: `Bearer ${process.env.BULKPUBLISH_API_KEY}` }, body: form });
     const data = await up.json().catch(() => ({}));
-    if (!up.ok || !data.file || !data.file.id) throw new Error((data && (data.error && (data.error.message || data.error))) || `BulkPublish media upload returned ${up.status}`);
+    if (!up.ok || !data.file || !data.file.id) throw new Error(`BulkPublish could not take the picture or video${data && data.error ? ` ("${data.error.message || data.error}")` : ''}. Wait a few minutes and press Try again. If it fails again, click Edit, use a smaller picture or a shorter MP4 video, press Save, then press Try again.`);
     return data.file.id;
   }
   const MEDIA_TYPES = { instagram: { image: 'feed_photo', video: 'feed_video' }, threads: { image: 'image', video: 'video' }, pinterest: { image: 'pin', video: 'video_pin' }, tiktok: { image: 'photo_slideshow', video: 'video' } };
@@ -201,12 +215,11 @@ function register(app, { db, auth, media, email, anthropic, model, publicUrl }) 
   // Publish one post now, to the chosen channel only.
   async function publish(platform, { content, firstComment, title, mediaKey, mediaType, aiMedia, audience }) {
     const id = chosen()[platform];
-    if (!id) throw new Error(`No ${label(platform)} channel is chosen for Mare yet (Sales & Marketing → Social media).`);
+    if (!id) throw new Error(channelFix(platform, 'none'));
     const ch = (await channels()).find(c => c.id === String(id)) || (await channels(true)).find(c => c.id === String(id));
     const problem = channelProblem(ch);
-    if (problem) throw new Error(`The chosen ${label(platform)} channel (id ${id}) ${PROBLEM_TEXT[problem]}.`);
-    if (NEEDS_MEDIA.has(platform) && !mediaKey) throw new Error(`${label(platform)} always needs a picture or video on the post.`);
-    if (platform === 'tiktok' && mediaType !== 'video' && !tiktokPictureOk(mediaKey)) throw new Error('TikTok only takes JPG pictures. Upload the picture again: the app saves it as JPG.');
+    if (problem) throw new Error(channelFix(platform, problem));
+    { const mp = mediaProblem(platform, mediaKey, mediaType); if (mp) throw new Error(mp); }
     let text = fillLink(content, audience).trim();
     if (mediaKey && aiMedia) text = `${text}\n\n${mediaType === 'video' ? 'Video generated by AI.' : 'Image generated by AI.'}`.trim();
     const body = { content: text, channels: [{ channelId: ch.bpId, platform: ch.bpPlatform }] /* exactly as BulkPublish gave them */, status: 'scheduled', scheduledAt: new Date(Date.now() + 10000).toISOString() };
@@ -220,7 +233,7 @@ function register(app, { db, auth, media, email, anthropic, model, publicUrl }) 
     }
     if (platform === 'tiktok') {
       const level = await tiktokPublicLevel(ch);
-      if (!level) throw new Error('This TikTok account does not allow public posts. In TikTok, set the account to public, then try again.');
+      if (!level) throw new Error('Mare\'s TikTok account is private, so it can\'t post. In the TikTok app, log in as Mare, tap Profile, tap ☰, tap Settings and privacy, tap Privacy and switch Private account off. Then press Try again.');
       ps.tiktok = { privacyLevel: level, isAigc: !!(mediaKey && aiMedia), disableComment: false, disableDuet: false, disableStitch: false };
     }
     if (Object.keys(ps).length) body.platformSpecific = ps;
@@ -274,12 +287,12 @@ function register(app, { db, auth, media, email, anthropic, model, publicUrl }) 
   const takenTimes = (platform, exceptId) => new Set(db.allRows(`SELECT scheduled_for FROM social_queue WHERE platform = ? AND status IN ('queued','draft','sending') AND id != ?`, [platform, exceptId || '']).map(r => r.scheduled_for));
   function nextSlot(platform, audience, exceptId) {
     const mine = slots().filter(s => s.platform === platform && s.active);
-    if (!mine.length) throw new Error(`There are no posting times for ${label(platform)} yet. Add one under Posting times, or choose a time.`);
+    if (!mine.length) throw new Error(`${label(platform)} has no posting times yet. Scroll down to Posting times, add a time for ${label(platform)}, press Save posting times, then try again. Or click Edit and choose a time for this post.`);
     const taken = takenTimes(platform, exceptId);
     const hit = occurrences(120, s => s.platform === platform && fits(s.audience, audience)).find(o => !taken.has(o.at));
     if (!hit) throw new Error(audience === 'sales'
-      ? `There is no free Sales posting time for ${label(platform)}. Add one, or set the post to another audience.`
-      : `There is no free posting time for ${label(platform)} that fits this audience. Add one, or choose a time.`);
+      ? `${label(platform)} has no free Sales posting time. Scroll down to Posting times, add a Sales time for ${label(platform)}, press Save posting times, then try again. Or click Edit and set the post to another audience.`
+      : `${label(platform)} has no free posting time for this audience. Scroll down to Posting times, add a time for ${label(platform)}, press Save posting times, then try again. Or click Edit and choose a time for this post.`);
     return hit;
   }
   // seed the Dutch plan once (never again, even if every slot is deleted later)
@@ -402,8 +415,8 @@ function register(app, { db, auth, media, email, anthropic, model, publicUrl }) 
   const row = (id) => db.getRow(`SELECT * FROM social_queue WHERE id = ?`, [id]);
   // what a post still needs before it may go in the queue ('' = nothing)
   function mediaProblem(platform, key, type) {
-    if (NEEDS_MEDIA.has(platform) && !key) return `${label(platform)} always needs a picture or video. Edit the post and add one first.`;
-    if (platform === 'tiktok' && key && type !== 'video' && !tiktokPictureOk(key)) return 'TikTok only takes JPG pictures. Upload the picture again: the app saves it as JPG.';
+    if (NEEDS_MEDIA.has(platform) && !key) return `${label(platform)} always needs a picture or video. Click Edit, add a picture or video, press Save, then press Try again.`;
+    if (platform === 'tiktok' && key && type !== 'video' && !tiktokPictureOk(key)) return 'TikTok only takes JPG pictures. Click Edit, remove the picture, add it again (the app saves it as JPG), press Save, then press Try again.';
     return '';
   }
   async function sendRow(r) {
@@ -424,7 +437,7 @@ function register(app, { db, auth, media, email, anthropic, model, publicUrl }) 
     running = true;
     try {
       const nowIso = new Date().toISOString();
-      db.runBatch([[`UPDATE social_queue SET status = 'failed', alerted = 1, error = 'Not approved before its posting time, so it did not go out. Edit it to give it a new time.' WHERE status = 'draft' AND scheduled_for <= ?`, [nowIso]]]);
+      db.runBatch([[`UPDATE social_queue SET status = 'failed', alerted = 1, error = 'This draft was not approved before its time, so it did not go out. Click Edit, choose a new time, press Save, then press Approve.' WHERE status = 'draft' AND scheduled_for <= ?`, [nowIso]]]);
       if (!configured()) return;
       const due = db.allRows(`SELECT * FROM social_queue WHERE status = 'queued' AND scheduled_for <= ? ORDER BY scheduled_for LIMIT 10`, [nowIso]);
       for (const r of due) {
@@ -436,6 +449,24 @@ function register(app, { db, auth, media, email, anthropic, model, publicUrl }) 
     finally { running = false; }
   }
   setInterval(runDue, 2 * 60 * 1000).unref();
+  // v92 — posts that failed before the plain-instruction messages get them too (once, at start-up)
+  setTimeout(() => {
+    try {
+      const list = [[`UPDATE social_queue SET error = 'This draft was not approved before its time, so it did not go out. Click Edit, choose a new time, press Save, then press Approve.' WHERE status = 'failed' AND error LIKE 'Not approved before its posting time%'`, []]];
+      for (const r of db.allRows(`SELECT id, platform, error FROM social_queue WHERE status = 'failed' AND error IS NOT NULL`)) {
+        const e = String(r.error);
+        let fix = null;
+        if (/channel is chosen for Mare yet/.test(e)) fix = channelFix(r.platform, 'none');
+        else if (/isn't connected in Mare's BulkPublish/.test(e)) fix = channelFix(r.platform, 'gone');
+        else if (/needs reconnecting in BulkPublish/.test(e)) fix = channelFix(r.platform, 'reconnect');
+        else if (/is switched off in BulkPublish/.test(e)) fix = channelFix(r.platform, 'inactive');
+        else if (/is paused by BulkPublish/.test(e)) fix = channelFix(r.platform, 'paused');
+        else if (/always needs a picture or video/.test(e)) fix = mediaProblem(r.platform, null, null);
+        if (fix) list.push([`UPDATE social_queue SET error = ? WHERE id = ?`, [fix, r.id]]);
+      }
+      db.runBatch(list);
+    } catch { /* table may not exist yet */ }
+  }, 6000).unref();
   // a post left 'sending' by a restart goes back in the queue
   setTimeout(() => { try { db.runBatch([[`UPDATE social_queue SET status = 'queued' WHERE status = 'sending'`, []]]); } catch { /* table may not exist yet */ } }, 5000).unref();
 
@@ -455,7 +486,7 @@ function register(app, { db, auth, media, email, anthropic, model, publicUrl }) 
           const mine = plats.find(x => String(x.platform || '').toLowerCase() === r.platform) || plats[0] || null;
           const st = mine ? mine.status : post.status;
           if (st === 'published') { state = 'live'; url = (mine && mine.platformUrl) || null; }
-          else if (st === 'failed') { state = 'failed'; err = (mine && mine.errorMessage) || 'BulkPublish could not post it.'; }
+          else if (st === 'failed') { state = 'failed'; err = (mine && mine.errorMessage) || ''; }
           else if (st === 'unconfirmed') state = 'unconfirmed';
         } catch (e) { /* BulkPublish busy: try again next round */ }
       }
@@ -463,21 +494,26 @@ function register(app, { db, auth, media, email, anthropic, model, publicUrl }) 
       if (!state && checks >= 30) state = 'slow'; // still processing after about an hour
       if (!state) { db.runBatch([[`UPDATE social_queue SET confirm_checks = ? WHERE id = ?`, [checks, r.id]]]); continue; }
       const upd = [[`UPDATE social_queue SET confirm_state = ?, platform_url = ?, confirm_checks = ? WHERE id = ?`, [state, url, checks, r.id]]];
-      if (state === 'failed') upd.push([`UPDATE social_queue SET status = 'failed', error = ?, alerted = 1 WHERE id = ?`, [String(err).slice(0, 400), r.id]]);
+      if (state === 'failed') upd.push([`UPDATE social_queue SET status = 'failed', error = ?, alerted = 1 WHERE id = ?`, [refusedFix(r.platform, err).slice(0, 600), r.id]]);
       db.runBatch(upd);
       try { await mailPostCopy({ ...r, platform_url: url }, state, err); } catch (e) { console.error('post copy email failed:', e.message); }
     }
   }
-  async function mailPostCopy(r, state, err) {
-    const to = alertTo();
+  function refusedFix(platform, err) {
+    const p = label(platform);
+    return `${p} did not take the post${err ? ` ("${err}")` : ''}. Open the post in the app and press Try again. If it fails again, press Edit, shorten the text or change the picture, press Save, then press Try again.`;
+  }
+  async function mailPostCopy(r, state, err, toList) {
+    const to = toList || alertTo();
     if (!to.length || !email) return;
     const p = label(r.platform);
     const when = localWhen(r.published_at || new Date().toISOString(), 'en');
     const head = {
       live: [`✓ Posted on ${p}`, `The post is live on ${p} (${when}, Dutch time).`],
       sent: [`Sent to ${p}`, `The post was handed to BulkPublish for ${p} (${when}, Dutch time). BulkPublish gave no way to check it, so have a look on ${p}.`],
-      failed: [`✗ Not posted on ${p}`, `BulkPublish could not post this on ${p}: ${esc(err || '')}. It is under Past posts as failed; edit it to try again.`],
+      failed: [`✗ Not posted on ${p}`, esc(refusedFix(r.platform, err))],
       unconfirmed: [`? Check ${p}`, `BulkPublish sent this to ${p}, but ${p} never confirmed it. Look on ${p}: if the post is not there, edit it in the app to send it again.`],
+      planned: [`Planned for ${p}`, `This post is planned for ${p} on ${localWhen(r.scheduled_for || new Date().toISOString(), 'en')} (Dutch time).`],
       slow: [`? Still waiting for ${p}`, `After an hour, ${p} is still processing this post (this can happen with video). Look on ${p} later.`],
     }[state];
     const audience = { teachers: 'Teachers', parents: 'Parents', sales: 'Sales' }[r.audience] || 'Anyone';
@@ -519,7 +555,7 @@ function register(app, { db, auth, media, email, anthropic, model, publicUrl }) 
         if (!id) continue;
         const ch = list.find(c => c.id === String(id));
         const problem = channelProblem(ch);
-        if (problem) items.push({ platform: p, state: 'down', text: `${label(p)}: the chosen channel (id ${id}) ${PROBLEM_TEXT[problem]}.` });
+        if (problem) items.push({ platform: p, state: 'down', text: channelFix(p, problem) });
         else if (ch.tokenStatus === 'expiring_soon') items.push({ platform: p, state: 'warn', text: `${label(p)} (${ch.name}): its login expires soon — reconnect it in BulkPublish.` });
         else items.push({ platform: p, state: 'ok', text: `${label(p)} (${ch.name}) is fine.` });
       }
@@ -610,14 +646,14 @@ function register(app, { db, auth, media, email, anthropic, model, publicUrl }) 
   }
   async function writePosts(items, lang) {
     // items: [{ key, platform, audience, theme, when }]
-    if (!anthropic) throw new Error('The post writer is not set up (no Anthropic key).');
+    if (!anthropic) throw new Error('The post writer is not set up: the Anthropic key is missing. In Railway, open the mare_app service, click Variables and add ANTHROPIC_API_KEY. Then try again.');
     const recent = db.allRows(`SELECT platform, content FROM social_queue ORDER BY created_at DESC LIMIT 25`).map(r => `- ${label(r.platform)}: ${String(r.content).replace(/\s+/g, ' ').slice(0, 110)}`);
     const ask = items.map(i => `- key: ${i.key}\n  platform: ${i.platform}\n  audience: ${i.audience}\n  theme: ${i.theme || '(free choice within the audience)'}${i.when ? `\n  goes out: ${i.when}` : ''}${i.source ? `\n  source to work from: ${i.source}` : ''}`).join('\n');
     const user = `Write one post for each of these:\n${ask}\n\n${recent.length ? `Recent posts, so you don't repeat their openings or ideas:\n${recent.join('\n')}\n\n` : ''}Mention a holiday, event or season only when the theme names it.`;
     const response = await anthropic.messages.create({ model, max_tokens: 4000, system: prompts.buildSocialWriterPrompt({ facts: factsText(), lang, linkInfo: linkInfo() }), messages: [{ role: 'user', content: user }] });
     const raw = (response.content || []).filter(b => b.type === 'text').map(b => b.text).join('\n');
     const data = parseJsonLoose(raw);
-    if (!data || !Array.isArray(data.posts)) throw new Error('The post writer returned something unexpected — try again.');
+    if (!data || !Array.isArray(data.posts)) throw new Error('The post writer got muddled. Press the button again.');
     const byKey = new Map(data.posts.map(p => [String(p.key), p]));
     return items.map(i => { const p = byKey.get(String(i.key)); return p && String(p.content || '').trim() ? { item: i, ...finishWritten(i.platform, p) } : { item: i, error: 'No post came back for this one.' }; });
   }
@@ -770,14 +806,53 @@ function register(app, { db, auth, media, email, anthropic, model, publicUrl }) 
 
   // queue
   app.get('/api/admin/social/queue', staff, nocache, async (req, res) => {
-    const rows = db.allRows(`SELECT * FROM social_queue WHERE status IN ('queued','sending','draft') OR created_at >= datetime('now','-120 days') ORDER BY CASE WHEN status IN ('queued','sending','draft') THEN 0 ELSE 1 END, CASE WHEN status IN ('queued','sending','draft') THEN scheduled_for END ASC, COALESCE(published_at, created_at) DESC LIMIT 400`);
+    // v92: ?platform=x&all=1 → that platform's whole history (the full-page view)
+    const one = /^[a-z]{1,20}$/.test(String(req.query.platform || '')) ? String(req.query.platform) : null;
+    const rows = one && req.query.all
+      ? db.allRows(`SELECT * FROM social_queue WHERE platform = ? ORDER BY CASE WHEN status IN ('queued','sending','draft') THEN 0 ELSE 1 END, CASE WHEN status IN ('queued','sending','draft') THEN scheduled_for END ASC, COALESCE(published_at, scheduled_for, created_at) DESC LIMIT 2000`, [one])
+      : db.allRows(`SELECT * FROM social_queue WHERE status IN ('queued','sending','draft') OR created_at >= datetime('now','-120 days') ORDER BY CASE WHEN status IN ('queued','sending','draft') THEN 0 ELSE 1 END, CASE WHEN status IN ('queued','sending','draft') THEN scheduled_for END ASC, COALESCE(published_at, created_at) DESC LIMIT 400`);
     const out = [];
     for (const r of rows) {
       let mediaUrl = null;
       if (r.media_key) { try { mediaUrl = await media.getPlaybackUrl(r.media_key); } catch { /* no preview */ } }
       out.push({ ...r, notes: json(r.notes, r.notes ? { warnings: [], picture: String(r.notes) } : null), mediaUrl });
     }
-    res.json({ posts: out, configured: configured() });
+    const ch = chosen();
+    res.json({ posts: out, configured: configured(), chosen: Object.keys(ch).filter(k => ch[k]) }); // v92: chosen = the boxes to show
+  });
+  // v92 — email a copy of a post to any addresses
+  app.post('/api/admin/social/queue/:id/email', staff, async (req, res) => {
+    try {
+      const r = row(req.params.id); if (!r) return res.status(404).json({ error: 'Not found' });
+      const to = String((req.body || {}).to || '').split(/[,;\s]+/).map(x => x.trim()).filter(Boolean);
+      if (!to.length) throw new Error('Type an email address, then press Send.');
+      const bad = to.filter(e => !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e));
+      if (bad.length) throw new Error(`"${bad.join(', ')}" is not an email address. Correct it, then press Send.`);
+      const state = r.status === 'published' ? (r.confirm_state === 'live' ? 'live' : r.confirm_state === 'unconfirmed' ? 'unconfirmed' : 'sent') : r.status === 'failed' ? 'failed' : 'planned';
+      await mailPostCopy(r, state, r.error, to);
+      res.json({ ok: true, to });
+    } catch (e) { fail(res, e); }
+  });
+  // v92 — post again: now, at the next posting time, or at a chosen Dutch time ("YYYY-MM-DDTHH:MM")
+  app.post('/api/admin/social/queue/:id/repost', staff, async (req, res) => {
+    try {
+      const r = row(req.params.id); if (!r) return res.status(404).json({ error: 'Not found' });
+      const when = String((req.body || {}).when || 'now');
+      const mp = mediaProblem(r.platform, r.media_key, r.media_type); if (mp) throw new Error(mp);
+      let at = new Date().toISOString(), theme = r.theme, slotId = null;
+      if (when === 'next') { const h = nextSlot(r.platform, r.audience || 'any'); at = h.at; theme = h.slot.theme; slotId = h.slot.id; }
+      else if (when !== 'now') {
+        const m = when.match(/^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2})$/);
+        if (!m) throw new Error('Choose a date and a time, then press Plan.');
+        at = zoned(m[1], m[2]).toISOString();
+        if (Date.parse(at) < Date.now() + 60000) throw new Error('That time has already passed. Choose a later time, then press Plan.');
+      }
+      const id = crypto.randomUUID();
+      db.runBatch([[`INSERT INTO social_queue (id, platform, content, first_comment, title, notes, audience, theme, slot_id, media_key, media_type, ai_media, status, scheduled_for, created_by) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+        [id, r.platform, r.content, r.first_comment, r.title, r.notes, r.audience || 'any', theme, slotId, r.media_key, r.media_type, r.ai_media || 0, when === 'now' ? 'sending' : 'queued', at, req.user.id]]]);
+      if (when === 'now') { const out = await sendRow(row(id)); if (!out.ok) return res.status(502).json({ error: out.error, id }); }
+      res.json({ ok: true, id, scheduledFor: at });
+    } catch (e) { fail(res, e); }
   });
   app.post('/api/admin/social/queue', staff, (req, res) => {
     try {
@@ -882,7 +957,7 @@ function register(app, { db, auth, media, email, anthropic, model, publicUrl }) 
   app.post('/api/admin/social/write-ahead', staff, (req, res) => {
     try {
       if (job && !job.finished) return res.status(409).json({ error: 'Drafts are already being written. Wait until that has finished.' });
-      if (!anthropic) throw new Error('The post writer is not set up (no Anthropic key).');
+      if (!anthropic) throw new Error('The post writer is not set up: the Anthropic key is missing. In Railway, open the mare_app service, click Variables and add ANTHROPIC_API_KEY. Then try again.');
       const days = [7, 14, 28].includes(Number(req.body && req.body.days)) ? Number(req.body.days) : 7;
       const lang = req.body && req.body.lang === 'en' ? 'en' : 'nl';
       const todo = occurrences(days).filter(o => !takenTimes(o.slot.platform).has(o.at));
