@@ -1160,6 +1160,21 @@ Volgende maand verschijnt er een nieuw raadsel uit het Fluisterbos. 🌲🔎', ?
   // ── Mare App 8 (v89) — treasure chest for the quizzes: settings in
   // app_config.treasure_json, one personal shop code per family per chapter.
   try { db.run(`ALTER TABLE app_config ADD COLUMN treasure_json TEXT`); } catch {}
+  // ── v90 — one notification group: every staff notification goes to each
+  // address in app_config.contact_email (comma-separated). Once, the old
+  // separate social alert list is folded into it, so nobody stops getting anything.
+  try { db.run(`ALTER TABLE app_config ADD COLUMN notify_merged_at TEXT`); } catch {}
+  try {
+    const st = db.prepare(`SELECT contact_email, social_alert_emails, notify_merged_at FROM app_config WHERE id = 'default'`);
+    const c = st.step() ? st.getAsObject() : null; st.free();
+    if (c && !c.notify_merged_at) {
+      const all = [];
+      for (const e of String(c.contact_email || '').split(/[,;\s]+/).concat(String(c.social_alert_emails || '').split(/[,;\s]+/))) {
+        const x = e.trim(); if (/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(x) && !all.some(y => y.toLowerCase() === x.toLowerCase())) all.push(x);
+      }
+      db.run(`UPDATE app_config SET contact_email = ?, notify_merged_at = datetime('now') WHERE id = 'default'`, [all.join(', ') || null]);
+    }
+  } catch (e) { console.error('notify group merge failed:', e.message); }
   db.run(`CREATE TABLE IF NOT EXISTS treasure_codes (parent_id TEXT NOT NULL, chapter_no INTEGER NOT NULL, code TEXT NOT NULL,
     created_at TEXT DEFAULT (datetime('now')), PRIMARY KEY (parent_id, chapter_no))`);
   try { db.run(`ALTER TABLE teachers ADD COLUMN news_asked_at TEXT`); } catch {}
@@ -2689,6 +2704,20 @@ function getAppConfig() {
 function setNotifyEmail(email) {
   run(`UPDATE app_config SET contact_email = ? WHERE id = 'default'`, [email || null]);
 }
+// v90 — the notification group (any number of addresses)
+const EMAIL_OK = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+function getNotifyEmails() {
+  const c = getAppConfig() || {};
+  const out = [];
+  for (const e of String(c.contact_email || '').split(/[,;\s]+/)) { const x = e.trim(); if (EMAIL_OK.test(x) && !out.some(y => y.toLowerCase() === x.toLowerCase())) out.push(x); }
+  return out;
+}
+function setNotifyEmails(list) {
+  const out = [];
+  for (const e of list || []) { const x = String(e || '').trim(); if (EMAIL_OK.test(x) && !out.some(y => y.toLowerCase() === x.toLowerCase())) out.push(x); }
+  run(`UPDATE app_config SET contact_email = ? WHERE id = 'default'`, [out.join(', ') || null]);
+  return out;
+}
 // Free-preview scene limit for the no-login/anonymous tier — the ONE
 // gated tier in this app (any real account — parent, teacher, admin —
 // always gets full access; there's no paid-tier ladder here the way
@@ -3045,7 +3074,7 @@ module.exports = {
   canParentAccessChild, isPrimaryParentOfChild, getCarersForChild, addCarerToChild, removeCarerFromChild,
   getAddressesForOwner, getAddress, createAddress, updateAddress, deleteAddress,
   getTeacherByEmail, getTeacherById, createTeacher, updateTeacherPasswordHash,
-  createTeacherSignupRequest, getAppConfig, setNotifyEmail,
+  createTeacherSignupRequest, getAppConfig, setNotifyEmail, getNotifyEmails, setNotifyEmails,
   getPreviewSceneLimit, setPreviewSceneLimit, getScenePosition,
   getClubMarePreviewLimit, setClubMarePreviewLimit,
   getTalkPreviewMessageLimit, setTalkPreviewMessageLimit, incrementTalkSessionMessageCount,

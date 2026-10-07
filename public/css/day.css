@@ -2194,3 +2194,12 @@ button.an-card { font: inherit; text-align: left; border: 0; width: 100%; displa
 .tr-pic img { width: 130px; height: 120px; object-fit: contain; border-radius: 10px; background: #12261c; }
 .tr-pic img.dim { filter: brightness(0.4) saturate(0.3); }
 #tr-card .field-label { display: block; font-weight: 700; color: var(--navy); margin-top: 6px; }
+
+/* ── v90: notification group ── */
+.notify-group { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 10px; }
+.notify-chip { display: inline-flex; align-items: center; gap: 6px; padding: 5px 6px 5px 12px; border-radius: 999px; background: rgba(22,48,92,0.08); color: var(--navy); font-size: 0.92rem; }
+.notify-chip button { border: 0; background: rgba(22,48,92,0.12); color: var(--navy); width: 22px; height: 22px; border-radius: 50%; cursor: pointer; font-size: 0.75rem; line-height: 1; }
+.notify-chip button:hover { background: rgba(160,60,60,0.2); }
+.notify-add { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.notify-add input { flex: 1; min-width: 220px; max-width: 360px; }
+.notify-group-field { margin-bottom: 14px; }

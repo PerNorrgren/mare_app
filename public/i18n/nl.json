@@ -799,7 +799,7 @@
   "adminFieldMessage": "Bericht",
   "adminClose": "Sluiten",
   "adminNotifyEmailTitle": "Meldingen & previews",
-  "adminNotifyEmailDesc": "Waar aanvragen voor leraaraccounts en vragen in de app naartoe gaan, en hoeveel een niet-ingelogde bezoeker mag zien, lezen of met Mare bespreken voordat er om registratie wordt gevraagd.",
+  "adminNotifyEmailDesc": "Wie de meldingen voor het team krijgt, en hoeveel een bezoeker zonder account kan zien, lezen of met Mare kan praten voordat die zich moet registreren.",
   "adminNotifyEmailLabel": "E-mail voor meldingen",
   "adminPreviewSceneLimitLabel": "Boekpreview (scènes)",
   "adminClubMarePreviewLimitLabel": "Club Mare-preview (berichten)",
@@ -1765,5 +1765,15 @@
   "picturesTreasureShow": "Laat deze code aan je papa of mama zien. Daarmee krijg je {percent}% korting in de winkel van Mare.",
   "picturesTreasurePreview": "Voorbeeld: dit is een voorbeeldcode. Gezinnen krijgen hun eigen code.",
   "companionTreasureTitle": "Gevonden in de schatkist",
-  "companionTreasureRow": "Hoofdstuk {n}: {percent}% korting in de winkel, tot {date}:"
+  "companionTreasureRow": "Hoofdstuk {n}: {percent}% korting in de winkel, tot {date}:",
+  "adminNotifyGroupLabel": "Meldingengroep",
+  "adminNotifyAdd": "+ Toevoegen",
+  "adminNotifyTest": "Stuur een test naar de groep",
+  "adminNotifyGroupNote": "Elk adres krijgt een eigen kopie van elke melding voor het team: nieuwe bestellingen, toegangsaanvragen en vragen van leerkrachten, berichten die kinderen aan Mare schrijven, het dagelijkse overzicht van tekstwijzigingen en de meldingen over sociale media. Voeg adressen toe of haal ze weg en druk dan op Opslaan.",
+  "adminNotifyEmpty": "Nog geen adressen: meldingen gaan nergens heen.",
+  "adminNotifyBad": "Geen e-mailadres: {email}",
+  "adminNotifyTestSent": "Test verstuurd naar {to}.",
+  "adminNotifyTestPartly": "Test verstuurd, maar het lukte niet voor: {failed}. Zie het e-maillogboek.",
+  "socAlertGroup": "Deze meldingen gaan naar de meldingengroep:",
+  "socAlertGroupWhere": "(aan te passen onder Ouders & leraren → Meldingen)"
 }

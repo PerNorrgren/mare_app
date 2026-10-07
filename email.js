@@ -44,6 +44,15 @@ function htmlToText(html) {
 
 // meta: { kind, userId } — both optional. Returns {ok, id, error}.
 async function sendEmail(to, subject, html, meta = {}) {
+  // v90 — the notification group: several addresses ("a@x, b@y" or a list)
+  // get one email each, so each is logged and one bad address can't stop the rest.
+  const many = Array.isArray(to) ? to : String(to || '').split(/[,;]\s*|\s+/).map(s => s.trim()).filter(Boolean);
+  if (many.length > 1) {
+    const results = [];
+    for (const addr of many) results.push(await sendEmail(addr, subject, html, meta));
+    return { ok: results.some(r => r && r.ok !== false), results };
+  }
+  to = many[0] || '';
   // Mare App 5 — the "view as" preview accounts (@preview.mare.invalid)
   // never get email; pretend it went, so nothing reports a failure.
   if (/\.invalid$/i.test(String(to || '').trim())) return { ok: true, skipped: true };

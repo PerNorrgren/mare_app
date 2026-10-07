@@ -799,7 +799,7 @@
   "adminFieldMessage": "Message",
   "adminClose": "Close",
   "adminNotifyEmailTitle": "Notifications & previews",
-  "adminNotifyEmailDesc": "Where teacher signup requests and in-app questions get sent, and how much a not-logged-in visitor can see, read, or talk with Mare about before being asked to register.",
+  "adminNotifyEmailDesc": "Who gets the staff notification emails, and how much a not-logged-in visitor can see or read or talk with Mare about before being asked to register.",
   "adminNotifyEmailLabel": "Notify email",
   "adminPreviewSceneLimitLabel": "Book preview (scenes)",
   "adminClubMarePreviewLimitLabel": "Club Mare preview (posts)",
@@ -1765,5 +1765,15 @@
   "picturesTreasureShow": "Show this code to your mum or dad. With it you get {percent}% off in Mare's shop.",
   "picturesTreasurePreview": "Preview: this is an example code. Families get their own code.",
   "companionTreasureTitle": "Found in the treasure chest",
-  "companionTreasureRow": "Chapter {n}: {percent}% off in the shop, until {date}:"
+  "companionTreasureRow": "Chapter {n}: {percent}% off in the shop, until {date}:",
+  "adminNotifyGroupLabel": "Notification group",
+  "adminNotifyAdd": "+ Add",
+  "adminNotifyTest": "Send a test to the group",
+  "adminNotifyGroupNote": "Each address gets its own copy of every staff email: new orders, teacher access requests and questions, messages children write to Mare, the daily summary of text changes, and social media alerts. Add or remove addresses, then press Save.",
+  "adminNotifyEmpty": "No addresses yet: notifications go nowhere.",
+  "adminNotifyBad": "Not an email address: {email}",
+  "adminNotifyTestSent": "Test sent to {to}.",
+  "adminNotifyTestPartly": "Test sent, but it failed for: {failed}. See the Email Log.",
+  "socAlertGroup": "These emails go to the notification group:",
+  "socAlertGroupWhere": "(change it under Parents & teachers → Notifications)"
 }

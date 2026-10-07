@@ -2389,6 +2389,7 @@ app.get('/api/admin/settings', auth.requireAuthApi(['admin', 'support']), (req, 
   const config = db.getAppConfig();
   res.json({
     notifyEmail: (config && config.contact_email) || '',
+    notifyEmails: db.getNotifyEmails(), // v90: the notification group
     previewSceneLimit: db.getPreviewSceneLimit(),
     clubMarePreviewLimit: db.getClubMarePreviewLimit(),
     talkPreviewMessageLimit: db.getTalkPreviewMessageLimit(),
@@ -2396,9 +2397,13 @@ app.get('/api/admin/settings', auth.requireAuthApi(['admin', 'support']), (req, 
   });
 });
 app.put('/api/admin/settings', auth.requireAuthApi(['admin', 'support']), (req, res) => {
-  const { notifyEmail, previewSceneLimit, clubMarePreviewLimit, talkPreviewMessageLimit, teacherDocPreviewPages } = req.body || {};
+  const { notifyEmail, notifyEmails, previewSceneLimit, clubMarePreviewLimit, talkPreviewMessageLimit, teacherDocPreviewPages } = req.body || {};
   if (notifyEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(notifyEmail)) {
     return res.status(400).json({ error: 'That doesn\'t look like a valid email address' });
+  }
+  if (Array.isArray(notifyEmails)) { // v90: the notification group
+    const bad = notifyEmails.map(e => String(e || '').trim()).filter(e => e && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e));
+    if (bad.length) return res.status(400).json({ error: `Not an email address: ${bad.join(', ')}` });
   }
   const checkNonNegativeInt = (val, label) => {
     if (val === undefined) return null;
@@ -2416,8 +2421,18 @@ app.put('/api/admin/settings', auth.requireAuthApi(['admin', 'support']), (req, 
   if (talkPreviewMessageLimit !== undefined) db.setTalkPreviewMessageLimit(Number(talkPreviewMessageLimit));
   if (teacherDocPreviewPages !== undefined) db.setTeacherDocPreviewPages(Number(teacherDocPreviewPages));
   teacherPreviewCache.clear(); // page count may have changed
-  db.setNotifyEmail(notifyEmail || null);
-  res.json({ ok: true });
+  if (Array.isArray(notifyEmails)) db.setNotifyEmails(notifyEmails);
+  else if (notifyEmail !== undefined) db.setNotifyEmail(notifyEmail || null);
+  res.json({ ok: true, notifyEmails: db.getNotifyEmails() });
+});
+// v90 — a test email to everyone in the notification group
+app.post('/api/admin/settings/test-notify', auth.requireAuthApi(['admin', 'support']), async (req, res) => {
+  const to = db.getNotifyEmails();
+  if (!to.length) return res.status(400).json({ error: 'Add at least one address first.' });
+  const html = `<div style="font-family:Arial,sans-serif;color:#16305C;"><p>This is a test from the Mare app (sent by ${String(req.user.name || 'staff').replace(/[<>&]/g, '')}).</p><p>Everyone in the notification group gets new orders, teacher requests and questions, messages to Mare, the daily summary of text changes, and social media alerts.</p></div>`;
+  const r = await email.sendEmail(to, 'Mare: test of the notification group', html, { kind: 'notify_test' });
+  const failed = (r.results || [r]).map((x, i) => (x && x.ok === false ? to[i] : null)).filter(Boolean);
+  res.json({ ok: true, to, failed });
 });
 
 // ── Teacher self-serve signup request — public, no auth. Creates a

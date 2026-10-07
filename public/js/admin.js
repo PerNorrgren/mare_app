@@ -1914,8 +1914,7 @@
     loadPinBoards();
     renderPostLinks();
     renderHealth(socState.lastHealth);
-    document.getElementById('soc-alert-emails').value = socState.alertEmails || '';
-    document.getElementById('soc-alert-emails').disabled = !isAdmin;
+    document.getElementById('soc-alert-emails').textContent = socState.alertEmails || '—'; // v90: the notification group
     const facts = document.getElementById('soc-facts');
     if (!facts.dataset.touched) facts.value = socState.facts || '';
     facts.disabled = !isAdmin;
@@ -2153,10 +2152,6 @@
       renderHealth(d);
       socNote(d.news ? t('socHealthEmailed', { n: d.emailed }) : t('socHealthNoNews'));
     });
-    document.getElementById('soc-save-alerts').addEventListener('click', async () => {
-      try { await api('/api/admin/social/settings', { method: 'PUT', body: JSON.stringify({ alertEmails: document.getElementById('soc-alert-emails').value }) }); }
-      catch (e) { alert(e.message); throw e; }
-    });
     document.getElementById('soc-facts').addEventListener('input', (e) => { e.target.dataset.touched = '1'; });
     document.getElementById('soc-save-facts').addEventListener('click', async () => {
       const f = document.getElementById('soc-facts');
@@ -2236,7 +2231,7 @@
   async function loadAdminSettings() {
     try {
       const data = await api('/api/admin/settings');
-      document.getElementById('notify-email').value = data.notifyEmail || '';
+      notifyList = (data.notifyEmails || []).slice(); renderNotifyGroup(); // v90
       document.getElementById('preview-scene-limit').value = data.previewSceneLimit ?? '';
       document.getElementById('club-mare-preview-limit').value = data.clubMarePreviewLimit ?? '';
       document.getElementById('talk-preview-message-limit').value = data.talkPreviewMessageLimit ?? '';
@@ -2246,13 +2241,46 @@
       // need for a dedicated error state on a couple of inputs.
     }
   }
+  // v90 — the notification group: chips with ✕, an Add box, a test to everyone
+  let notifyList = [];
+  function renderNotifyGroup() {
+    const box = document.getElementById('notify-group');
+    box.innerHTML = notifyList.length
+      ? notifyList.map((e, i) => `<span class="notify-chip">${escapeHtml(e)} <button type="button" data-i="${i}" data-no-busy aria-label="${escapeHtml(t('adminSpotRemove'))} ${escapeHtml(e)}">✕</button></span>`).join('')
+      : `<span class="admin-empty-note">${escapeHtml(t('adminNotifyEmpty'))}</span>`;
+    box.querySelectorAll('button[data-i]').forEach(b => b.addEventListener('click', () => { notifyList.splice(Number(b.dataset.i), 1); renderNotifyGroup(); }));
+  }
+  function addNotify(raw) {
+    const parts = String(raw || '').split(/[,;\s]+/).map(x => x.trim()).filter(Boolean);
+    if (!parts.length || parts.some(x => !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(x))) return false;
+    for (const x of parts) if (!notifyList.some(y => y.toLowerCase() === x.toLowerCase())) notifyList.push(x);
+    document.getElementById('notify-add-input').value = '';
+    renderNotifyGroup();
+    return true;
+  }
   function setupAdminSettings() {
+    const addBtn = document.getElementById('notify-add-btn');
+    const addInput = document.getElementById('notify-add-input');
+    const addErr = () => { const el = document.getElementById('notify-email-error'); el.textContent = t('adminNotifyBad', { email: addInput.value.trim() }); el.hidden = false; };
+    addBtn.addEventListener('click', () => { document.getElementById('notify-email-error').hidden = true; if (!addNotify(addInput.value)) addErr(); });
+    addInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); addBtn.click(); } });
+    document.getElementById('notify-test-btn').addEventListener('click', async () => {
+      const errorEl = document.getElementById('notify-email-error'), successEl = document.getElementById('notify-email-success');
+      errorEl.hidden = successEl.hidden = true;
+      try {
+        const out = await api('/api/admin/settings/test-notify', { method: 'POST' });
+        successEl.textContent = out.failed && out.failed.length ? t('adminNotifyTestPartly', { failed: out.failed.join(', ') }) : t('adminNotifyTestSent', { to: out.to.join(', ') });
+        successEl.hidden = false;
+      } catch (err) { errorEl.textContent = err.message; errorEl.hidden = false; throw err; }
+    });
     document.getElementById('notify-email-save-btn').addEventListener('click', async () => {
       const errorEl = document.getElementById('notify-email-error');
       const successEl = document.getElementById('notify-email-success');
       errorEl.hidden = true;
       successEl.hidden = true;
-      const notifyEmail = document.getElementById('notify-email').value.trim();
+      // v90: an address still typed in the box counts too
+      const typed = document.getElementById('notify-add-input').value.trim();
+      if (typed) { if (!addNotify(typed)) { errorEl.textContent = t('adminNotifyBad', { email: typed }); errorEl.hidden = false; return; } }
       const numOrUndefined = (id) => {
         const v = document.getElementById(id).value;
         return v === '' ? undefined : Number(v);
@@ -2261,13 +2289,14 @@
         await api('/api/admin/settings', {
           method: 'PUT',
           body: JSON.stringify({
-            notifyEmail,
+            notifyEmails: notifyList,
             previewSceneLimit: numOrUndefined('preview-scene-limit'),
             clubMarePreviewLimit: numOrUndefined('club-mare-preview-limit'),
             talkPreviewMessageLimit: numOrUndefined('talk-preview-message-limit'),
             teacherDocPreviewPages: numOrUndefined('teacher-doc-preview-pages'),
           }),
         });
+        const sa = document.getElementById('soc-alert-emails'); if (sa) sa.textContent = notifyList.join(', ') || '—'; // v90: social section shows the group
         successEl.textContent = t('adminSaved');
         successEl.hidden = false;
         setTimeout(() => { successEl.hidden = true; }, 3000);

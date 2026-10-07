@@ -439,7 +439,7 @@ function register(app, { db, auth, media, email, anthropic, model, publicUrl }) 
   setTimeout(() => { try { db.runBatch([[`UPDATE social_queue SET status = 'queued' WHERE status = 'sending'`, []]]); } catch { /* table may not exist yet */ } }, 5000).unref();
 
   // ── health: channels, failed posts, empty slots ──
-  const alertTo = () => String(cfg().social_alert_emails || '').split(/[,;\s]+/).map(s => s.trim()).filter(s => /.+@.+\..+/.test(s));
+  const alertTo = () => db.getNotifyEmails(); // v90: the notification group (Settings)
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   async function mail(subject, paras) {
     const to = alertTo();
@@ -611,7 +611,7 @@ function register(app, { db, auth, media, email, anthropic, model, publicUrl }) 
       notChosen: list.filter(c => !chosenIds.has(c.id)),
       slots: slots(), seeded: !!c.social_seeded_at,
       lastHealth: json(c.social_health_json, null),
-      alertEmails: c.social_alert_emails || '',
+      alertEmails: db.getNotifyEmails().join(', '), // v90: the notification group
       options: options(),
       postLinks: postLinks(), postLinksFull: Object.fromEntries(AUDIENCES.map(a => [a, linkFor(a)])), linkToken: LINK_TOKEN,
       facts: c.social_facts || DEFAULT_FACTS,
