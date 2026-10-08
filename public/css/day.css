@@ -2251,3 +2251,10 @@ body.soc-full-open { overflow: hidden; }
 .soc-detail-card .soc-post-btns a { text-decoration: none; }
 @media (max-width: 560px) { .soc-line { grid-template-columns: 84px 1fr 20px; } .soc-line .soc-snip { grid-column: 1 / -1; } }
 .soc-full[hidden], .soc-plan[hidden] { display: none; }
+
+/* ── v93: picture/video popup ── */
+#soc-media-pop { z-index: 2200; }
+.soc-media-pop { max-width: 440px; }
+.soc-media-pop h3 { margin-top: 0; color: var(--navy); }
+.soc-media-pop p { line-height: 1.5; color: var(--navy); }
+#sp-tags-note { margin: 4px 0 0; }

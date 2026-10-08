@@ -1808,5 +1808,14 @@
   "socEmailCopy": "Email a copy to:",
   "socSend": "Send",
   "socSentNow": "Sent to {p}. A copy follows by email once it is live.",
-  "socEmailed": "Copy sent to {to}."
+  "socEmailed": "Copy sent to {to}.",
+  "socHashtags": "Hashtags (Instagram and TikTok)",
+  "socHashtagsNote": "An Instagram or TikTok post without hashtags gets the set for who it is for, when it is saved and again just before it is posted (TikTok takes the first 5). A post in English gets English hashtags. Type them with spaces between.",
+  "socSaveTags": "Save hashtags",
+  "socTagsAuto": "No hashtags? They are added for {p} by themselves when you save, for who the post is for.",
+  "socMediaPopTitle": "{p} needs a picture or video",
+  "socMediaPopBody": "{p} never posts text on its own. Press Add a picture or video, choose one, then press Save again.",
+  "socMediaPopAdd": "Add a picture or video",
+  "socMediaPopDraft": "Keep it as a draft for now",
+  "socKeptDraft": "Kept as a draft. Add a picture or video, then approve it."
 }

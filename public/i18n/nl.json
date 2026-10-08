@@ -1808,5 +1808,14 @@
   "socEmailCopy": "Stuur een kopie naar:",
   "socSend": "Versturen",
   "socSentNow": "Verstuurd naar {p}. Zodra het online staat, volgt een kopie per e-mail.",
-  "socEmailed": "Kopie verstuurd naar {to}."
+  "socEmailed": "Kopie verstuurd naar {to}.",
+  "socHashtags": "Hashtags (Instagram en TikTok)",
+  "socHashtagsNote": "Een bericht voor Instagram of TikTok zonder hashtags krijgt de set voor de doelgroep, bij het opslaan en nog eens vlak voor het plaatsen (TikTok neemt de eerste 5). Een Engelstalig bericht krijgt Engelse hashtags. Typ ze met spaties ertussen.",
+  "socSaveTags": "Hashtags opslaan",
+  "socTagsAuto": "Geen hashtags? Die worden voor {p} vanzelf toegevoegd bij het opslaan, passend bij de doelgroep.",
+  "socMediaPopTitle": "{p} heeft een foto of video nodig",
+  "socMediaPopBody": "{p} plaatst nooit alleen tekst. Druk op Foto of video toevoegen, kies er een en druk daarna opnieuw op Opslaan.",
+  "socMediaPopAdd": "Foto of video toevoegen",
+  "socMediaPopDraft": "Voorlopig als concept bewaren",
+  "socKeptDraft": "Bewaard als concept. Voeg een foto of video toe en keur het daarna goed."
 }

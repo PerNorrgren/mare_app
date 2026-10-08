@@ -487,7 +487,8 @@
           <div class="field"><label for="sp-audience" data-i18n="socFor">For</label><select id="sp-audience"><option value="any" data-i18n="socAudAny">Anyone</option><option value="teachers" data-i18n="socAudTeachers">Teachers</option><option value="parents" data-i18n="socAudParents">Parents</option><option value="sales" data-i18n="socAudSales">Sales</option></select></div>
           <div class="field" id="sp-title-wrap" hidden><label for="sp-pin-title" data-i18n="socPinTitle">Pin title (Pinterest)</label><input type="text" id="sp-pin-title" maxlength="100"></div>
         </div>
-        <div class="field"><label for="sp-text" data-i18n="socText">Text</label><textarea id="sp-text" rows="7"></textarea><span class="soc-count" id="sp-count"></span></div>
+        <div class="field"><label for="sp-text" data-i18n="socText">Text</label><textarea id="sp-text" rows="7"></textarea><span class="soc-count" id="sp-count"></span>
+          <p class="admin-empty-note" id="sp-tags-note" hidden></p></div>
         <div class="field" id="sp-fc-wrap"><label for="sp-fc" data-i18n="socFirstComment">First comment (posted straight after, e.g. the link)</label><textarea id="sp-fc" rows="2"></textarea>
           <p class="admin-empty-note" id="sp-link-note"></p></div>
         <div class="soc-notes" id="sp-notes" hidden></div>
@@ -687,6 +688,11 @@
         <p class="admin-empty-note" data-i18n="socPostLinksNote">Where a post sends people, by who it is for: in the first comment, and as the pin's link on Pinterest. A page of the app (/teacher.html) or a full address. Changing one changes it for every post still waiting, drafts too.</p>
         <div id="soc-post-links"></div>
         <div class="soc-btns"><button type="button" class="btn-primary btn-small admin-only-tab" id="soc-save-links" data-i18n="socSaveLinks">Save post links</button></div>
+        <!-- v93: hashtags added to Instagram and TikTok posts that have none -->
+        <h3 class="soc-h" data-i18n="socHashtags">Hashtags (Instagram and TikTok)</h3>
+        <p class="admin-empty-note" data-i18n="socHashtagsNote">An Instagram or TikTok post without hashtags gets the set for who it is for, when it is saved and again just before it is posted (TikTok takes the first 5). A post in English gets English hashtags. Type them with spaces between.</p>
+        <div id="soc-hashtags"></div>
+        <div class="soc-btns"><button type="button" class="btn-primary btn-small admin-only-tab" id="soc-save-tags" data-i18n="socSaveTags">Save hashtags</button></div>
         <h3 class="soc-h" data-i18n="socHealth">Health</h3>
         <p class="admin-empty-note" data-i18n="socHealthNote">Checked every hour. An email goes out once when a chosen channel stops working or a post fails, once when it works again, and at 08:00 if a posting time in the next 48 hours has nothing to post.</p>
         <div id="soc-health"></div>

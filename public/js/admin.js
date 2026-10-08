@@ -1686,6 +1686,31 @@
     const full = socState && socState.postLinksFull && (socState.postLinksFull[audience] || socState.postLinksFull.any);
     return full ? html.split('{{LINK}}').join(`<span class="soc-link" title="${escapeHtml(t('socLinkTokenTip'))}">${escapeHtml(full)}</span>`) : html;
   }
+  // v93 — the hashtag sets, one per audience
+  function renderHashtags() {
+    const box = document.getElementById('soc-hashtags'); if (!box || !socState) return;
+    const hs = socState.hashtags || {}, dis = socIsAdmin() ? '' : 'disabled';
+    box.innerHTML = SOC_AUD.map(a => `<div class="soc-row"><span class="soc-p">${escapeHtml(audLabel(a))}</span><input type="text" data-aud="${a}" value="${escapeHtml(hs[a] || '')}" ${dis}></div>`).join('');
+  }
+  // v93 — Instagram, Pinterest and TikTok can't post text alone: say so, and offer to add a picture or video
+  function socMediaPopup(platform, { onAdd, onDraft } = {}) {
+    const old = document.getElementById('soc-media-pop'); if (old) old.remove();
+    const bd = document.createElement('div');
+    bd.className = 'admin-modal-backdrop'; bd.id = 'soc-media-pop';
+    bd.innerHTML = `<div class="admin-modal-card soc-media-pop" role="dialog" aria-modal="true">
+      <h3>📷 ${escapeHtml(t('socMediaPopTitle', { p: socLabel(platform) }))}</h3>
+      <p>${escapeHtml(t('socMediaPopBody', { p: socLabel(platform) }))}</p>
+      <div class="admin-modal-btns">
+        ${onDraft ? `<button type="button" class="btn-ghost" data-a="draft" data-no-busy>${escapeHtml(t('socMediaPopDraft'))}</button>` : ''}
+        <button type="button" class="btn-primary" data-a="add" data-no-busy>${escapeHtml(t('socMediaPopAdd'))}</button>
+      </div></div>`;
+    document.body.appendChild(bd);
+    bd.querySelector('[data-a="add"]').addEventListener('click', () => { bd.remove(); if (onAdd) onAdd(); });
+    const dr = bd.querySelector('[data-a="draft"]');
+    if (dr) dr.addEventListener('click', () => { bd.remove(); onDraft(); });
+    bd.addEventListener('click', (e) => { if (e.target === bd) bd.remove(); });
+  }
+  const socNeedsMedia = (p) => ((socState && socState.needsMedia) || []).includes(p);
   function renderPostLinks() {
     const box = document.getElementById('soc-post-links'); if (!box || !socState) return;
     const pl = socState.postLinks || {}, dis = socIsAdmin() ? '' : 'disabled';
@@ -1825,6 +1850,9 @@
         openSocialPost({ ...post, media_key: m.mediaKey, media_type: m.mediaType, ai_media: m.aiMedia ? 1 : 0, mediaUrl: u && u.url });
       }, true);
       mk('socAddToQueue', 'btn-ghost', async () => {
+        if (socNeedsMedia(platform) && card.querySelector('.mkt-media-pick').value === 'none') { // v93
+          return socMediaPopup(platform, { onAdd: () => { const inp = document.querySelector('#mkt-media .mkt-slot[data-kind=image] input'); document.getElementById('mkt-media').scrollIntoView({ behavior: 'smooth', block: 'center' }); if (inp) inp.click(); } });
+        }
         try { const d = await api('/api/admin/social/queue', { method: 'POST', body: JSON.stringify({ ...body, ...mktMediaFor(card), scheduledFor: 'next' }) }); socNote(t('socQueuedFor', { when: socWhen(d.scheduledFor) })); card.classList.add('mkt-done'); }
         catch (e) { alert(e.message); throw e; } finally { loadSocialQueue(); }
       });
@@ -1914,6 +1942,7 @@
     warn.textContent = socState.notChosen.length ? t('socOtherChannels', { list: socState.notChosen.map(c => `${socLabel(c.platform)}: ${c.name} (id ${c.id})`).join(', ') }) : '';
     loadPinBoards();
     renderPostLinks();
+    renderHashtags(); // v93
     renderHealth(socState.lastHealth);
     document.getElementById('soc-alert-emails').textContent = socState.alertEmails || '—'; // v90: the notification group
     const facts = document.getElementById('soc-facts');
@@ -2142,6 +2171,9 @@
       try {
         if (a === 'edit') { modal.hidden = true; document.getElementById('soc-full').hidden = true; document.body.classList.remove('soc-full-open'); return openSocialPost(r); }
         if (a === 'again-plan') { q('.soc-plan').hidden = !q('.soc-plan').hidden; return; }
+        if ((a === 'approve' || a === 'now' || a === 'again-now' || a === 'plan-at' || a === 'plan-next') && socNeedsMedia(r.platform) && !r.media_key) { // v93
+          return socMediaPopup(r.platform, { onAdd: () => { modal.hidden = true; openSocialPost(r); setTimeout(() => document.getElementById('sp-file').click(), 150); } });
+        }
         if (a === 'approve') { await api(`/api/admin/social/queue/${r.id}/approve`, { method: 'POST' }); modal.hidden = true; return done(t('socApproved')); }
         if (a === 'now') {
           if (!confirm(t('socPublishConfirm', { p: socLabel(r.platform) }))) return;
@@ -2179,6 +2211,12 @@
     const fcOk = !socState || (socState.firstCommentPlatforms || []).includes(p);
     document.getElementById('sp-fc-wrap').hidden = !fcOk;
     document.getElementById('sp-title-wrap').hidden = p !== 'pinterest';
+    { // v93: say hashtags come by themselves
+      const tn = document.getElementById('sp-tags-note');
+      const on = socState && (socState.hashtagPlatforms || []).includes(p);
+      tn.hidden = !on;
+      if (on) tn.textContent = t('socTagsAuto', { p: socLabel(p) });
+    }
     const noLink = socState && (socState.noLinkPlatforms || []).includes(p);
     const aud = document.getElementById('sp-audience').value;
     const goes = socState && socState.postLinksFull ? ' ' + t('socLinkGoesTo', { url: socState.postLinksFull[aud] || socState.postLinksFull.any }) : '';
@@ -2225,10 +2263,37 @@
       try { socMedia = await socUploadFile(file); } catch (err) { alert(err.message || t('errorGeneric')); }
       e.target.value = ''; socMediaShow();
     });
-    document.getElementById('sp-save').addEventListener('click', async () => {
+    // v93: keep it as a draft until a picture or video is added
+    async function saveAsDraft() {
+      const err = document.getElementById('sp-error'); err.hidden = true;
+      const platform = document.getElementById('sp-platform').value;
+      const body = { platform, content: document.getElementById('sp-text').value, audience: document.getElementById('sp-audience').value,
+        firstComment: document.getElementById('sp-fc-wrap').hidden ? '' : document.getElementById('sp-fc').value,
+        title: platform === 'pinterest' ? document.getElementById('sp-pin-title').value : '' };
+      const w = document.getElementById('sp-when').value;
+      if (w === 'at' && document.getElementById('sp-at').value) body.scheduledFor = new Date(document.getElementById('sp-at').value).toISOString();
+      else body.scheduledFor = 'next';
+      try {
+        if (socEditing) await api(`/api/admin/social/queue/${socEditing}`, { method: 'PATCH', body: JSON.stringify(body) });
+        else await api('/api/admin/social/queue', { method: 'POST', body: JSON.stringify({ ...body, draft: true }) });
+        document.getElementById('social-modal').hidden = true;
+        socNote(t('socKeptDraft'));
+        loadSocialQueue();
+      } catch (e) { err.textContent = e.message; err.hidden = false; }
+    }
+    document.getElementById('sp-save').addEventListener('click', async (ev) => {
       const err = document.getElementById('sp-error'); err.hidden = true;
       const when = document.getElementById('sp-when').value;
       const platform = document.getElementById('sp-platform').value;
+      // v93: no picture or video for a platform that needs one → ask for it first
+      if (socNeedsMedia(platform) && !socMedia && !ev.socAsDraft) {
+        const canDraft = !socEditing || (socEditRow && socEditRow.status === 'draft');
+        socMediaPopup(platform, {
+          onAdd: () => document.getElementById('sp-file').click(),
+          onDraft: canDraft ? () => saveAsDraft() : null,
+        });
+        return;
+      }
       const body = { platform, content: document.getElementById('sp-text').value, audience: document.getElementById('sp-audience').value,
         firstComment: document.getElementById('sp-fc-wrap').hidden ? '' : document.getElementById('sp-fc').value,
         title: platform === 'pinterest' ? document.getElementById('sp-pin-title').value : '',
@@ -2260,6 +2325,12 @@
         if (!document.getElementById('soc-pin-row').hidden) await api('/api/admin/social/settings', { method: 'PUT', body: JSON.stringify({ pinterestBoard: document.getElementById('soc-pin-board').value }) });
       } catch (e) { const st = document.getElementById('soc-status'); st.textContent = e.message; st.hidden = false; throw e; }
       await loadSocial(true);
+    });
+    document.getElementById('soc-save-tags').addEventListener('click', async () => { // v93
+      const hashtags = {}; document.querySelectorAll('#soc-hashtags input[data-aud]').forEach(i => { hashtags[i.dataset.aud] = i.value; });
+      try { await api('/api/admin/social/settings', { method: 'PUT', body: JSON.stringify({ hashtags }) }); socNote(t('adminSaved')); }
+      catch (e) { alert(e.message); throw e; }
+      await loadSocial();
     });
     document.getElementById('soc-save-links').addEventListener('click', async () => {
       const postLinks = {}; document.querySelectorAll('#soc-post-links input[data-aud]').forEach(i => { postLinks[i.dataset.aud] = i.value; });
