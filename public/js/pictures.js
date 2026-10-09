@@ -127,7 +127,7 @@
     try { chestRight = new Set(JSON.parse(chestStore().getItem(chestKey()) || '[]')); } catch { chestRight = new Set(); }
     const el = document.createElement('button');
     el.type = 'button'; el.id = 'px-chest'; el.className = 'px-chest';
-    el.innerHTML = `<img class="px-chest-img" alt="" draggable="false"><span class="px-chest-gems"></span>`;
+    el.innerHTML = `<span class="px-chest-pics"><img class="px-chest-img px-chest-closed" alt="" draggable="false"><img class="px-chest-open" alt="" draggable="false"><span class="px-chest-burst">${'<i></i>'.repeat(8)}</span></span><span class="px-chest-gems"></span>`;
     el.addEventListener('click', () => {
       if (tr.done) return showTreasure(tr.done);
       const n = Math.min(chestRight.size, tr.total);
@@ -144,9 +144,11 @@
     const tr = data.treasure, el = $('px-chest'); if (!tr || !el) return;
     const full = !!tr.done;
     const n = full ? tr.total : Math.min(chestRight.size, tr.total);
-    const img = el.querySelector('.px-chest-img');
+    // v94: the closed picture (or the open chest shown dark) and the open one on top, shown when the lid opens
+    const img = el.querySelector('.px-chest-closed'), openImg = el.querySelector('.px-chest-open');
     const src = full ? tr.open : (tr.closed || tr.open);
     if (img.getAttribute('src') !== src) img.src = src;
+    if (openImg.getAttribute('src') !== tr.open) openImg.src = tr.open;
     el.classList.toggle('full', full);
     el.classList.toggle('dim', !full && !tr.closed); // no closed picture: the open chest, dark until it fills
     el.style.setProperty('--fill', String(tr.total ? n / tr.total : 0));
@@ -165,27 +167,38 @@
       });
     } catch { /* no sound is fine */ }
   }
-  // a right answer: a diamond flies from the answer into the chest
-  function chestAnswer(spotId, fromEl) {
+  // v94 — a right answer: the lid opens, a diamond flies in, a sparkle, the lid closes.
+  // The last one: it closes, then the chest grows to the middle, opens, and the code appears.
+  const wait = (ms) => new Promise(r => setTimeout(r, ms));
+  function chestOpen(el, on) {
+    el.classList.toggle('open', on);
+    if (on) { el.classList.remove('lid'); void el.offsetWidth; el.classList.add('lid'); }
+  }
+  async function chestAnswer(spotId, fromEl) {
     const tr = data && data.treasure;
     if (!tr || tr.done || chestRight.has(spotId)) return;
     chestRight.add(spotId); chestSave();
     const el = $('px-chest'); if (!el) return;
-    const slot = el.querySelectorAll('.px-chest-gems i')[Math.min(chestRight.size, tr.total) - 1];
-    const a = fromEl.getBoundingClientRect(), b = (slot || el).getBoundingClientRect();
+    const last = chestRight.size >= tr.total;
+    const a = fromEl.getBoundingClientRect();
+    await wait(350);
+    chestOpen(el, true); chime([660]);
+    await wait(420);
+    const b = el.querySelector('.px-chest-pics').getBoundingClientRect();
     const gem = document.createElement('div');
     gem.className = 'px-flygem'; gem.innerHTML = gemSvg(chestRight.size - 1);
     gem.style.left = (a.left + a.width / 2) + 'px'; gem.style.top = (a.top + a.height / 2) + 'px';
     document.body.appendChild(gem);
     requestAnimationFrame(() => requestAnimationFrame(() => {
-      gem.style.transform = `translate(${b.left + b.width / 2 - (a.left + a.width / 2)}px, ${b.top + b.height / 2 - (a.top + a.height / 2)}px) scale(0.6) rotate(360deg)`;
-      gem.style.opacity = '0.9';
+      gem.style.transform = `translate(${b.left + b.width / 2 - (a.left + a.width / 2)}px, ${b.top + b.height * 0.42 - (a.top + a.height / 2)}px) scale(0.5) rotate(360deg)`;
     }));
-    setTimeout(() => {
-      gem.remove(); renderChest(); chime([988, 1319]);
-      el.classList.remove('bump'); void el.offsetWidth; el.classList.add('bump');
-      if (chestRight.size >= tr.total) setTimeout(finishChest, 500);
-    }, 900);
+    await wait(880);
+    gem.remove(); renderChest(); chime([988, 1319]);
+    el.classList.remove('burst'); void el.offsetWidth; el.classList.add('burst');
+    await wait(750);
+    chestOpen(el, false); chime([392]);
+    el.classList.remove('bump'); void el.offsetWidth; el.classList.add('bump');
+    if (last) { await wait(900); finishChest(); }
   }
   let finishing = false;
   async function finishChest() {
@@ -216,7 +229,7 @@
     box = document.createElement('div');
     box.id = 'px-treasure'; box.className = 'px-treasure';
     box.innerHTML = `<div class="px-treasure-card" role="dialog" aria-modal="true" aria-labelledby="px-tr-title">
-      <div class="px-treasure-chest"><img src="${esc(tr.open)}" alt="" draggable="false"><span class="px-sparkles">${'<i></i>'.repeat(14)}</span></div>
+      <div class="px-treasure-chest${tr.closed ? '' : ' nodark'}"><img class="px-tr-closed" src="${esc(tr.closed || tr.open)}" alt="" draggable="false"><img class="px-tr-open" src="${esc(tr.open)}" alt="" draggable="false"><span class="px-sparkles">${'<i></i>'.repeat(14)}</span></div>
       <h2 id="px-tr-title">${esc(t('picturesTreasureTitle'))}</h2>
       <p>${esc(t('picturesTreasureBody'))}</p>
       <div class="px-treasure-code">${esc(done.code)}</div>
@@ -224,7 +237,8 @@
       ${done.preview ? `<p class="px-treasure-note">${esc(t('picturesTreasurePreview'))}</p>` : ''}
       <button type="button" class="px-again px-carry" id="px-tr-close">${esc(t('picturesDone'))}</button></div>`;
     document.body.appendChild(box);
-    chime([784, 988, 1175, 1568]);
+    // v94: closed first, then the lid opens and the code appears
+    setTimeout(() => { box.classList.add('opened'); chime([784, 988, 1175, 1568]); }, 1100);
     $('px-tr-close').onclick = () => box.remove();
   }
 

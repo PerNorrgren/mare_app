@@ -166,3 +166,39 @@ html, body { margin: 0; height: 100%; background: #0B1712; overflow: hidden; ove
 .px-treasure-show { font-size: 0.95rem; }
 .px-treasure-note { font-size: 0.85rem; color: #7a5a12; }
 @media (prefers-reduced-motion: reduce) { .px-flygem { transition-duration: 0.01s; } .px-treasure-chest img, .px-chest.full .px-chest-img, .px-sparkles i { animation: none; opacity: 1; } .px-sparkles { display: none; } }
+
+/* ── v94 — the lid: open for each diamond, closed again; the big reveal opens from closed ── */
+.px-chest { transition: transform 0.35s cubic-bezier(.2,1.5,.4,1); }
+.px-chest-pics { position: relative; display: block; width: 100%; }
+.px-chest-closed { transition: opacity 0.3s; }
+.px-chest-open { position: absolute; left: 0; top: 0; width: 100%; height: auto; opacity: 0; pointer-events: none; transition: opacity 0.3s; transform-origin: 50% 85%;
+  filter: drop-shadow(0 6px 14px rgba(0,0,0,0.5)) drop-shadow(0 0 22px rgba(255, 224, 140, 0.9)); }
+.px-chest.open { transform: scale(1.25) translateY(-10px); }
+.px-chest.open .px-chest-open { opacity: 1; }
+.px-chest.open .px-chest-closed { opacity: 0; }
+.px-chest.lid .px-chest-open { animation: px-lid 0.5s cubic-bezier(.2,1.6,.4,1); }
+@keyframes px-lid { 0% { transform: scaleY(0.8) translateY(6%); } 60% { transform: scaleY(1.06); } 100% { transform: none; } }
+.px-chest.full .px-chest-open { display: none; }
+.px-chest-burst { position: absolute; inset: 0; pointer-events: none; }
+.px-chest-burst i { position: absolute; left: 50%; top: 40%; width: 6px; height: 6px; border-radius: 50%; background: #fff6c8; box-shadow: 0 0 8px 3px rgba(255,230,150,0.9); opacity: 0; }
+.px-chest.burst .px-chest-burst i { animation: px-spark 0.9s ease-out; }
+.px-chest-burst i:nth-child(1) { --dx: -46px; --dy: -40px; } .px-chest-burst i:nth-child(2) { --dx: 44px; --dy: -44px; }
+.px-chest-burst i:nth-child(3) { --dx: -20px; --dy: -60px; } .px-chest-burst i:nth-child(4) { --dx: 22px; --dy: -62px; }
+.px-chest-burst i:nth-child(5) { --dx: -56px; --dy: -10px; } .px-chest-burst i:nth-child(6) { --dx: 56px; --dy: -14px; }
+.px-chest-burst i:nth-child(7) { --dx: 0px; --dy: -70px; } .px-chest-burst i:nth-child(8) { --dx: 8px; --dy: -30px; }
+.px-chest-burst i:nth-child(odd) { background: #ffd3f0; }
+/* the big reveal */
+.px-treasure-chest { animation: px-chest-open 0.9s cubic-bezier(.2,1.5,.4,1) both; }
+.px-treasure-chest img { animation: none; transition: opacity 0.35s; }
+.px-treasure-chest.nodark .px-tr-closed { filter: brightness(0.4) saturate(0.3); }
+.px-treasure-chest .px-tr-open { position: absolute; left: 0; top: 0; opacity: 0; transform-origin: 50% 85%; }
+.px-treasure.opened .px-tr-closed { opacity: 0; }
+.px-treasure.opened .px-tr-open { opacity: 1; animation: px-lid 0.55s cubic-bezier(.2,1.6,.4,1), px-chest-glow 2.6s ease-in-out 0.6s infinite; }
+.px-treasure .px-sparkles { display: none; }
+.px-treasure.opened .px-sparkles { display: block; }
+.px-treasure-card > :not(.px-treasure-chest) { opacity: 0; transform: translateY(12px); transition: opacity 0.5s 0.45s, transform 0.5s 0.45s; }
+.px-treasure.opened .px-treasure-card > :not(.px-treasure-chest) { opacity: 1; transform: none; }
+@media (prefers-reduced-motion: reduce) { .px-chest, .px-chest-open, .px-treasure-card > * { transition-duration: 0.01s !important; } .px-chest.lid .px-chest-open, .px-treasure.opened .px-tr-open { animation: none; } }
+.px-chest { transform-origin: 20% 100%; }
+.px-treasure-card { transition: background-color 0.4s 0.3s, border-color 0.4s 0.3s, box-shadow 0.4s 0.3s; }
+.px-treasure:not(.opened) .px-treasure-card { background-color: transparent; border-color: transparent; box-shadow: none; }
