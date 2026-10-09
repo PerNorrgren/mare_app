@@ -596,7 +596,7 @@ const VIEWAS_BACK = 'mare_viewas_back';
 const VIEWAS_FLAG = 'mare_viewas';
 app.post('/api/admin/view-as', auth.requireAuthApi(['admin', 'support']), async (req, res) => {
   const as = String((req.body && req.body.as) || '');
-  if (!['visitor', 'parent', 'teacher'].includes(as)) return res.status(400).json({ error: 'Choose visitor, parent or teacher' });
+  if (!['visitor', 'parent', 'teacher', 'child'].includes(as)) return res.status(400).json({ error: 'Choose visitor, parent, teacher or child' });
   const staffToken = req.cookies[auth.COOKIE_NAME];
   res.cookie(VIEWAS_BACK, staffToken, auth.COOKIE_OPTIONS);
   res.cookie(VIEWAS_FLAG, as, { ...auth.COOKIE_OPTIONS, httpOnly: false });
@@ -605,15 +605,17 @@ app.post('/api/admin/view-as', auth.requireAuthApi(['admin', 'support']), async 
     return res.json({ ok: true, redirect: '/' });
   }
   const { parent, teacher } = db.ensurePreviewAccounts(await auth.hashPassword(crypto.randomBytes(24).toString('hex')));
-  const acct = as === 'parent' ? parent : teacher;
-  res.cookie(auth.COOKIE_NAME, auth.createToken({ role: as, id: acct.id, name: acct.name, email: acct.email }), auth.COOKIE_OPTIONS);
-  res.json({ ok: true, redirect: HOME_FOR_ROLE[as] });
+  // v95: a child = the preview family's account, opened on the child's pictures screen
+  const role = as === 'child' ? 'parent' : as;
+  const acct = role === 'parent' ? parent : teacher;
+  res.cookie(auth.COOKIE_NAME, auth.createToken({ role, id: acct.id, name: acct.name, email: acct.email }), auth.COOKIE_OPTIONS);
+  res.json({ ok: true, redirect: as === 'child' ? '/pictures.html' : HOME_FOR_ROLE[as] });
 });
 app.get('/api/view-as', (req, res) => {
   const back = auth.verifyToken(req.cookies[VIEWAS_BACK]);
   if (!back || !['admin', 'support'].includes(back.role)) return res.json({ active: false });
   const cur = auth.verifyToken(req.cookies[auth.COOKIE_NAME]);
-  res.json({ active: true, as: cur ? cur.role : 'visitor', staffName: String(back.name || '').split(/\s+/)[0] });
+  res.json({ active: true, as: cur ? (cur.role === 'parent' && req.cookies[VIEWAS_FLAG] === 'child' ? 'child' : cur.role) : 'visitor', staffName: String(back.name || '').split(/\s+/)[0] });
 });
 app.post('/api/view-as/exit', (req, res) => {
   const token = req.cookies[VIEWAS_BACK];

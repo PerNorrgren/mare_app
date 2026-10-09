@@ -2258,3 +2258,10 @@ body.soc-full-open { overflow: hidden; }
 .soc-media-pop h3 { margin-top: 0; color: var(--navy); }
 .soc-media-pop p { line-height: 1.5; color: var(--navy); }
 #sp-tags-note { margin: 4px 0 0; }
+
+/* ── v95: treasure chest preview ── */
+.tr-btns { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.tr-prev-n { display: inline-flex; gap: 6px; align-items: center; font-size: 0.9rem; color: var(--navy); margin-left: 8px; }
+.tr-prev-n select { padding: 5px 8px; border-radius: 8px; border: 1.5px solid rgba(22,48,92,0.2); }
+.tr-prev-card { max-width: min(1040px, 96vw); width: 100%; }
+#tr-prev-frame { width: 100%; height: min(620px, 70vh); border: 0; border-radius: 12px; background: #0b1712; display: block; }

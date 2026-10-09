@@ -100,6 +100,7 @@
           <button type="button" class="btn-ghost" data-viewas="visitor" data-i18n="adminViewAsVisitor">👤 A visitor (not signed in)</button>
           <button type="button" class="btn-ghost" data-viewas="parent" data-i18n="adminViewAsParent">👪 A parent (preview family)</button>
           <button type="button" class="btn-ghost" data-viewas="teacher" data-i18n="adminViewAsTeacher">🍎 A teacher (preview teacher)</button>
+          <button type="button" class="btn-ghost" data-viewas="child" data-i18n="adminViewAsChild">🧒 A child (Noor, preview family)</button>
         </div>
         <p class="admin-empty-note" data-i18n="adminViewAsNote">The preview family (Noor and Sam, Club Mare member) and the preview teacher are test accounts: they never get email and don't count in the numbers. What you do as them (plant a word, write to Mare) really happens, so you can test the whole flow.</p>
       </div>
@@ -979,7 +980,19 @@
         </div>
         <div class="tr-pics" id="tr-pics"></div>
         <p class="admin-empty-note" id="tr-given"></p>
-        <button type="button" class="btn-primary btn-small" id="tr-save" data-i18n="adminSaveChanges">Save</button>
+        <div class="tr-btns">
+          <button type="button" class="btn-primary btn-small" id="tr-save" data-i18n="adminSaveChanges">Save</button>
+          <!-- v95: see the chest as a child does -->
+          <label class="tr-prev-n"><span data-i18n="adminTrPreviewN">Diamonds</span> <select id="tr-prev-n"></select></label>
+          <button type="button" class="btn-ghost btn-small" id="tr-preview" data-no-busy data-i18n="adminTrPreview">Preview</button>
+        </div>
+      </div>
+      <div class="admin-modal-backdrop" id="tr-prev-modal" hidden>
+        <div class="admin-modal-card tr-prev-card">
+          <h3 data-i18n="adminTrPreviewTitle">Treasure chest — preview</h3>
+          <p class="admin-empty-note" data-i18n="adminTrPreviewNote">Press Right answer to see what a child sees after each correct answer. Press Start again to begin again. Save first to see changed pictures or discount.</p>
+          <iframe id="tr-prev-frame" title="Treasure chest preview"></iframe>
+        </div>
       </div>
       <div class="admin-card">
         <h2 data-i18n="adminCompanionMessages">Messages to Mare</h2>

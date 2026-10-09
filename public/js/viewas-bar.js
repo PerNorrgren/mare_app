@@ -7,8 +7,8 @@
   if (!/(?:^|;\s*)mare_viewas=/.test(document.cookie)) return;
   const nl = () => (window.MareI18n && window.MareI18n.locale === 'nl') || /(?:^|;\s*)mare_locale=nl/.test(document.cookie);
   const L = {
-    en: { as: 'Viewing the site as', visitor: 'a visitor (not signed in)', parent: 'a parent (preview family)', teacher: 'a teacher (preview teacher)', switchTo: 'Switch to', back: 'Back to admin', v: 'Visitor', p: 'Parent', t: 'Teacher' },
-    nl: { as: 'Je bekijkt de site als', visitor: 'bezoeker (niet ingelogd)', parent: 'ouder (voorbeeldgezin)', teacher: 'leerkracht (voorbeeldleerkracht)', switchTo: 'Wissel naar', back: 'Terug naar beheer', v: 'Bezoeker', p: 'Ouder', t: 'Leerkracht' },
+    en: { as: 'Viewing the site as', visitor: 'a visitor (not signed in)', parent: 'a parent (preview family)', teacher: 'a teacher (preview teacher)', child: 'a child (Noor, preview family)', switchTo: 'Switch to', back: 'Back to admin', v: 'Visitor', p: 'Parent', t: 'Teacher', c: 'Child' },
+    nl: { as: 'Je bekijkt de site als', visitor: 'bezoeker (niet ingelogd)', parent: 'ouder (voorbeeldgezin)', teacher: 'leerkracht (voorbeeldleerkracht)', child: 'kind (Noor, voorbeeldgezin)', switchTo: 'Wissel naar', back: 'Terug naar beheer', v: 'Bezoeker', p: 'Ouder', t: 'Leerkracht', c: 'Kind' },
   };
   async function post(url, body) {
     const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body || {}) });
@@ -25,7 +25,7 @@
     bar.innerHTML = `<span class="va-eye" aria-hidden="true">👁</span>
       <span class="va-text">${T.as} <strong>${T[st.as] || st.as}</strong></span>
       <span class="va-switch">${T.switchTo}:
-        ${[['visitor', T.v], ['parent', T.p], ['teacher', T.t]].filter(([k]) => k !== st.as).map(([k, lab]) => `<button type="button" data-as="${k}">${lab}</button>`).join('')}
+        ${[['visitor', T.v], ['parent', T.p], ['teacher', T.t], ['child', T.c]].filter(([k]) => k !== st.as).map(([k, lab]) => `<button type="button" data-as="${k}">${lab}</button>`).join('')}
       </span>
       <button type="button" class="va-back">${T.back}</button>`;
     document.body.appendChild(bar);

@@ -202,3 +202,9 @@ html, body { margin: 0; height: 100%; background: #0B1712; overflow: hidden; ove
 .px-chest { transform-origin: 20% 100%; }
 .px-treasure-card { transition: background-color 0.4s 0.3s, border-color 0.4s 0.3s, box-shadow 0.4s 0.3s; }
 .px-treasure:not(.opened) .px-treasure-card { background-color: transparent; border-color: transparent; box-shadow: none; }
+
+/* ── v95: admin preview of the treasure chest ── */
+body.px-chest-demo { background: radial-gradient(circle at 50% 35%, #1d3a2b, #0b1712 70%); }
+body.px-chest-demo #px-exit, body.px-chest-demo .px-exit { display: none; }
+.px-demo-bar { position: fixed; left: 50%; bottom: calc(22px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); z-index: 15; display: flex; gap: 10px; }
+.px-demo-bar button[disabled] { opacity: 0.45; }

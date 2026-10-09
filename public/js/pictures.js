@@ -204,6 +204,10 @@
   async function finishChest() {
     const tr = data && data.treasure;
     if (!tr || tr.done || finishing) return;
+    if (data.demo) { // v95: the admin preview — no server, an example code
+      tr.done = { code: 'VOORBEELD', percent: tr.percent, preview: true };
+      renderChest(); showTreasure(tr.done); return;
+    }
     finishing = true;
     try {
       const r = await fetch('/api/pictures/treasure', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ chapter: data.chapter, spots: [...chestRight] }) });
@@ -546,6 +550,10 @@
       timer = setTimeout(() => {
         timer = null;
         if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+        if (/(?:^|;\s*)mare_viewas=child/.test(document.cookie)) { // v95: admin viewing as a child → straight back to admin
+          fetch('/api/view-as/exit', { method: 'POST' }).catch(() => {}).finally(() => { location.href = '/admin.html'; });
+          return;
+        }
         location.href = fixedChapter ? '/admin.html' : '/companion.html';
       }, 3000);
     };
@@ -592,7 +600,40 @@
       $('px-start').hidden = false;
       $('px-start-btn').onclick = () => { document.documentElement.requestFullscreen().catch(() => {}); $('px-start').hidden = true; if (isVideo) playVideo(); };
     }
+    if (new URLSearchParams(location.search).has('chestdemo')) return chestDemo(); // v95
     try { await load(); } catch { return; }
     setInterval(poll, 8000);
   })();
+
+  // ── v95 — admin's preview of the treasure chest: the real chest and
+  // animations, with a "Right answer" button instead of quiz questions.
+  async function chestDemo() {
+    $('px-start').hidden = true;
+    document.body.classList.add('px-chest-demo');
+    let cfg = {};
+    try { cfg = await getJson('/api/admin/treasure'); } catch { /* not staff: nothing to show */ return; }
+    const n = Math.max(1, Math.min(10, parseInt(new URLSearchParams(location.search).get('chestdemo'), 10) || 4));
+    data = { demo: true, chapter: 'demo', scenes: [], treasure: { total: n, preview: true, percent: cfg.percent, closed: cfg.closedKey ? cfg.closedUrl : null, open: cfg.openUrl, done: null } };
+    try { sessionStorage.removeItem('px-chest-demo'); } catch { /* fine */ }
+    ['px-found', 'px-talk', 'px-prev', 'px-next'].forEach(id => { const el = $(id); if (el) el.hidden = true; });
+    $('px-chapter').textContent = t('picturesChestDemo');
+    setupChest();
+    const bar = document.createElement('div');
+    bar.className = 'px-demo-bar';
+    bar.innerHTML = `<button type="button" class="px-again px-carry" id="px-demo-right">✓ ${esc(t('picturesDemoRight'))}</button>
+      <button type="button" class="px-again" id="px-demo-reset">↺ ${esc(t('picturesDemoReset'))}</button>`;
+    document.body.appendChild(bar);
+    let k = 0, busy = false;
+    $('px-demo-right').onclick = async () => {
+      if (busy || data.treasure.done) return;
+      busy = true; $('px-demo-right').disabled = true;
+      await chestAnswer(`demo-${++k}`, $('px-demo-right'));
+      busy = false; $('px-demo-right').disabled = !!data.treasure.done;
+    };
+    $('px-demo-reset').onclick = () => {
+      chestRight = new Set(); data.treasure.done = null; k = 0; chestSave();
+      const box = $('px-treasure'); if (box) box.remove();
+      $('px-demo-right').disabled = false; renderChest();
+    };
+  }
 })();

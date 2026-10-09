@@ -1158,7 +1158,7 @@
   "adminViewAsVisitor": "👤 Een bezoeker (niet ingelogd)",
   "adminViewAsParent": "👪 Een ouder (voorbeeldgezin)",
   "adminViewAsTeacher": "🍎 Een leerkracht (voorbeeldleerkracht)",
-  "adminViewAsNote": "Het voorbeeldgezin (Noor en Sam, lid van Club Mare) en de voorbeeldleerkracht zijn testaccounts: ze krijgen nooit e-mail en tellen niet mee in de cijfers. Wat je als hen doet (een woord planten, Mare schrijven) gebeurt echt, zodat je alles kunt testen.",
+  "adminViewAsNote": "Het voorbeeldgezin (Noor en Sam, lid van Club Mare) en de voorbeeldleerkracht zijn testaccounts: ze krijgen nooit e-mail en tellen niet mee in de cijfers. Wat je als hen doet (een woord planten, Mare schrijven) gebeurt echt, zodat je alles kunt testen. Als kind zie je de platen van het hoofdstuk van het gezin; houd de maan 3 seconden vast om hier terug te komen.",
   "companionBookFollow": "Ze volgen het hoofdstuk dat je hieronder kiest.",
   "companionIpadTitle": "Op een iPad of tablet voor je kind",
   "companionIpad1": "Open op de iPad mare.deepermindfulness.org en log in met ditzelfde account.",
@@ -1817,5 +1817,13 @@
   "socMediaPopBody": "{p} plaatst nooit alleen tekst. Druk op Foto of video toevoegen, kies er een en druk daarna opnieuw op Opslaan.",
   "socMediaPopAdd": "Foto of video toevoegen",
   "socMediaPopDraft": "Voorlopig als concept bewaren",
-  "socKeptDraft": "Bewaard als concept. Voeg een foto of video toe en keur het daarna goed."
+  "socKeptDraft": "Bewaard als concept. Voeg een foto of video toe en keur het daarna goed.",
+  "adminTrPreview": "Voorbeeld bekijken",
+  "adminTrPreviewN": "Diamanten",
+  "adminTrPreviewTitle": "Schatkist — voorbeeld",
+  "adminTrPreviewNote": "Druk op Goed antwoord om te zien wat een kind ziet na elk goed antwoord. Druk op Opnieuw om opnieuw te beginnen. Sla eerst op om gewijzigde plaatjes of korting te zien.",
+  "picturesChestDemo": "Schatkist — voorbeeld",
+  "picturesDemoRight": "Goed antwoord",
+  "picturesDemoReset": "Opnieuw",
+  "adminViewAsChild": "🧒 Een kind (Noor, voorbeeldgezin)"
 }

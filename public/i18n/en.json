@@ -1158,7 +1158,7 @@
   "adminViewAsVisitor": "👤 A visitor (not signed in)",
   "adminViewAsParent": "👪 A parent (preview family)",
   "adminViewAsTeacher": "🍎 A teacher (preview teacher)",
-  "adminViewAsNote": "The preview family (Noor and Sam, Club Mare member) and the preview teacher are test accounts: they never get email and don't count in the numbers. What you do as them (plant a word, write to Mare) really happens, so you can test the whole flow.",
+  "adminViewAsNote": "The preview family (Noor and Sam, Club Mare member) and the preview teacher are test accounts: they never get email and don't count in the numbers. What you do as them (plant a word, write to Mare) really happens, so you can test the whole flow. As a child you see the pictures for the family's chapter; hold the moon for 3 seconds to come back here.",
   "companionBookFollow": "They follow the chapter you choose below.",
   "companionIpadTitle": "On an iPad or tablet for your child",
   "companionIpad1": "On the iPad, open mare.deepermindfulness.org and sign in with this same account.",
@@ -1817,5 +1817,13 @@
   "socMediaPopBody": "{p} never posts text on its own. Press Add a picture or video, choose one, then press Save again.",
   "socMediaPopAdd": "Add a picture or video",
   "socMediaPopDraft": "Keep it as a draft for now",
-  "socKeptDraft": "Kept as a draft. Add a picture or video, then approve it."
+  "socKeptDraft": "Kept as a draft. Add a picture or video, then approve it.",
+  "adminTrPreview": "Preview",
+  "adminTrPreviewN": "Diamonds",
+  "adminTrPreviewTitle": "Treasure chest — preview",
+  "adminTrPreviewNote": "Press Right answer to see what a child sees after each correct answer. Press Start again to begin again. Save first to see changed pictures or discount.",
+  "picturesChestDemo": "Treasure chest — preview",
+  "picturesDemoRight": "Right answer",
+  "picturesDemoReset": "Start again",
+  "adminViewAsChild": "🧒 A child (Noor, preview family)"
 }

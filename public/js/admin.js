@@ -4338,6 +4338,10 @@
     document.getElementById('tr-percent').value = trData.percent;
     document.getElementById('tr-days').value = trData.days;
     document.getElementById('tr-given').textContent = t('adminTrGiven', { n: trData.codesGiven });
+    // v95: preview with as many diamonds as the first ticked chapter has quizzes (or 4)
+    const first = trData.chapters.find(c => trData.quizzes[c]);
+    const want = (first && trData.quizzes[first]) || 4;
+    document.getElementById('tr-prev-n').innerHTML = Array.from({ length: 8 }, (_, i) => `<option value="${i + 1}"${i + 1 === want ? ' selected' : ''}>${i + 1}</option>`).join('');
     trPics();
   }
   function trPics() {
@@ -4367,6 +4371,15 @@
     });
   }
   function setupTreasure() {
+    const modal = document.getElementById('tr-prev-modal'), frame = document.getElementById('tr-prev-frame');
+    document.getElementById('tr-preview').addEventListener('click', () => {
+      frame.src = `/pictures.html?chestdemo=${document.getElementById('tr-prev-n').value}&t=${Date.now()}`;
+      modal.hidden = false;
+    });
+    const close = () => { modal.hidden = true; frame.src = 'about:blank'; };
+    // the window's own ✕ and Close (added to every admin window) hide it: empty the frame then too
+    new MutationObserver(() => { if (modal.hidden) frame.src = 'about:blank'; }).observe(modal, { attributes: true, attributeFilter: ['hidden'] });
+    modal.addEventListener('click', (e) => { if (e.target === modal) close(); });
     document.getElementById('tr-save').addEventListener('click', async () => {
       const chapters = [...document.querySelectorAll('#tr-chapters input:checked')].map(i => Number(i.value));
       await api('/api/admin/treasure', { method: 'PUT', body: JSON.stringify({ chapters, percent: Number(document.getElementById('tr-percent').value), days: Number(document.getElementById('tr-days').value) }) });
