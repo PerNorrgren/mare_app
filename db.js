@@ -1089,6 +1089,9 @@ Volgende maand verschijnt er een nieuw raadsel uit het Fluisterbos. 🌲🔎', ?
   // v76 — look of a spot: its colour; for a mask also blur/colour, shape,
   // height and whether a tap takes it away. { colour, mode, shape, h, reveal }
   try { db.run(`ALTER TABLE picture_spots ADD COLUMN look_json TEXT`); } catch {}
+  // v96 — what the child is asked to do when the video stops for this spot
+  try { db.run(`ALTER TABLE picture_spots ADD COLUMN hint_en TEXT`); } catch {}
+  try { db.run(`ALTER TABLE picture_spots ADD COLUMN hint_nl TEXT`); } catch {}
 
   // ── Mare App 6 (v78) — usage analytics (see analytics.js) ──
   db.run(`CREATE TABLE IF NOT EXISTS a_visits (
@@ -2049,7 +2052,7 @@ function updatePictureScene(id, f) {
 function deletePictureScene(id) { run(`DELETE FROM picture_spots WHERE scene_id = ?`, [id]); run(`DELETE FROM picture_scenes WHERE id = ?`, [id]); }
 function pictureSpots(sceneId) { return all(`SELECT * FROM picture_spots WHERE scene_id = ? ORDER BY sort_order, rowid`, [sceneId]); }
 function pictureSpot(id) { return get(`SELECT * FROM picture_spots WHERE id = ?`, [id]); }
-const SPOT_FIELDS = ['x', 'y', 'r', 'type', 'title_en', 'title_nl', 'text_en', 'text_nl', 'image_key', 'audio_key_en', 'audio_key_nl', 'video_key', 'video_url', 't_start', 't_end', 'pause_on_show', 'quiz_json', 'look_json'];
+const SPOT_FIELDS = ['x', 'y', 'r', 'type', 'title_en', 'title_nl', 'text_en', 'text_nl', 'image_key', 'audio_key_en', 'audio_key_nl', 'video_key', 'video_url', 't_start', 't_end', 'pause_on_show', 'quiz_json', 'look_json', 'hint_en', 'hint_nl'];
 function savePictureSpot(id, sceneId, f) {
   const cur = id ? pictureSpot(id) : null;
   const val = (k) => (f[k] !== undefined ? f[k] : (cur ? cur[k] : null));

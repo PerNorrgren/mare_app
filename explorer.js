@@ -87,6 +87,8 @@ function register(app, { db, auth, media, email, publicUrl }) {
           tStart: p.t_start == null ? null : p.t_start,
           tEnd: p.t_end == null ? null : p.t_end,
           pause: !!p.pause_on_show,
+          // v96 — the instruction shown while the video waits for this spot
+          hint: p.pause_on_show ? ((nl && p.hint_nl) || p.hint_en || p.hint_nl || '') : '',
           quiz: p.type === 'quiz' ? await publicQuiz(p.quiz_json, nl) : null,
           look: await (async () => { const l = parseLook(p.look_json); return { ...l, icon: undefined, iconUrl: l.icon ? await url(l.icon) : null }; })(),
         });
@@ -259,7 +261,7 @@ function register(app, { db, auth, media, email, publicUrl }) {
     if (b.r !== undefined) f.r = clamp(b.r, 0.02, 0.5); // v76: masks can be wide
     if (b.look !== undefined) { const l = parseLook(JSON.stringify(b.look || {})); f.look_json = JSON.stringify(l); }
     if (b.type !== undefined) f.type = TYPES.includes(b.type) ? b.type : 'popup';
-    for (const [k, max] of [['title_en', 120], ['title_nl', 120], ['text_en', 1500], ['text_nl', 1500], ['video_url', 300]]) {
+    for (const [k, max] of [['title_en', 120], ['title_nl', 120], ['text_en', 1500], ['text_nl', 1500], ['video_url', 300], ['hint_en', 200], ['hint_nl', 200]]) {
       if (b[k] !== undefined) f[k] = String(b[k] || '').slice(0, max);
     }
     // v74 — timing on a video (seconds; empty = from the start / to the end)

@@ -500,7 +500,7 @@
             <button type="button" class="flow-spot" data-scene="${s.id}" data-spot="${sp.id}" data-no-busy>
               <span class="flow-ico">${FLOW_ICON[sp.type] || '•'}</span>
               <span class="flow-name">${escapeHtml(sp.title_en || t('adminSpotType_' + sp.type))}</span>
-              ${isVid ? `<span class="flow-time">${flowT(sp.t_start)}${sp.pause_on_show ? ` · <b class="flow-stops">${escapeHtml(t('adminFlowStops'))}</b>` : ''}</span>` : ''}
+              ${isVid ? `<span class="flow-time">${flowT(sp.t_start)}${sp.pause_on_show ? ` · <b class="flow-stops">${escapeHtml(t('adminFlowStops'))}</b>${(sp.hint_nl || sp.hint_en) ? ` <span class="flow-hasHint" title="${escapeHtml(sp.hint_nl || sp.hint_en)}">💬</span>` : ''}` : ''}</span>` : ''}
             </button>`).join('') : `<span class="admin-empty-note">${escapeHtml(t('adminFlowNoSpots'))}</span>`}</div>
         </div>`;
     });
@@ -559,6 +559,8 @@
     const [img, audio, video] = await Promise.all([mediaUrl(sp.image_key), mediaUrl(sp.audio_key_en || sp.audio_key_nl), mediaUrl(sp.video_key)]);
     const tag = `<div class="flow-tag">${FLOW_ICON[sp.type] || ''} ${escapeHtml(t('adminSpotType_' + sp.type))}${s.videoUrl ? ` · ${flowT(sp.t_start)}–${sp.t_end == null ? escapeHtml(t('adminVidEnd')) : flowT(sp.t_end)}` : ''}</div>`;
     let html = tag + (sp.title_en ? `<h3>${escapeHtml(sp.title_en)}</h3>` : '');
+    // v96 — what the child reads while the video waits for this spot
+    if (s.videoUrl && Number(sp.pause_on_show) && (sp.hint_nl || sp.hint_en)) html = tag + `<p class="flow-hint">💬 ${escapeHtml(sp.hint_nl || sp.hint_en)}</p>` + (sp.title_en ? `<h3>${escapeHtml(sp.title_en)}</h3>` : '');
     if (sp.type === 'video') {
       if (video) html += `<video src="${escapeHtml(video)}" controls autoplay playsinline></video>`;
       else if (sp.video_url) html += `<p><a href="${escapeHtml(sp.video_url)}" target="_blank" rel="noopener">${escapeHtml(sp.video_url)}</a></p>`;
@@ -801,7 +803,12 @@
           <div class="field"><label>${escapeHtml(t('adminVidFrom'))}</label><div class="vid-tin"><input type="number" class="sp-t-start" min="0" step="0.1" value="${sp.t_start == null ? '' : sp.t_start}"><button type="button" class="btn-ghost btn-small sp-now-start" data-no-busy>${escapeHtml(t('adminVidNow'))}</button></div></div>
           <div class="field"><label>${escapeHtml(t('adminVidTo'))}</label><div class="vid-tin"><input type="number" class="sp-t-end" min="0" step="0.1" value="${sp.t_end == null ? '' : sp.t_end}" placeholder="${escapeHtml(t('adminVidEnd'))}"><button type="button" class="btn-ghost btn-small sp-now-end" data-no-busy>${escapeHtml(t('adminVidNow'))}</button></div></div>
         </div>
-        ${type === 'mask' ? '' : `<label class="vid-pause"><input type="checkbox" class="sp-pause"${sp.pause_on_show ? ' checked' : ''}> ${escapeHtml(t('adminVidPause'))}</label>`}` : ''}
+        ${type === 'mask' ? '' : `<label class="vid-pause"><input type="checkbox" class="sp-pause"${sp.pause_on_show ? ' checked' : ''}> ${escapeHtml(t('adminVidPause'))}</label>
+        <div class="sp-hint-box"${sp.pause_on_show ? '' : ' hidden'}>
+          <p class="admin-empty-note">${escapeHtml(t('adminSpotHintNote'))}</p>
+          <div class="admin-form-row"><div class="field"><label>${escapeHtml(t('adminSpotHint'))} EN</label><input type="text" class="sp-hint-en" maxlength="200" value="${escapeHtml(sp.hint_en || '')}" placeholder="${escapeHtml(t('adminSpotHintPhEn'))}"></div>
+            <div class="field"><label>${escapeHtml(t('adminSpotHint'))} NL</label><input type="text" class="sp-hint-nl" maxlength="200" value="${escapeHtml(sp.hint_nl || '')}" placeholder="${escapeHtml(t('adminSpotHintPhNl'))}"></div></div>
+        </div>`}` : ''}
         <div class="field"><label>${escapeHtml(t(type === 'mask' ? 'adminMaskWidth' : 'adminSpotSize'))}</label><input type="range" class="sp-r" min="0.03" max="${type === 'mask' ? '0.5' : '0.2'}" step="0.005" value="${sp.r}"></div>
         ${type === 'mask' && lookOf(sp).shape === 'rect' ? `<div class="field"><label>${escapeHtml(t('adminMaskHeight'))}</label><input type="range" class="sp-mask-h" min="0.03" max="1" step="0.005" value="${lookOf(sp).h || Math.min(1, sp.r * 2)}"></div>` : ''}
         ${type === 'mask' ? '' : `<button type="button" class="btn-ghost btn-small sp-try" data-no-busy>▶ ${escapeHtml(t('adminSpotTry'))}</button>`}
@@ -838,7 +845,8 @@
         if (q('.sp-t-start')) { // v74
           const num = (v) => (String(v).trim() === '' ? null : Math.max(0, Number(v) || 0));
           b.t_start = num(q('.sp-t-start').value); b.t_end = num(q('.sp-t-end').value);
-          b.pause_on_show = q('.sp-pause').checked;
+          if (q('.sp-pause')) b.pause_on_show = q('.sp-pause').checked;
+          if (q('.sp-hint-en')) { b.hint_en = q('.sp-hint-en').value.trim(); b.hint_nl = q('.sp-hint-nl').value.trim(); } // v96
         }
         if (q('.qz-a-en')) {
           const rowsEl = [...form.querySelectorAll('.quiz-row')];
@@ -878,6 +886,11 @@
         });
         const rm = row.querySelector('.qz-pic-rm');
         if (rm) rm.addEventListener('click', async (e) => { e.preventDefault(); row.dataset.imageKey = ''; await saveQuizNow(); });
+      });
+      // v96 — the instruction only matters when the video stops for this spot
+      if (q('.sp-pause') && q('.sp-hint-box')) q('.sp-pause').addEventListener('change', () => {
+        q('.sp-hint-box').hidden = !q('.sp-pause').checked;
+        if (q('.sp-pause').checked && !q('.sp-hint-en').value && !q('.sp-hint-nl').value) q('.sp-hint-nl').focus();
       });
       if (q('.sp-now-start')) {
         q('.sp-now-start').addEventListener('click', () => { q('.sp-t-start').value = (Math.round((video.currentTime || 0) * 10) / 10); });

@@ -60,6 +60,38 @@
     finally { retrying = false; }
   }
 
+  // ── v96 — when the video stops for a spot, a speech bubble next to it
+  // says what to do ("Tap the chest to answer the question"). It goes away
+  // when the spot is tapped (tapping the bubble opens the spot too), when
+  // the video plays again, or when the spot leaves the screen.
+  let askFor = null;
+  function hideAsk() { const a = $('px-ask'); if (a) a.hidden = true; askFor = null; }
+  function placeAsk() {
+    const a = $('px-ask'), f = $('px-frame');
+    if (!askFor || !a || a.hidden) return;
+    const W = f.clientWidth, H = f.clientHeight, sp = askFor.sp, el = askFor.el;
+    a.style.maxWidth = Math.max(160, Math.min(W - 16, 440)) + 'px';
+    a.style.left = '0px'; a.style.top = '0px';
+    const bw = a.offsetWidth, bh = a.offsetHeight;
+    const cx = sp.x * W, cy = sp.y * H, half = (el.offsetHeight || 48) / 2;
+    const left = Math.max(8, Math.min(W - bw - 8, cx - bw / 2));
+    const above = cy - half - bh - 16 >= 8;
+    let top = above ? cy - half - bh - 16 : cy + half + 16;
+    if (!above && top + bh > H - 8) top = Math.max(8, H - bh - 8);
+    a.style.left = Math.round(left) + 'px'; a.style.top = Math.round(top) + 'px';
+    a.classList.toggle('below', !above);
+    a.style.setProperty('--tail', Math.round(Math.max(18, Math.min(bw - 18, cx - left))) + 'px');
+  }
+  function showAsk(sp, el) {
+    const a = $('px-ask');
+    if (!a || !sp.hint) return;
+    askFor = { sp, el };
+    a.innerHTML = `<span>${esc(sp.hint)}</span>`;
+    a.setAttribute('aria-label', sp.hint);
+    a.hidden = false;
+    placeAsk();
+  }
+
   function stopSound() { if (audio) { audio.pause(); audio = null; } document.querySelectorAll('.px-spot.playing').forEach(s => s.classList.remove('playing')); }
 
   function closePop() {
@@ -69,6 +101,7 @@
   }
 
   function openSpot(spot, el) {
+    hideAsk(); // v96
     track('spot_open', `${data.chapter}:${spot.type}`);
     found.add(spot.id);
     el.classList.add('found');
@@ -341,9 +374,11 @@
           pausedFor.add(sp.id);
           v.pause(); v.dataset.stoppedBySpot = '1';
           el.classList.add('beckon');
+          showAsk(sp, el); // v96
         }
       } else if (!on && el.classList.contains('shown')) {
         el.classList.remove('shown', 'beckon');
+        if (askFor && askFor.sp.id === sp.id) hideAsk(); // v96
       }
       if (now < from - 0.3) pausedFor.delete(sp.id); // rewound: it may stop again
     });
@@ -356,7 +391,7 @@
     v.addEventListener('waiting', () => { if (!v.paused) loading(true); });
     ['playing', 'canplay', 'pause', 'seeked'].forEach(ev => v.addEventListener(ev, () => { if (ev !== 'canplay' || v.paused) loading(false); if (ev === 'playing') retries = 0; }));
     v.addEventListener('error', () => { if (isVideo && v.getAttribute('src')) retryScene(); });
-    v.addEventListener('play', () => { if (v.currentTime < 0.5) track('video_start', `${data.chapter}:${idx + 1}`); delete v.dataset.stoppedBySpot; $('px-bigplay').hidden = true; fmtBtn(); cancelAnimationFrame(raf); loop(); });
+    v.addEventListener('play', () => { hideAsk(); if (v.currentTime < 0.5) track('video_start', `${data.chapter}:${idx + 1}`); delete v.dataset.stoppedBySpot; $('px-bigplay').hidden = true; fmtBtn(); cancelAnimationFrame(raf); loop(); });
     v.addEventListener('pause', () => { fmtBtn(); tick(); });
     v.addEventListener('seeked', tick);
     v.addEventListener('ended', () => { track('video_end', `${data.chapter}:${idx + 1}`); fmtBtn(); $('px-bigplay').textContent = '↻'; $('px-bigplay').setAttribute('aria-label', t('picturesWatchAgain')); $('px-bigplay').hidden = false; });
@@ -407,6 +442,7 @@
 
   function showScene(i, isRetry) {
     closePop();
+    hideAsk(); // v96
     if (!isRetry) retries = 0;
     loading(false);
     idx = Math.max(0, Math.min(i, data.scenes.length - 1));
@@ -588,7 +624,8 @@
       const dx = e.changedTouches[0].clientX - sx; sx = null;
       if (Math.abs(dx) > 60) showScene(idx + (dx < 0 ? 1 : -1));
     });
-    window.addEventListener('resize', layout);
+    window.addEventListener('resize', () => { layout(); placeAsk(); }); // v96: the bubble follows
+    $('px-ask').addEventListener('click', (e) => { e.stopPropagation(); if (askFor) openSpot(askFor.sp, askFor.el); });
     document.addEventListener('contextmenu', (e) => e.preventDefault());
     setupExit();
     setupVideo();
