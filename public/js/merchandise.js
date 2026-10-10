@@ -519,7 +519,24 @@
     setupLoginPrompt();
     await loadShipping();
     await handleCheckoutReturn();
-    await Promise.all([loadBook(), loadProducts()]);
+    await Promise.all([loadBook(), loadProducts(), loadTreasureCode()]);
+  }
+
+  // ── v97 — a code from the treasure chest in the Book Companion pictures
+  // goes into the basket by itself (the best one if there are several).
+  // The parent can still clear it or type another code. ──
+  async function loadTreasureCode() {
+    let codes = [];
+    try { codes = (await (await fetch('/api/shop/treasure-codes', { cache: 'no-store' })).json()).codes || []; } catch { return; }
+    if (!codes.length) return;
+    const field = document.getElementById('cart-offer-code'), note = document.getElementById('cart-treasure');
+    if (!field || !note) return;
+    const best = codes[0];
+    if (!field.value.trim()) field.value = best.code;
+    note.textContent = '💎 ' + t('shopTreasureReady', 'Your treasure chest code {code} is filled in: {percent}% off this order.', { code: best.code, percent: best.percent })
+      + (codes.length > 1 ? ' ' + t('shopTreasureMore', 'You have {n} codes; one is used per order.', { n: codes.length }) : '');
+    note.hidden = false;
+    field.addEventListener('input', () => { note.hidden = field.value.trim().toUpperCase() !== best.code; });
   }
 
   init();

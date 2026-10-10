@@ -1766,7 +1766,7 @@
   "picturesTreasureOpenAgain": "The treasure chest: tap to see your code again",
   "picturesTreasureTitle": "You found all the diamonds!",
   "picturesTreasureBody": "The treasure chest is open. Inside is a secret code:",
-  "picturesTreasureShow": "Show this code to your mum or dad. With it you get {percent}% off in Mare's shop.",
+  "picturesTreasureShow": "Your mum or dad will find this code in Mare's shop basket: {percent}% off.",
   "picturesTreasurePreview": "Preview: this is an example code. Families get their own code.",
   "companionTreasureTitle": "Found in the treasure chest",
   "companionTreasureRow": "Chapter {n}: {percent}% off in the shop, until {date}:",
@@ -1829,5 +1829,11 @@
   "picturesChestDemo": "Treasure chest — preview",
   "picturesDemoRight": "Right answer",
   "picturesDemoReset": "Start again",
-  "adminViewAsChild": "🧒 A child (Noor, preview family)"
+  "adminViewAsChild": "🧒 A child (Noor, preview family)",
+  "picturesTapToGoOn": "Tap anywhere to carry on",
+  "picturesDiamondN": "Diamond {n} of {total}!",
+  "picturesTreasureLater": "Well done! Your code will appear next time.",
+  "adminSpotInvisible": "Invisible spot: nothing shows, but tapping there still works (use the instruction to point to it)",
+  "shopTreasureReady": "Your treasure chest code {code} is filled in: {percent}% off this order.",
+  "shopTreasureMore": "You have {n} codes; one is used per order."
 }

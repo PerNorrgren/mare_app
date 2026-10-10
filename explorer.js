@@ -66,6 +66,8 @@ function register(app, { db, auth, media, email, publicUrl }) {
       icon: typeof o.icon === 'string' && (KEY_OK.test(o.icon) || BUILTIN_ICON.test(o.icon)) ? o.icon : null,
       opacity: o.opacity == null ? 1 : clamp(o.opacity, 0.1, 1),
       glow: o.glow !== false,
+      // v97 — invisible: nothing shows, but tapping the place still works (the instruction points to it)
+      hidden: !!o.hidden,
     };
   }
 
@@ -151,6 +153,17 @@ function register(app, { db, auth, media, email, publicUrl }) {
       got = treasureCodeFor(req.user.id, chapterNo);
     }
     res.json({ ok: true, code: got.code, expires: got.expires, percent: cfg.percent });
+  });
+  // v97 — the family's treasure chest codes that can still be used, so the
+  // shop puts one in the basket by itself (best discount first). Signed-out
+  // visitors and staff simply get an empty list.
+  app.get('/api/shop/treasure-codes', (req, res) => {
+    const payload = auth.verifyToken(req.cookies && req.cookies[auth.COOKIE_NAME]);
+    if (!payload || payload.role !== 'parent') return res.json({ codes: [] });
+    const rows = db.all(`SELECT t.code, t.chapter_no, o.discount_value, o.expires_at FROM treasure_codes t JOIN offers o ON o.code = t.code
+      WHERE t.parent_id = ? AND o.active = 1 AND (o.expires_at IS NULL OR o.expires_at >= date('now'))
+      ORDER BY o.discount_value DESC, o.expires_at ASC`, [payload.id]);
+    res.json({ codes: rows.map(r => ({ code: r.code, chapter: r.chapter_no, percent: r.discount_value, expires: r.expires_at || null })) });
   });
   // staff: the settings, and how many quizzes each chapter has
   app.get('/api/admin/treasure', staff, async (req, res) => {

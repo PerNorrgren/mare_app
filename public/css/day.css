@@ -2272,3 +2272,10 @@ body.soc-full-open { overflow: hidden; }
 .sp-hint-box .admin-empty-note { margin: 0 0 6px; }
 .flow-hint { margin: 0; padding: 8px 12px; background: rgba(11,23,18,0.82); color: #FFF6DC; border-radius: 14px; font-weight: 600; align-self: flex-start; }
 .flow-hasHint { cursor: help; }
+/* v97 — an invisible spot: faint and dashed in admin, nothing for the child */
+.pic-spot.pic-invisible { border: 2px dashed rgba(255,255,255,0.85) !important; background: rgba(255,255,255,0.08) !important; box-shadow: none !important; }
+.pic-spot.pic-invisible img { opacity: 0.3 !important; }
+.pic-spot.pic-invisible.sel { box-shadow: 0 0 0 3px #16305C !important; }
+/* v97 — the treasure chest code in the shop basket */
+.shop-treasure-note { margin: 6px 0 0; font-size: 0.9rem; font-weight: 600; color: #6B5320; background: rgba(226,190,110,0.18); border-radius: 10px; padding: 6px 10px; }
+.shop-treasure-note[hidden] { display: none; }

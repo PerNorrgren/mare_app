@@ -183,6 +183,7 @@
     if (img.getAttribute('src') !== src) img.src = src;
     if (openImg.getAttribute('src') !== tr.open) openImg.src = tr.open;
     el.classList.toggle('full', full);
+    el.hidden = !full || !!$('px-moment'); // v97: the chest comes to the middle after each right answer; the corner one is for seeing the code again
     el.classList.toggle('dim', !full && !tr.closed); // no closed picture: the open chest, dark until it fills
     el.style.setProperty('--fill', String(tr.total ? n / tr.total : 0));
     el.setAttribute('aria-label', full ? t('picturesTreasureOpenAgain') : t('picturesTreasureHint', { n, total: tr.total }));
@@ -200,63 +201,115 @@
       });
     } catch { /* no sound is fine */ }
   }
-  // v94 — a right answer: the lid opens, a diamond flies in, a sparkle, the lid closes.
-  // The last one: it closes, then the chest grows to the middle, opens, and the code appears.
   const wait = (ms) => new Promise(r => setTimeout(r, ms));
-  function chestOpen(el, on) {
-    el.classList.toggle('open', on);
-    if (on) { el.classList.remove('lid'); void el.offsetWidth; el.classList.add('lid'); }
-  }
-  async function chestAnswer(spotId, fromEl) {
-    const tr = data && data.treasure;
-    if (!tr || tr.done || chestRight.has(spotId)) return;
-    chestRight.add(spotId); chestSave();
-    const el = $('px-chest'); if (!el) return;
-    const last = chestRight.size >= tr.total;
-    const a = fromEl.getBoundingClientRect();
-    await wait(350);
-    chestOpen(el, true); chime([660]);
-    await wait(420);
-    const b = el.querySelector('.px-chest-pics').getBoundingClientRect();
-    const gem = document.createElement('div');
-    gem.className = 'px-flygem'; gem.innerHTML = gemSvg(chestRight.size - 1);
-    gem.style.left = (a.left + a.width / 2) + 'px'; gem.style.top = (a.top + a.height / 2) + 'px';
-    document.body.appendChild(gem);
-    requestAnimationFrame(() => requestAnimationFrame(() => {
-      gem.style.transform = `translate(${b.left + b.width / 2 - (a.left + a.width / 2)}px, ${b.top + b.height * 0.42 - (a.top + a.height / 2)}px) scale(0.5) rotate(360deg)`;
-    }));
-    await wait(880);
-    gem.remove(); renderChest(); chime([988, 1319]);
-    el.classList.remove('burst'); void el.offsetWidth; el.classList.add('burst');
-    await wait(750);
-    chestOpen(el, false); chime([392]);
-    el.classList.remove('bump'); void el.offsetWidth; el.classList.add('bump');
-    if (last) { await wait(900); finishChest(); }
-  }
+  // v97 — the treasure code from the server (an example code in previews)
   let finishing = false;
-  async function finishChest() {
+  async function fetchTreasure() {
     const tr = data && data.treasure;
-    if (!tr || tr.done || finishing) return;
-    if (data.demo) { // v95: the admin preview — no server, an example code
-      tr.done = { code: 'VOORBEELD', percent: tr.percent, preview: true };
-      renderChest(); showTreasure(tr.done); return;
-    }
+    if (!tr) return null;
+    if (tr.done) return tr.done;
+    if (data.demo) { tr.done = { code: 'VOORBEELD', percent: tr.percent, preview: true }; return tr.done; } // v95: admin preview
+    if (finishing) return null;
     finishing = true;
     try {
       const r = await fetch('/api/pictures/treasure', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ chapter: data.chapter, spots: [...chestRight] }) });
       const out = await r.json().catch(() => ({}));
       if (!r.ok) {
         // the questions changed since: keep only diamonds for questions that still exist
-        const live = new Set(data.scenes.flatMap(s => s.spots).filter(sp => sp.type === 'quiz').map(sp => sp.id));
-        chestRight = new Set([...chestRight].filter(id => live.has(id))); chestSave(); renderChest();
-        return;
+        const live = new Set(data.scenes.flatMap(sc => sc.spots).filter(sp => sp.type === 'quiz').map(sp => sp.id));
+        chestRight = new Set([...chestRight].filter(id => live.has(id))); chestSave();
+        return null;
       }
       tr.done = { code: out.code, expires: out.expires || null, percent: out.percent, preview: !!out.preview };
-      renderChest();
-      showTreasure(tr.done);
       track('treasure_open', `${data.chapter}:chest`);
-    } catch { /* offline: tries again next time the pictures open */ }
+      return tr.done;
+    } catch { return null; } // offline: tries again next time the pictures open
     finally { finishing = false; }
+  }
+  // all answered before but the chest never opened (e.g. the connection dropped)
+  async function finishChest() {
+    const done = await fetchTreasure();
+    renderChest();
+    if (done) showTreasure(done);
+  }
+  // Does a right answer to this question add a diamond?
+  function chestWants(spotId) {
+    const tr = data && data.treasure;
+    return !!(tr && !tr.done && !chestRight.has(spotId));
+  }
+
+  // ── v97 — the treasure chest moment. After a right answer the question
+  // makes way for the chest in the middle of the screen: the lid opens, a
+  // diamond drops in, the row of diamonds lights up one more, the lid
+  // closes. A tap anywhere and the video carries on. With the last
+  // diamond the lid opens once more and shows the code, which is also
+  // waiting in the grown-up's shop basket. ──
+  const gemRow = (k, total) => Array.from({ length: total }, (_, i) => `<i class="${i < k ? 'on' : ''}${i === k - 1 ? ' new' : ''}">${gemSvg(i)}</i>`).join('');
+  function closeMoment(silent) {
+    const box = $('px-moment');
+    if (box) { box.remove(); renderChest(); }
+    if (!silent && isVideo && resumeAfter) { resumeAfter = false; playVideo(); }
+  }
+  function readyToGoOn(box) {
+    box.classList.add('ready');
+    box.querySelector('.pm-tap').hidden = box.classList.contains('opened'); // with the code there is a button
+    box.addEventListener('click', () => closeMoment());
+  }
+  async function chestMoment(spotId) {
+    const tr = data && data.treasure;
+    if (!chestWants(spotId)) return false;
+    chestRight.add(spotId); chestSave();
+    const total = tr.total, n = Math.min(chestRight.size, total), last = chestRight.size >= total;
+    closeMoment(true);
+    const box = document.createElement('div');
+    box.id = 'px-moment'; box.className = 'px-moment';
+    box.innerHTML = `<div class="pm-stage" role="dialog" aria-modal="true" aria-live="polite">
+      <div class="pm-chest${tr.closed ? '' : ' nodark'}">
+        <img class="pm-closed" src="${esc(tr.closed || tr.open)}" alt="" draggable="false">
+        <img class="pm-open" src="${esc(tr.open)}" alt="" draggable="false">
+        <span class="px-chest-burst">${'<i></i>'.repeat(8)}</span>
+        <span class="px-sparkles">${'<i></i>'.repeat(14)}</span>
+        <span class="pm-gem">${gemSvg(n - 1)}</span>
+      </div>
+      <div class="px-chest-gems pm-gems">${gemRow(n - 1, total).replace(' new', '')}</div>
+      <p class="pm-say"></p>
+      <div class="pm-code" hidden></div>
+      <p class="pm-tap" hidden>${esc(t('picturesTapToGoOn'))}</p></div>`;
+    document.body.appendChild(box);
+    const say = box.querySelector('.pm-say');
+    await wait(550);
+    box.classList.add('open', 'lid'); chime([660]);
+    await wait(420);
+    box.classList.add('drop');
+    await wait(820);
+    box.querySelector('.pm-gems').innerHTML = gemRow(n, total);
+    box.classList.add('burst'); chime([988, 1319]);
+    say.textContent = t('picturesDiamondN', { n, total });
+    await wait(800);
+    box.classList.remove('open', 'lid', 'drop'); chime([392]);
+    box.classList.remove('bump'); void box.offsetWidth; box.classList.add('bump');
+    if (!last) { await wait(450); readyToGoOn(box); return true; }
+    // the last diamond: closed for a moment, then it opens with the code
+    await wait(900);
+    const done = await fetchTreasure();
+    renderChest();
+    if (!done) { say.textContent = t('picturesTreasureLater'); readyToGoOn(box); return true; }
+    say.textContent = '';
+    box.classList.add('final');
+    await wait(450);
+    box.classList.remove('lid'); void box.offsetWidth;
+    box.classList.add('open', 'lid', 'opened'); chime([784, 988, 1175, 1568]);
+    const code = box.querySelector('.pm-code');
+    code.innerHTML = `<h2>${esc(t('picturesTreasureTitle'))}</h2>
+      <p>${esc(t('picturesTreasureBody'))}</p>
+      <div class="px-treasure-code">${esc(done.code)}</div>
+      <p class="px-treasure-show">${esc(t('picturesTreasureShow', { percent: done.percent || tr.percent }))}</p>
+      ${done.preview ? `<p class="px-treasure-note">${esc(t('picturesTreasurePreview'))}</p>` : ''}
+      <button type="button" class="px-again px-carry pm-go">${esc(isVideo ? t('picturesCarryOn') : t('picturesDone'))}</button>`;
+    code.hidden = false;
+    await wait(1200);
+    readyToGoOn(box);
+    return true;
   }
   function showTreasure(done) {
     const tr = data.treasure;
@@ -300,8 +353,12 @@
         b.classList.add('right');
         msg.textContent = q.right || t('picturesQuizRight');
         msg.className = 'px-quiz-msg right';
-        $('px-carry').hidden = false;
-        chestAnswer(spot.id, b); // v89
+        if (chestWants(spot.id)) { // v97: the question makes way for the treasure chest
+          setTimeout(() => {
+            $('px-pop').hidden = true; $('px-pop-body').innerHTML = ''; stopSound(); // the video stays stopped until the chest is done
+            chestMoment(spot.id);
+          }, 1100);
+        } else $('px-carry').hidden = false;
       } else {
         b.classList.add('wrong'); b.disabled = true;
         msg.textContent = q.wrong || t('picturesQuizWrong');
@@ -443,6 +500,7 @@
   function showScene(i, isRetry) {
     closePop();
     hideAsk(); // v96
+    closeMoment(true); // v97
     if (!isRetry) retries = 0;
     loading(false);
     idx = Math.max(0, Math.min(i, data.scenes.length - 1));
@@ -501,6 +559,7 @@
         im.style.opacity = look.opacity == null ? 1 : look.opacity;
         b.appendChild(im);
       }
+      if (look.hidden) b.classList.add('px-invisible'); // v97: nothing to see; the instruction points to it
       b.style.animationDelay = (n * 0.37) + 's';
       b.setAttribute('aria-label', sp.title || t('picturesSecret'));
       b.addEventListener('click', (e) => { e.stopPropagation(); openSpot(sp, b); });
@@ -664,12 +723,13 @@
     $('px-demo-right').onclick = async () => {
       if (busy || data.treasure.done) return;
       busy = true; $('px-demo-right').disabled = true;
-      await chestAnswer(`demo-${++k}`, $('px-demo-right'));
+      await chestMoment(`demo-${++k}`);
       busy = false; $('px-demo-right').disabled = !!data.treasure.done;
     };
     $('px-demo-reset').onclick = () => {
       chestRight = new Set(); data.treasure.done = null; k = 0; chestSave();
       const box = $('px-treasure'); if (box) box.remove();
+      closeMoment(true);
       $('px-demo-right').disabled = false; renderChest();
     };
   }

@@ -432,7 +432,7 @@
   function lookOf(sp) {
     let o = {}; try { o = JSON.parse(sp.look_json || '{}') || {}; } catch { o = {}; }
     return { colour: o.colour || '', mode: o.mode === 'colour' ? 'colour' : 'blur', shape: o.shape === 'circle' ? 'circle' : 'rect', h: o.h == null ? null : Number(o.h), reveal: !!o.reveal,
-      icon: o.icon || null, opacity: o.opacity == null ? 1 : Number(o.opacity), glow: o.glow !== false }; // v88: a picture as the spot
+      icon: o.icon || null, opacity: o.opacity == null ? 1 : Number(o.opacity), glow: o.glow !== false, hidden: !!o.hidden }; // v88: a picture as the spot; v97: invisible
   }
   // v88 — playback addresses of spot pictures (asked once each)
   const spotIconUrls = new Map();
@@ -711,6 +711,7 @@
           spotIconUrl(lk.icon).then(u => { if (u) im.src = u; });
           d.appendChild(im);
         }
+        if (sp.type !== 'mask' && lk.hidden) d.classList.add('pic-invisible'); // v97: shown faint here; the child sees nothing
         d.title = sp.title_en || sp.type;
         // drag to move; click to edit
         d.addEventListener('pointerdown', (e) => {
@@ -798,7 +799,8 @@
             <label class="look-opacity">${escapeHtml(t('adminSpotOpacity'))} <input type="range" class="sp-opacity" min="0" max="0.9" step="0.05" value="${(1 - lk.opacity).toFixed(2)}"> <span class="sp-opacity-val">${Math.round((1 - lk.opacity) * 100)}%</span></label>
             <label class="vid-pause"><input type="checkbox" class="sp-glow"${lk.glow ? ' checked' : ''}> ${escapeHtml(t('adminSpotGlow'))}</label>
           </div>` : `<p class="admin-empty-note">${escapeHtml(t('adminSpotPicHint'))}</p>`}
-        </div>`}`; })()}
+        </div>
+        <label class="vid-pause"><input type="checkbox" class="sp-hide"${lk.hidden ? ' checked' : ''}> ${escapeHtml(t('adminSpotInvisible'))}</label>`}`; })()}
         ${video ? `<div class="admin-form-row vid-times">
           <div class="field"><label>${escapeHtml(t('adminVidFrom'))}</label><div class="vid-tin"><input type="number" class="sp-t-start" min="0" step="0.1" value="${sp.t_start == null ? '' : sp.t_start}"><button type="button" class="btn-ghost btn-small sp-now-start" data-no-busy>${escapeHtml(t('adminVidNow'))}</button></div></div>
           <div class="field"><label>${escapeHtml(t('adminVidTo'))}</label><div class="vid-tin"><input type="number" class="sp-t-end" min="0" step="0.1" value="${sp.t_end == null ? '' : sp.t_end}" placeholder="${escapeHtml(t('adminVidEnd'))}"><button type="button" class="btn-ghost btn-small sp-now-end" data-no-busy>${escapeHtml(t('adminVidNow'))}</button></div></div>
@@ -837,7 +839,8 @@
           const lk = lookOf(sp);
           const look = { colour: q('.sp-colour').dataset.cleared ? null : q('.sp-colour').value, mode: lk.mode, shape: lk.shape, h: lk.h, reveal: lk.reveal,
             icon: q('.look-pic') ? (q('.look-pic').dataset.icon || null) : lk.icon,
-            opacity: q('.sp-opacity') ? 1 - Number(q('.sp-opacity').value) : lk.opacity, glow: q('.sp-glow') ? q('.sp-glow').checked : lk.glow };
+            opacity: q('.sp-opacity') ? 1 - Number(q('.sp-opacity').value) : lk.opacity, glow: q('.sp-glow') ? q('.sp-glow').checked : lk.glow,
+            hidden: q('.sp-hide') ? q('.sp-hide').checked : lk.hidden }; // v97
           if (q('.sp-mask-mode')) { look.mode = q('.sp-mask-mode').value; look.shape = q('.sp-mask-shape').value; look.reveal = q('.sp-mask-reveal').checked; look.h = q('.sp-mask-h') ? Number(q('.sp-mask-h').value) : lk.h; }
           if (!q('.sp-colour').dataset.touched && !lk.colour && sp.type !== 'mask') look.colour = null; // untouched: keep the standard gold
           b.look = look;
@@ -939,6 +942,7 @@
         if (q('.sp-opacity')) q('.sp-opacity').addEventListener('input', () => { q('.sp-opacity-val').textContent = Math.round(Number(q('.sp-opacity').value) * 100) + '%'; liveLook(); });
         if (q('.sp-glow')) q('.sp-glow').addEventListener('change', liveLook);
       }
+      if (q('.sp-hide')) q('.sp-hide').addEventListener('change', liveLook); // v97
       if (q('.sp-mask-shape')) q('.sp-mask-shape').addEventListener('change', () => { liveLook(); drawForm(sp); });
       if (q('.sp-try')) q('.sp-try').addEventListener('click', () => {
         // try it on top of this picture/video, with what is typed now

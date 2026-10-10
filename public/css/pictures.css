@@ -217,3 +217,51 @@ body.px-chest-demo #px-exit, body.px-chest-demo .px-exit { display: none; }
 .px-ask.below::after { bottom: auto; top: -10px; transform: rotate(225deg); }
 @keyframes px-ask-in { from { opacity: 0; transform: translateY(6px) scale(0.96); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) { .px-ask { animation: none; } }
+
+/* v97 — the treasure chest moment after a right answer: the chest in the
+   middle, the lid opens, a diamond drops in, the row lights up; a tap
+   anywhere carries on. The last diamond opens it with the code. */
+.px-chest[hidden] { display: none; }
+.px-spot.px-invisible, .px-spot.px-invisible.beckon, .px-spot.px-invisible.found, .px-spot.px-invisible.px-timed.shown { opacity: 0 !important; border-color: transparent !important; background: none !important; box-shadow: none !important; animation: none !important; }
+.px-moment { position: fixed; inset: 0; z-index: 14; display: flex; overflow-y: auto; padding: 18px; background: radial-gradient(circle at 50% 42%, rgba(80, 50, 10, 0.72), rgba(0, 0, 0, 0.82)); animation: px-fadein 0.35s ease-out both; -webkit-tap-highlight-color: transparent; }
+.px-moment.ready { cursor: pointer; }
+.pm-stage { margin: auto; display: flex; flex-direction: column; align-items: center; gap: 12px; width: min(460px, 100%); text-align: center; color: #FFF6DC; }
+.pm-chest { position: relative; width: min(250px, 52vw, 34vh); animation: px-chest-open 0.7s cubic-bezier(.2,1.5,.4,1) backwards; transition: width 0.45s cubic-bezier(.2,1.5,.4,1); }
+.pm-chest img { display: block; width: 100%; height: auto; pointer-events: none; transition: opacity 0.3s; }
+.pm-chest .pm-closed { filter: drop-shadow(0 8px 18px rgba(0,0,0,0.55)); }
+.pm-chest.nodark .pm-closed { filter: brightness(0.45) saturate(0.35) drop-shadow(0 8px 18px rgba(0,0,0,0.55)); }
+.pm-chest .pm-open { position: absolute; left: 0; top: 0; opacity: 0; transform-origin: 50% 85%; filter: drop-shadow(0 8px 18px rgba(0,0,0,0.5)) drop-shadow(0 0 26px rgba(255, 224, 140, 0.9)); }
+.px-moment.open .pm-open { opacity: 1; }
+.px-moment.open .pm-closed { opacity: 0; }
+.px-moment.lid .pm-open { animation: px-lid 0.5s cubic-bezier(.2,1.6,.4,1); }
+.px-moment.bump .pm-chest { animation: px-chest-bump 0.5s cubic-bezier(.2,1.6,.4,1); }
+.pm-gem { position: absolute; left: 50%; top: -60%; width: 54px; height: 54px; margin-left: -27px; opacity: 0; pointer-events: none; filter: drop-shadow(0 0 12px rgba(255,255,255,0.95)); }
+.pm-gem svg { width: 100%; height: 100%; display: block; }
+.px-moment.drop .pm-gem { animation: pm-drop 0.8s cubic-bezier(.5,0,.6,1) both; }
+@keyframes pm-drop { 0% { opacity: 0; transform: translateY(-30px) scale(1.2) rotate(-30deg); } 20% { opacity: 1; } 75% { opacity: 1; transform: translateY(120%) scale(0.9) rotate(200deg); } 100% { opacity: 0; transform: translateY(160%) scale(0.5) rotate(360deg); } }
+.px-moment .px-chest-burst { position: absolute; inset: 0; pointer-events: none; }
+.px-moment.burst .px-chest-burst i { animation: px-spark 0.9s ease-out; }
+.px-moment .px-sparkles { display: none; }
+.px-moment.opened .px-sparkles { display: block; }
+.px-moment.final .pm-chest { width: min(210px, 44vw, 26vh); }
+.px-moment.opened .pm-open { animation: px-lid 0.55s cubic-bezier(.2,1.6,.4,1), px-chest-glow 2.6s ease-in-out 0.6s infinite; }
+.pm-gems { background: rgba(0,0,0,0.5); padding: 6px 12px; gap: 6px; }
+.pm-gems i { width: 30px; height: 30px; }
+.pm-gems i.new { animation: pm-pop 0.6s cubic-bezier(.2,1.8,.4,1); }
+@keyframes pm-pop { 0% { transform: scale(0.3); } 60% { transform: scale(1.5); } 100% { transform: scale(1.12); } }
+.pm-say { margin: 0; min-height: 1.4em; font: 800 clamp(1.3rem, 4vw, 1.8rem) 'Quicksand', system-ui, sans-serif; text-shadow: 0 2px 10px rgba(0,0,0,0.6); }
+.pm-code { background: #FFFBF1; color: var(--navy); border: 2px solid var(--gold); border-radius: 24px; padding: 16px 20px 18px; width: 100%; box-shadow: 0 20px 60px rgba(0,0,0,0.6); animation: px-in 0.45s ease-out both; }
+.pm-code[hidden] { display: none; }
+.pm-code h2 { font-family: 'Fraunces', serif; font-size: 1.5rem; margin: 0 0 6px; }
+.pm-code p { margin: 0 0 8px; line-height: 1.45; font-weight: 600; }
+.pm-tap { margin: 0; font-weight: 700; color: rgba(255, 246, 220, 0.85); animation: px-fadein 0.4s ease-out both, pm-breathe 2.2s ease-in-out 0.4s infinite; }
+.pm-tap[hidden] { display: none; }
+@keyframes pm-breathe { 0%, 100% { opacity: 0.6; } 50% { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .pm-chest, .px-moment .pm-open, .pm-gems i.new, .pm-tap { animation: none !important; } .px-moment.drop .pm-gem { animation: none; } }
+@media (max-height: 520px) { .pm-chest { width: min(180px, 30vh); } .pm-stage { gap: 6px; } .pm-code { padding: 10px 14px; } .pm-code h2 { font-size: 1.2rem; } }
+@media (max-height: 520px) and (orientation: landscape) {
+  .px-moment.opened .pm-stage { display: grid; grid-template-columns: auto minmax(0, 1fr); width: min(760px, 100%); align-items: center; column-gap: 18px; row-gap: 6px; }
+  .px-moment.opened .pm-chest, .px-moment.opened .pm-gems { grid-column: 1; justify-self: center; }
+  .px-moment.opened .pm-code { grid-column: 2; grid-row: 1 / span 3; }
+  .px-moment.opened .pm-say, .px-moment.opened .pm-tap { display: none; }
+}

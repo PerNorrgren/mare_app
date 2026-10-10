@@ -1766,7 +1766,7 @@
   "picturesTreasureOpenAgain": "De schatkist: tik om je code nog eens te zien",
   "picturesTreasureTitle": "Je hebt alle diamanten gevonden!",
   "picturesTreasureBody": "De schatkist is open. Er zit een geheime code in:",
-  "picturesTreasureShow": "Laat deze code aan je papa of mama zien. Daarmee krijg je {percent}% korting in de winkel van Mare.",
+  "picturesTreasureShow": "Je papa of mama vindt deze code in de winkelmand van Mare: {percent}% korting.",
   "picturesTreasurePreview": "Voorbeeld: dit is een voorbeeldcode. Gezinnen krijgen hun eigen code.",
   "companionTreasureTitle": "Gevonden in de schatkist",
   "companionTreasureRow": "Hoofdstuk {n}: {percent}% korting in de winkel, tot {date}:",
@@ -1829,5 +1829,11 @@
   "picturesChestDemo": "Schatkist — voorbeeld",
   "picturesDemoRight": "Goed antwoord",
   "picturesDemoReset": "Opnieuw",
-  "adminViewAsChild": "🧒 Een kind (Noor, voorbeeldgezin)"
+  "adminViewAsChild": "🧒 Een kind (Noor, voorbeeldgezin)",
+  "picturesTapToGoOn": "Tik ergens om verder te gaan",
+  "picturesDiamondN": "Diamant {n} van {total}!",
+  "picturesTreasureLater": "Goed gedaan! Je code komt de volgende keer.",
+  "adminSpotInvisible": "Onzichtbaar lichtje: je ziet niets, maar tikken op die plek werkt wel (wijs het aan met de opdracht)",
+  "shopTreasureReady": "Je schatkistcode {code} is al ingevuld: {percent}% korting op deze bestelling.",
+  "shopTreasureMore": "Je hebt {n} codes; per bestelling wordt er één gebruikt."
 }
