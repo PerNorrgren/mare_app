@@ -1835,5 +1835,6 @@
   "picturesTreasureLater": "Well done! Your code will appear next time.",
   "adminSpotInvisible": "Invisible spot: nothing shows, but tapping there still works (use the instruction to point to it)",
   "shopTreasureReady": "Your treasure chest code {code} is filled in: {percent}% off this order.",
-  "shopTreasureMore": "You have {n} codes; one is used per order."
+  "shopTreasureMore": "You have {n} codes; one is used per order.",
+  "socTimesAdded": "Posting times added for {names}. You'll find them under Posting times, where you can change them."
 }

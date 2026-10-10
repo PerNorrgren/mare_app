@@ -88,6 +88,52 @@ const SEED_SLOTS = [
   ['bluesky', 6, '16:30', 'any', 'Achter het boek: het denken erachter, voorlezen en rust vóór leren'],
 ];
 
+// v98 — starter posting times for a platform that is connected but has no
+// posting times yet (added once per platform, never again if deleted).
+// Dutch time. Chosen for Mare's audience: Dutch parents of children of
+// 8–12 (evenings after bedtime, weekend mornings) and primary teachers
+// (before school, lunch break, after school; Wednesday afternoon is free).
+// X: weekday daytime does best and Saturday worst; Dutch teachers are
+// active on X, so it leans towards them. Platforms in the plan above use
+// their own lines from the plan.
+const STARTER_TIMES = {
+  x: [
+    [1, '07:45', 'teachers', 'Maandagochtend, vóór de les: één rustmoment om de week mee te beginnen'],
+    [3, '09:00', 'any', 'Woensdag: een korte, eerlijke gedachte over piekeren, rust en voorlezen'],
+    [4, '15:30', 'teachers', 'Na schooltijd: waarom rust in de klas vóór leren komt'],
+    [0, '20:00', 'parents', 'Zondagavond: één klein idee voor een rustige week thuis'],
+  ],
+  youtube: [
+    [3, '15:30', 'parents', 'Een korte video: een plaat uit het boek of de Book Companion, met één klein idee'],
+    [6, '09:30', 'parents', 'Weekend: samen kijken, samen lezen'],
+  ],
+  gmb: [
+    [2, '10:00', 'sales', 'Nieuws over het boek of de app, met een link'],
+  ],
+  mastodon: [
+    [2, '12:30', 'teachers', 'Voor in de klas: een rustmoment bij een hoofdstuk'],
+    [0, '20:00', 'any', 'Achter het boek: rust, voorlezen en piekeren, in gewone woorden'],
+  ],
+  reddit: [
+    [3, '20:30', 'parents', 'Een herkenbaar moment met een vraag aan andere ouders (geen reclame)'],
+  ],
+};
+const STARTER_GENERIC = [
+  [2, '20:30', 'parents', 'Rust voor het slapengaan: één klein oefeningetje uit het boek'],
+  [4, '12:30', 'teachers', 'Voor in de klas: een rustmoment bij een hoofdstuk'],
+  [0, '19:30', 'any', 'Een rustige start van de week: één oefening, in de klas of thuis'],
+];
+const TIKTOK_TIMES = [
+  [2, '20:30', 'parents', 'Een korte video: een bladzijde uit het boek of een plaat uit de Book Companion, met één klein idee voor vanavond'],
+  [0, '19:30', 'teachers', 'Voor juf en meester: een rustmoment voor de groep, klaar voor maandag'],
+];
+function starterTimes(platform) {
+  const plan = SEED_SLOTS.filter(r => r[0] === platform).map(r => r.slice(1));
+  if (plan.length) return plan;
+  if (platform === 'tiktok') return TIKTOK_TIMES;
+  return STARTER_TIMES[platform] || STARTER_GENERIC;
+}
+
 const DEFAULT_FACTS = `THE BOOK
 - Dutch title: "Mare en het fluisterbos van woorden". English title: "Mare and the Whispering Woods of Words".
 - Written by Patricia Vuijk with Per Norrgren.
@@ -319,16 +365,47 @@ function register(app, { db, auth, media, email, anthropic, model, publicUrl }) 
     if (o.tiktokSeeded) return;
     const list = [];
     if (!db.getRow(`SELECT 1 AS x FROM social_slots WHERE platform = 'tiktok' LIMIT 1`)) {
-      list.push([`INSERT INTO social_slots (id, platform, day, time, audience, theme, active) VALUES (?,?,?,?,?,?,1)`, [crypto.randomUUID(), 'tiktok', 2, '20:30', 'parents', 'Een korte video: een bladzijde uit het boek of een plaat uit de Book Companion, met één klein idee voor vanavond']]);
-      list.push([`INSERT INTO social_slots (id, platform, day, time, audience, theme, active) VALUES (?,?,?,?,?,?,1)`, [crypto.randomUUID(), 'tiktok', 0, '19:30', 'teachers', 'Voor juf en meester: een rustmoment voor de groep, klaar voor maandag']]);
+      for (const [day, time, audience, theme] of TIKTOK_TIMES) list.push([`INSERT INTO social_slots (id, platform, day, time, audience, theme, active) VALUES (?,?,?,?,?,?,1)`, [crypto.randomUUID(), 'tiktok', day, time, audience, theme]]);
     }
     list.push([`UPDATE app_config SET social_options_json = ? WHERE id = 'default'`, [JSON.stringify({ ...o, tiktokSeeded: new Date().toISOString() })]]);
     db.runBatch(list);
   }
+  // ── v98 — every connected or chosen platform gets posting times. A
+  // platform without any gets starter times (once; if they are deleted
+  // later they stay deleted), and the notification group is told which.
+  // Without posting times nothing is planned for a platform automatically.
+  const dayName = (d) => ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][d];
+  function ensureTimes(platforms) {
+    const o = options();
+    const done = { ...(o.timesAdded || {}) };
+    const have = new Set(db.allRows(`SELECT DISTINCT platform FROM social_slots`).map(r => r.platform));
+    const added = [];
+    const list = [];
+    for (const raw of new Set(platforms || [])) {
+      const p = normPlatform(raw);
+      if (!p || have.has(p) || done[p]) continue;
+      const times = starterTimes(p);
+      for (const [day, time, audience, theme] of times) list.push([`INSERT INTO social_slots (id, platform, day, time, audience, theme, active) VALUES (?,?,?,?,?,?,1)`, [crypto.randomUUID(), p, day, time, audience, theme]]);
+      done[p] = new Date().toISOString();
+      added.push({ platform: p, times });
+    }
+    if (!added.length) return [];
+    list.push([`UPDATE app_config SET social_options_json = ? WHERE id = 'default'`, [JSON.stringify({ ...options(), timesAdded: done })]]);
+    db.runBatch(list);
+    const lines = added.map(a => `<b>${esc(label(a.platform))}</b><br>` + a.times.map(([d, tm, aud, th]) => `${dayName(d)} ${tm} · ${esc(aud)} · ${esc(th)}`).join('<br>'));
+    mail(`Mare social media: posting times added for ${added.map(a => label(a.platform)).join(', ')}`,
+      [`${added.map(a => label(a.platform)).join(' and ')} had no posting times, so these starter times were added (Dutch time). Posts for ${added.length > 1 ? 'these platforms' : 'it'} are now planned only at these times.`,
+        ...lines,
+        'To change them: Sales &amp; Marketing → Social media → Posting times. Change, add or delete times, then press Save posting times.'])
+      .catch(e => console.error('posting times mail failed:', e.message));
+    return added.map(a => ({ platform: a.platform, label: label(a.platform), times: a.times.map(([day, time, audience]) => ({ day, time, audience })) }));
+  }
+
   // the database opens asynchronously at start-up: seed once it's ready
   db.getDb().then(() => {
     try { seedOnce(); } catch (e) { console.error('social seed failed:', e.message); }
     try { seedTiktokOnce(); } catch (e) { console.error('tiktok seed failed:', e.message); }
+    try { ensureTimes(Object.keys(chosen()).filter(p => chosen()[p])); } catch (e) { console.error('posting times check failed:', e.message); } // v98
   });
 
   // facts the writer may use, with the live Amazon links appended
@@ -586,6 +663,7 @@ function register(app, { db, auth, media, email, anthropic, model, publicUrl }) 
     let list = null, bpError = null;
     if (configured()) { try { list = await channels(true); } catch (e) { bpError = e.message; } }
     const choice = chosen();
+    if (list) { try { ensureTimes([...Object.keys(choice).filter(p => choice[p]), ...list.filter(c => !channelProblem(c)).map(c => c.platform)]); } catch (e) { console.error('posting times check failed:', e.message); } } // v98: a channel connected in BulkPublish gets posting times
     if (!configured()) items.push({ platform: 'bulkpublish', state: 'none', text: 'BulkPublish is not set up (no API key).' });
     else if (bpError) items.push({ platform: 'bulkpublish', state: 'down', text: `BulkPublish can't be reached: ${bpError}` });
     else {
@@ -764,7 +842,8 @@ function register(app, { db, auth, media, email, anthropic, model, publicUrl }) 
         out[p] = id;
       }
       setCfg('social_channels_json', JSON.stringify(out));
-      res.json({ ok: true, chosen: out });
+      const timesAdded = ensureTimes([...Object.keys(out), ...list.filter(c => !channelProblem(c)).map(c => c.platform)]); // v98
+      res.json({ ok: true, chosen: out, timesAdded });
     } catch (e) { fail(res, e); }
   });
   // Pinterest boards of the chosen Pinterest channel

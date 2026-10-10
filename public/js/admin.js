@@ -2338,7 +2338,8 @@
     document.getElementById('soc-save-channels').addEventListener('click', async () => {
       const body = {}; document.querySelectorAll('#soc-channels select').forEach(s => { body[s.dataset.p] = s.value || null; });
       try {
-        await api('/api/admin/social/channels', { method: 'PUT', body: JSON.stringify(body) });
+        const saved = await api('/api/admin/social/channels', { method: 'PUT', body: JSON.stringify(body) });
+        if (saved && saved.timesAdded && saved.timesAdded.length) socNote(t('socTimesAdded', { names: saved.timesAdded.map(x => x.label).join(', ') })); // v98
         if (!document.getElementById('soc-pin-row').hidden) await api('/api/admin/social/settings', { method: 'PUT', body: JSON.stringify({ pinterestBoard: document.getElementById('soc-pin-board').value }) });
       } catch (e) { const st = document.getElementById('soc-status'); st.textContent = e.message; st.hidden = false; throw e; }
       await loadSocial(true);

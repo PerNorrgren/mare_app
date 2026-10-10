@@ -1835,5 +1835,6 @@
   "picturesTreasureLater": "Goed gedaan! Je code komt de volgende keer.",
   "adminSpotInvisible": "Onzichtbaar lichtje: je ziet niets, maar tikken op die plek werkt wel (wijs het aan met de opdracht)",
   "shopTreasureReady": "Je schatkistcode {code} is al ingevuld: {percent}% korting op deze bestelling.",
-  "shopTreasureMore": "Je hebt {n} codes; per bestelling wordt er één gebruikt."
+  "shopTreasureMore": "Je hebt {n} codes; per bestelling wordt er één gebruikt.",
+  "socTimesAdded": "Plaatsingstijden toegevoegd voor {names}. Je vindt ze onder Plaatsingstijden; daar kun je ze aanpassen."
 }
