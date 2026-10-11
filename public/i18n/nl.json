@@ -1836,5 +1836,8 @@
   "adminSpotInvisible": "Onzichtbaar lichtje: je ziet niets, maar tikken op die plek werkt wel (wijs het aan met de opdracht)",
   "shopTreasureReady": "Je schatkistcode {code} is al ingevuld: {percent}% korting op deze bestelling.",
   "shopTreasureMore": "Je hebt {n} codes; per bestelling wordt er één gebruikt.",
-  "socTimesAdded": "Plaatsingstijden toegevoegd voor {names}. Je vindt ze onder Plaatsingstijden; daar kun je ze aanpassen."
+  "socTimesAdded": "Plaatsingstijden toegevoegd voor {names}. Je vindt ze onder Plaatsingstijden; daar kun je ze aanpassen.",
+  "socXPremium": "Ons X-account heeft X Premium: berichten op X mogen tot 25.000 tekens zijn",
+  "socXPremiumOn": "X Premium aan: berichten op X mogen tot 25.000 tekens zijn.",
+  "socXPremiumOff": "X Premium uit: berichten op X zijn hooguit 280 tekens."
 }

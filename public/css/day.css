@@ -2279,3 +2279,9 @@ body.soc-full-open { overflow: hidden; }
 /* v97 — the treasure chest code in the shop basket */
 .shop-treasure-note { margin: 6px 0 0; font-size: 0.9rem; font-weight: 600; color: #6B5320; background: rgba(226,190,110,0.18); border-radius: 10px; padding: 6px 10px; }
 .shop-treasure-note[hidden] { display: none; }
+
+/* v99 — smileys under the post text; X Premium switch */
+.soc-emoji { display: flex; flex-wrap: wrap; gap: 2px; margin: 4px 0 2px; }
+.soc-emoji button { border: 0; background: transparent; font-size: 1.25rem; line-height: 1; padding: 4px 5px; border-radius: 8px; cursor: pointer; }
+.soc-emoji button:hover, .soc-emoji button:focus-visible { background: rgba(226,190,110,0.25); }
+.soc-xprem { display: flex; gap: 8px; align-items: center; font-weight: 600; cursor: pointer; }

@@ -1836,5 +1836,8 @@
   "adminSpotInvisible": "Invisible spot: nothing shows, but tapping there still works (use the instruction to point to it)",
   "shopTreasureReady": "Your treasure chest code {code} is filled in: {percent}% off this order.",
   "shopTreasureMore": "You have {n} codes; one is used per order.",
-  "socTimesAdded": "Posting times added for {names}. You'll find them under Posting times, where you can change them."
+  "socTimesAdded": "Posting times added for {names}. You'll find them under Posting times, where you can change them.",
+  "socXPremium": "Our X account has X Premium: posts on X can be up to 25,000 characters",
+  "socXPremiumOn": "X Premium on: posts on X can be up to 25,000 characters.",
+  "socXPremiumOff": "X Premium off: posts on X are 280 characters at most."
 }

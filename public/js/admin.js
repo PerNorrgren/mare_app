@@ -1960,6 +1960,7 @@
     loadPinBoards();
     renderPostLinks();
     renderHashtags(); // v93
+    { const xp = document.getElementById('soc-x-premium'); if (xp) { xp.checked = !!socState.xPremium; xp.disabled = !socIsAdmin(); } } // v99
     renderHealth(socState.lastHealth);
     document.getElementById('soc-alert-emails').textContent = socState.alertEmails || '—'; // v90: the notification group
     const facts = document.getElementById('soc-facts');
@@ -2221,8 +2222,20 @@
       <button type="button" class="btn-ghost btn-small" id="sp-media-rm" data-no-busy>${escapeHtml(t('socRemoveMedia'))}</button>` : '';
     if (socMedia) document.getElementById('sp-media-rm').addEventListener('click', () => { socMedia = null; socMediaShow(); });
   }
+  // v99 — count like X does
+  function xCount(text) {
+    const s = String(text || '').replace(/https?:\/\/\S+/g, 'x'.repeat(23));
+    const seg = window.Intl && Intl.Segmenter ? [...new Intl.Segmenter('nl', { granularity: 'grapheme' }).segment(s)].map(x => x.segment) : [...s];
+    let n = 0;
+    for (const g of seg) {
+      if (/\p{Extended_Pictographic}/u.test(g)) { n += 2; continue; }
+      for (const ch of g) { const c = ch.codePointAt(0); n += (c <= 4351 || (c >= 8192 && c <= 8205) || (c >= 8208 && c <= 8223) || (c >= 8242 && c <= 8247)) ? 1 : 2; }
+    }
+    return n;
+  }
   function socCount() {
-    const n = document.getElementById('sp-text').value.length, p = document.getElementById('sp-platform').value;
+    const p = document.getElementById('sp-platform').value, txt = document.getElementById('sp-text').value;
+    const n = p === 'x' ? xCount(txt) : txt.length; // v99: X counts emoji as 2 and a web address as 23
     const max = ((socState && socState.maxLen) || {})[p] || 5000;
     const c = document.getElementById('sp-count'); c.textContent = `${n} / ${max}`; c.classList.toggle('over', n > max);
     const fcOk = !socState || (socState.firstCommentPlatforms || []).includes(p);
@@ -2272,6 +2285,16 @@
     document.getElementById('sp-close-btn').addEventListener('click', () => { document.getElementById('social-modal').hidden = true; });
     document.getElementById('sp-when').addEventListener('change', (e) => { document.getElementById('sp-at-wrap').hidden = e.target.value !== 'at'; });
     document.getElementById('sp-text').addEventListener('input', socCount);
+    // v99 — a smiley goes in where the cursor is (or at the end)
+    document.getElementById('sp-emoji').addEventListener('mousedown', (e) => { if (e.target.closest('button')) e.preventDefault(); }); // keep the cursor in the text
+    document.getElementById('sp-emoji').addEventListener('click', (e) => {
+      const b = e.target.closest('button[data-e]'); if (!b) return;
+      const ta = document.getElementById('sp-text');
+      const at = ta.selectionStart == null ? ta.value.length : ta.selectionStart, end = ta.selectionEnd == null ? at : ta.selectionEnd;
+      ta.value = ta.value.slice(0, at) + b.dataset.e + ta.value.slice(end);
+      ta.focus(); ta.selectionStart = ta.selectionEnd = at + b.dataset.e.length;
+      socCount();
+    });
     document.getElementById('sp-platform').addEventListener('change', socCount);
     document.getElementById('sp-audience').addEventListener('change', socCount);
     document.getElementById('sp-file').addEventListener('change', async (e) => {
@@ -2343,6 +2366,13 @@
         if (!document.getElementById('soc-pin-row').hidden) await api('/api/admin/social/settings', { method: 'PUT', body: JSON.stringify({ pinterestBoard: document.getElementById('soc-pin-board').value }) });
       } catch (e) { const st = document.getElementById('soc-status'); st.textContent = e.message; st.hidden = false; throw e; }
       await loadSocial(true);
+    });
+    if (document.getElementById('soc-x-premium')) document.getElementById('soc-x-premium').addEventListener('change', async (e) => { // v99: saved straight away
+      const box = e.target; box.disabled = true;
+      try { await api('/api/admin/social/settings', { method: 'PUT', body: JSON.stringify({ xPremium: box.checked }) }); socNote(box.checked ? t('socXPremiumOn') : t('socXPremiumOff')); }
+      catch (err) { box.checked = !box.checked; alert(err.message); }
+      box.disabled = false;
+      await loadSocial();
     });
     document.getElementById('soc-save-tags').addEventListener('click', async () => { // v93
       const hashtags = {}; document.querySelectorAll('#soc-hashtags input[data-aud]').forEach(i => { hashtags[i.dataset.aud] = i.value; });

@@ -45,6 +45,19 @@ const FIRST_COMMENT_OK = new Set(['x', 'instagram', 'facebook', 'linkedin', 'you
 // reach advice: no web address in the post itself (it goes in the first comment)
 const NO_LINK_IN_POST = new Set(['facebook', 'linkedin', 'x']);
 const NEEDS_MEDIA = new Set(['instagram', 'pinterest', 'tiktok', 'youtube', 'snapchat']);
+// v99 — X counts like X does: most emoji and some other signs count as 2,
+// a web address as 23. With X Premium a post may be 25,000 characters.
+const X_PREMIUM_MAX = 25000;
+function xLength(text) {
+  const s = String(text || '').replace(/https?:\/\/\S+/g, 'x'.repeat(23));
+  let n = 0;
+  const seg = (typeof Intl !== 'undefined' && Intl.Segmenter) ? [...new Intl.Segmenter('nl', { granularity: 'grapheme' }).segment(s)].map(x => x.segment) : [...s];
+  for (const g of seg) {
+    if (/\p{Extended_Pictographic}/u.test(g)) { n += 2; continue; }
+    for (const ch of g) { const c = ch.codePointAt(0); n += (c <= 4351 || (c >= 8192 && c <= 8205) || (c >= 8208 && c <= 8223) || (c >= 8242 && c <= 8247)) ? 1 : 2; }
+  }
+  return n;
+}
 const MAX_LEN = { x: 280, bluesky: 300, threads: 500, pinterest: 500, instagram: 2200, tiktok: 2200, linkedin: 3000, facebook: 5000 };
 // v85: links can't be clicked in captions or comments here: "Link in bio"
 const LINK_IN_BIO = new Set(['instagram', 'tiktok']);
@@ -199,6 +212,9 @@ function register(app, { db, auth, media, email, anthropic, model, publicUrl }) 
   }
   const chosen = () => json(cfg().social_channels_json, {}) || {};
   const options = () => json(cfg().social_options_json, {}) || {};
+  // v99 — X Premium (on unless switched off): long posts on X
+  const xPremium = () => options().xPremium !== false;
+  const maxLen = () => ({ ...MAX_LEN, x: xPremium() ? X_PREMIUM_MAX : MAX_LEN.x });
   // the page each post type links to (paths or full addresses)
   const postLinks = () => ({ ...DEFAULT_POST_LINKS, ...((options().postLinks) || {}) });
   const fullUrl = (v) => /^https?:\/\//i.test(v) ? v : APP_LINK.replace(/\/$/, '') + '/' + String(v || '/').replace(/^\/+/, '');
@@ -616,6 +632,8 @@ function register(app, { db, auth, media, email, anthropic, model, publicUrl }) 
   }
   function refusedFix(platform, err) {
     const p = label(platform);
+    if (platform === 'x' && /too long|length|280|characters|premium/i.test(String(err || ''))) // v99
+      return `X did not take the post because it is too long for the X account${err ? ` ("${err}")` : ''}. Long posts need X Premium on the X account that is linked in BulkPublish. Check in X that X Premium is still active on that account, then open the post in the app and press Try again. If the account no longer has X Premium, untick "Our X account has X Premium" under Social media → Channels, press Edit on the post, shorten it to 280 characters, press Save, then press Try again.`;
     return `${p} did not take the post${err ? ` ("${err}")` : ''}. Open the post in the app and press Try again. If it fails again, press Edit, shorten the text or change the picture, press Save, then press Try again.`;
   }
   async function mailPostCopy(r, state, err, toList) {
@@ -752,8 +770,9 @@ function register(app, { db, auth, media, email, anthropic, model, publicUrl }) 
     let notes = { picture: String(p.pictureNote || '').trim(), slides: LINK_IN_BIO.has(platform) ? slides : [], pillar: String(p.pillar || ''), warnings };
     const r = linkRules(platform, content, firstComment, notes);
     content = r.content; firstComment = r.firstComment; notes = r.notes;
-    const max = MAX_LEN[platform] || 500;
-    if (content.length > max) notes.warnings.push(`Too long for ${label(platform)}: ${content.length} of ${max} characters.`);
+    const max = maxLen()[platform] || 500;
+    const len = platform === 'x' ? xLength(content) : content.length; // v99
+    if (len > max) notes.warnings.push(`Too long for ${label(platform)}: ${len} of ${max} characters.${platform === 'x' && !xPremium() ? ' With X Premium, tick "Our X account has X Premium" under Channels.' : ''}`);
     const hay = ` ${(content + ' ' + firstComment + ' ' + (p.title || '')).toLowerCase()} `;
     const flags = RED_FLAGS.filter(w => hay.includes(w));
     if (flags.length) notes.warnings.push(`Check the wording: contains "${flags.map(w => w.trim()).join('", "')}".`);
@@ -767,7 +786,7 @@ function register(app, { db, auth, media, email, anthropic, model, publicUrl }) 
     const recent = db.allRows(`SELECT platform, content FROM social_queue ORDER BY created_at DESC LIMIT 25`).map(r => `- ${label(r.platform)}: ${String(r.content).replace(/\s+/g, ' ').slice(0, 110)}`);
     const ask = items.map(i => `- key: ${i.key}\n  platform: ${i.platform}\n  audience: ${i.audience}\n  theme: ${i.theme || '(free choice within the audience)'}${i.when ? `\n  goes out: ${i.when}` : ''}${i.source ? `\n  source to work from: ${i.source}` : ''}`).join('\n');
     const user = `Write one post for each of these:\n${ask}\n\n${recent.length ? `Recent posts, so you don't repeat their openings or ideas:\n${recent.join('\n')}\n\n` : ''}Mention a holiday, event or season only when the theme names it.`;
-    const response = await anthropic.messages.create({ model, max_tokens: 4000, system: prompts.buildSocialWriterPrompt({ facts: factsText(), lang, linkInfo: linkInfo() }), messages: [{ role: 'user', content: user }] });
+    const response = await anthropic.messages.create({ model, max_tokens: 4000, system: prompts.buildSocialWriterPrompt({ facts: factsText(), lang, linkInfo: linkInfo(), xPremium: xPremium() }), messages: [{ role: 'user', content: user }] });
     const raw = (response.content || []).filter(b => b.type === 'text').map(b => b.text).join('\n');
     const data = parseJsonLoose(raw);
     if (!data || !Array.isArray(data.posts)) throw new Error('The post writer got muddled. Press the button again.');
@@ -824,7 +843,7 @@ function register(app, { db, auth, media, email, anthropic, model, publicUrl }) 
       hashtags: hashtagSets(), hashtagPlatforms: Object.keys(HASHTAG_PLATFORMS), // v93
       postLinks: postLinks(), postLinksFull: Object.fromEntries(AUDIENCES.map(a => [a, linkFor(a)])), linkToken: LINK_TOKEN,
       facts: c.social_facts || DEFAULT_FACTS,
-      firstCommentPlatforms: [...FIRST_COMMENT_OK], noLinkPlatforms: [...NO_LINK_IN_POST], needsMedia: [...NEEDS_MEDIA], maxLen: MAX_LEN,
+      firstCommentPlatforms: [...FIRST_COMMENT_OK], noLinkPlatforms: [...NO_LINK_IN_POST], needsMedia: [...NEEDS_MEDIA], maxLen: maxLen(), xPremium: xPremium(),
       job: job && { id: job.id, total: job.total, done: job.done, created: job.created, errors: job.errors, finished: job.finished },
     });
   });
@@ -890,7 +909,8 @@ function register(app, { db, auth, media, email, anthropic, model, publicUrl }) 
         }
         opts.hashtags = hs;
       }
-      if (b.pinterestBoard !== undefined || b.postLinks !== undefined || b.hashtags !== undefined) list.push([`UPDATE app_config SET social_options_json = ? WHERE id = 'default'`, [JSON.stringify(opts)]]);
+      if (b.xPremium !== undefined) opts.xPremium = !!b.xPremium; // v99
+      if (b.pinterestBoard !== undefined || b.postLinks !== undefined || b.hashtags !== undefined || b.xPremium !== undefined) list.push([`UPDATE app_config SET social_options_json = ? WHERE id = 'default'`, [JSON.stringify(opts)]]);
       db.runBatch(list);
       res.json({ ok: true });
     } catch (e) { fail(res, e); }

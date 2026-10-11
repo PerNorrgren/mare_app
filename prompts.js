@@ -325,9 +325,15 @@ const SOCIAL_PILLARS = `PILLARS — pick the one that fits the theme and say whi
 - offer: the book, the app, the free sample — ONLY in a SALES slot.
 Roughly four useful posts for every one that asks for anything.`;
 
-function buildSocialWriterPrompt({ facts, lang, linkInfo }) {
+function buildSocialWriterPrompt({ facts, lang, linkInfo, xPremium }) {
   const nl = lang !== 'en';
-  const rules = nl ? SOCIAL_PLATFORM_RULES_NL : SOCIAL_PLATFORM_RULES_EN;
+  const rules = { ...(nl ? SOCIAL_PLATFORM_RULES_NL : SOCIAL_PLATFORM_RULES_EN) };
+  // v99 — the X account has X Premium: longer posts are possible, and a
+  // friendly emoji or two fits X. Short still reads best, so long is the
+  // exception, for a small story or a practice written out.
+  if (xPremium) rules.x = nl
+    ? `X — usually short (under 280 characters) so it reads at a glance; when the theme asks for a small story or a practice written out, it may be longer, up to about 1,200 characters, in short paragraphs. One or two fitting emoji are welcome (🌙 ✨ 💛 🌿 📖). No web address in the post; put {{APP_LINK}} with a short line in "firstComment". No hashtags.`
+    : `X — usually under 280 characters; longer (up to about 1,200 characters, short paragraphs) only for a small story or a practice written out. One or two fitting emoji are welcome. No web address in the post; {{APP_LINK}} goes in "firstComment".`;
   return `You write social media posts for Mare — a children's book and its companion app — for an audience in the Netherlands${nl ? '' : ' (this time in English, for the UK)'}.
 
 LANGUAGE: ${nl ? 'plain, warm, everyday Dutch (Netherlands), as a Dutch teacher would write it. Use "je/jij". Never translated-sounding or American self-help language.' : 'plain, warm British English.'} Short sentences. Nothing clinical.
