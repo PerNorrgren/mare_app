@@ -1751,6 +1751,34 @@
   // ── v88: upload a picture or video for social posts (shared by the post
   // window and the Generate card). Pictures are saved as JPG (TikTok takes
   // no PNG), so one picture works everywhere. Returns { key, type, url }.
+  // v101 — a video's length and shape, read in the browser (no upload needed)
+  function socVideoInfo(url) {
+    return new Promise((ok) => {
+      if (!url) return ok(null);
+      const v = document.createElement('video'); v.preload = 'metadata'; v.muted = true;
+      const done = (x) => { clearTimeout(tm); v.removeAttribute('src'); try { v.load(); } catch { /* fine */ } ok(x); };
+      const tm = setTimeout(() => done(null), 10000);
+      v.onloadedmetadata = () => {
+        const w = v.videoWidth, h = v.videoHeight, s = v.duration;
+        if (!Number.isFinite(s) || !s) return done(null);
+        const r = w && h ? w / h : 0;
+        done({ seconds: Math.round(s * 10) / 10, shape: !r ? null : r < 0.95 ? 'vertical' : r <= 1.05 ? 'square' : 'wide' });
+      };
+      v.onerror = () => done(null);
+      v.src = url;
+    });
+  }
+  const socLen = (s) => { s = Math.round(Number(s) || 0); const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), x = s % 60; return h ? `${h}:${String(m).padStart(2, '0')}:${String(x).padStart(2, '0')}` : `${m}:${String(x).padStart(2, '0')}`; };
+  // what's wrong with this video for YouTube, as plain steps ('' = fine)
+  function socYtProblem(m) {
+    if (!m || m.type !== 'video' || !m.seconds) return '';
+    const L = (socState && socState.ytLimits) || { unverified: 900, verified: 43200 };
+    if (m.seconds > L.verified) return t('socYtTooLong12', { len: socLen(m.seconds) });
+    if (m.seconds > L.unverified && !(socState && socState.youtubeVerified)) return t('socYtTooLong15', { len: socLen(m.seconds) });
+    return '';
+  }
+  const socYtShort = (m) => !!(m && m.type === 'video' && m.seconds && m.seconds <= (((socState && socState.ytLimits) || {}).short || 180) && (m.shape === 'vertical' || m.shape === 'square'));
+  const socMediaBody = (m) => (m ? { mediaKey: m.key, mediaType: m.type, mediaSeconds: m.type === 'video' ? (m.seconds || null) : null, mediaShape: m.type === 'video' ? (m.shape || null) : null } : { mediaKey: null, mediaType: null });
   async function socUploadFile(file) {
     const isVid = (file.type || '').startsWith('video/') || /\.mp4$/i.test(file.name);
     if (isVid && !/\.mp4$/i.test(file.name)) throw new Error(t('adminVidMp4Only'));
@@ -1769,7 +1797,9 @@
     const { url } = await api('/api/admin/upload-url', { method: 'POST', body: JSON.stringify({ key, contentType: type }) });
     const put = await fetch(url, { method: 'PUT', headers: { 'Content-Type': type }, body: file });
     if (!put.ok) throw new Error(t('adminErrorUploadFailed'));
-    return { key, type: isVid ? 'video' : 'image', url: URL.createObjectURL(file) };
+    const local = URL.createObjectURL(file);
+    const info = isVid ? await socVideoInfo(local) : null; // v101
+    return { key, type: isVid ? 'video' : 'image', url: local, seconds: info ? info.seconds : null, shape: info ? info.shape : null };
   }
 
   // the batch's picture and video, and which one each generated post uses
@@ -1819,15 +1849,17 @@
     const needs = ((socState && socState.needsMedia) || []).includes(p);
     const warn = card.querySelector('.mkt-media-warn');
     warn.textContent = needs && v === 'none' ? t(socVideoOnly(p) ? 'mktNeedsVideo' : 'mktNeedsMedia', { p: socLabel(p) }) : socVideoOnly(p) && v === 'image' ? t('mktNeedsVideo', { p: socLabel(p) }) : '';
+    const ytBad = p === 'youtube' && v === 'video' ? socYtProblem(mktMedia.video) : ''; // v101
+    if (ytBad) warn.textContent = ytBad;
     warn.hidden = !warn.textContent;
     const pub = card.querySelector('[data-publish]');
-    if (pub) pub.hidden = (needs && v === 'none') || (socVideoOnly(p) && v === 'image');
+    if (pub) pub.hidden = (needs && v === 'none') || (socVideoOnly(p) && v === 'image') || !!ytBad;
   }
   // what a generated post sends, with the chosen picture/video
   function mktMediaFor(card) {
     const sel = card && card.querySelector('.mkt-media-pick');
     const m = sel && sel.value !== 'none' ? mktMedia[sel.value] : null;
-    return m ? { mediaKey: m.key, mediaType: m.type, aiMedia: document.getElementById('mkt-ai').checked } : { mediaKey: null, mediaType: null, aiMedia: false };
+    return m ? { ...socMediaBody(m), aiMedia: document.getElementById('mkt-ai').checked } : { mediaKey: null, mediaType: null, aiMedia: false };
   }
 
   function renderMarketingResults(container, results, opts) {
@@ -1964,6 +1996,7 @@
     renderHashtags(); // v93
     { const xp = document.getElementById('soc-x-premium'); if (xp) { xp.checked = !!socState.xPremium; xp.disabled = !socIsAdmin(); } } // v99
     { const yk = document.getElementById('soc-yt-kids'); if (yk) { yk.checked = !!socState.youtubeForKids; yk.disabled = !socIsAdmin(); } } // v100
+    { const yv = document.getElementById('soc-yt-verified'); if (yv) { yv.checked = !!socState.youtubeVerified; yv.disabled = !socIsAdmin(); } } // v101
     renderHealth(socState.lastHealth);
     document.getElementById('soc-alert-emails').textContent = socState.alertEmails || '—'; // v90: the notification group
     const facts = document.getElementById('soc-facts');
@@ -2219,11 +2252,32 @@
       } catch (e) { say(false, e.message || t('errorGeneric')); throw e; }
     }));
   }
+  // v101 — the video's length, and what YouTube will make of it
+  function socMediaInfo() {
+    const el = document.getElementById('sp-media-info'); if (!el) return;
+    const m = socMedia, p = document.getElementById('sp-platform').value;
+    if (!m || m.type !== 'video' || !m.seconds) { el.hidden = true; el.textContent = ''; return; }
+    const shape = m.shape ? ' · ' + t('socShape_' + m.shape) : '';
+    let line = `🎬 ${socLen(m.seconds)}${shape}`, bad = '';
+    if (p === 'youtube') {
+      bad = socYtProblem(m);
+      if (!bad) line += ' · ' + t(socYtShort(m) ? 'socYtWillBeShort' : 'socYtWillBeVideo');
+    }
+    el.textContent = bad ? `${line} — ${bad}` : line;
+    el.classList.toggle('bad', !!bad);
+    el.hidden = false;
+  }
   function socMediaShow() {
     const el = document.getElementById('sp-media');
     el.innerHTML = socMedia ? `${socMedia.type === 'video' ? `<video src="${escapeHtml(socMedia.url || '')}" muted controls preload="metadata"></video>` : `<img src="${escapeHtml(socMedia.url || '')}" alt="">`}
       <button type="button" class="btn-ghost btn-small" id="sp-media-rm" data-no-busy>${escapeHtml(t('socRemoveMedia'))}</button>` : '';
     if (socMedia) document.getElementById('sp-media-rm').addEventListener('click', () => { socMedia = null; socMediaShow(); });
+    socMediaInfo();
+    // v101: a video added before lengths were kept: read its length now
+    if (socMedia && socMedia.type === 'video' && !socMedia.seconds && socMedia.url && !socMedia.reading) {
+      const m = socMedia; m.reading = true;
+      socVideoInfo(m.url).then(info => { m.reading = false; if (info && socMedia === m) { m.seconds = info.seconds; m.shape = info.shape; socMediaInfo(); } });
+    }
   }
   // v99 — count like X does
   function xCount(text) {
@@ -2237,6 +2291,7 @@
     return n;
   }
   function socCount() {
+    socMediaInfo(); // v101
     const p = document.getElementById('sp-platform').value, txt = document.getElementById('sp-text').value;
     const n = p === 'x' ? xCount(txt) : txt.length; // v99: X counts emoji as 2 and a web address as 23
     const max = ((socState && socState.maxLen) || {})[p] || 5000;
@@ -2261,7 +2316,7 @@
     r = r || {};
     socEditing = r.id || null;
     socEditRow = r;
-    socMedia = r.media_key ? { key: r.media_key, type: r.media_type, url: r.mediaUrl } : null;
+    socMedia = r.media_key ? { key: r.media_key, type: r.media_type, url: r.mediaUrl, seconds: r.media_seconds || r.mediaSeconds || null, shape: r.media_shape || r.mediaShape || null } : null;
     document.getElementById('sp-title').textContent = t(socEditing ? (r.status === 'draft' ? 'socEditDraftTitle' : 'socEditTitle') : 'socNewTitle');
     const plats = (socState && socState.platforms) || ['facebook', 'instagram', 'linkedin', 'threads'];
     document.getElementById('sp-platform').innerHTML = plats.map(p => `<option value="${escapeHtml(p)}">${escapeHtml(socLabel(p))}</option>`).join('');
@@ -2336,6 +2391,9 @@
       if (socVideoOnly(platform) && socMedia && socMedia.type !== 'video' && !ev.socAsDraft) {
         err.textContent = t('socYtNeedsVideo'); err.hidden = false; throw new Error('video');
       }
+      if (platform === 'youtube' && socYtProblem(socMedia) && !ev.socAsDraft) { // v101: too long for YouTube
+        err.textContent = socYtProblem(socMedia); err.hidden = false; throw new Error('length');
+      }
       // v93: no picture or video for a platform that needs one → ask for it first
       if (socNeedsMedia(platform) && !socMedia && !ev.socAsDraft) {
         const canDraft = !socEditing || (socEditRow && socEditRow.status === 'draft');
@@ -2348,7 +2406,7 @@
       const body = { platform, content: document.getElementById('sp-text').value, audience: document.getElementById('sp-audience').value,
         firstComment: document.getElementById('sp-fc-wrap').hidden ? '' : document.getElementById('sp-fc').value,
         title: socNeedsTitle(platform) ? document.getElementById('sp-pin-title').value : '',
-        mediaKey: socMedia ? socMedia.key : null, mediaType: socMedia ? socMedia.type : null, aiMedia: document.getElementById('sp-ai').checked };
+        ...socMediaBody(socMedia), aiMedia: document.getElementById('sp-ai').checked };
       if (socEditRow && socEditRow.notes && !socEditing) body.notes = socEditRow.notes;
       if (when === 'next') body.scheduledFor = 'next';
       if (when === 'at') { const v = document.getElementById('sp-at').value; if (!v) { err.textContent = t('socChooseTime'); err.hidden = false; throw new Error('time'); } body.scheduledFor = new Date(v).toISOString(); }
@@ -2377,6 +2435,13 @@
         if (!document.getElementById('soc-pin-row').hidden) await api('/api/admin/social/settings', { method: 'PUT', body: JSON.stringify({ pinterestBoard: document.getElementById('soc-pin-board').value }) });
       } catch (e) { const st = document.getElementById('soc-status'); st.textContent = e.message; st.hidden = false; throw e; }
       await loadSocial(true);
+    });
+    if (document.getElementById('soc-yt-verified')) document.getElementById('soc-yt-verified').addEventListener('change', async (e) => { // v101: saved straight away
+      const box = e.target; box.disabled = true;
+      try { await api('/api/admin/social/settings', { method: 'PUT', body: JSON.stringify({ youtubeVerified: box.checked }) }); socNote(box.checked ? t('socYtVerifiedOn') : t('socYtVerifiedOff')); }
+      catch (err) { box.checked = !box.checked; alert(err.message); }
+      box.disabled = false;
+      await loadSocial();
     });
     if (document.getElementById('soc-yt-kids')) document.getElementById('soc-yt-kids').addEventListener('change', async (e) => { // v100: saved straight away
       const box = e.target; box.disabled = true;

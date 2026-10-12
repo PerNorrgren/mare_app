@@ -1127,7 +1127,7 @@ Volgende maand verschijnt er een nieuw raadsel uit het Fluisterbos. 🌲🔎', ?
     id TEXT PRIMARY KEY, platform TEXT NOT NULL, day INTEGER NOT NULL, time TEXT NOT NULL,
     audience TEXT NOT NULL DEFAULT 'any', theme TEXT NOT NULL DEFAULT '', active INTEGER NOT NULL DEFAULT 1)`);
   // v91: confirm_state / platform_url / confirm_checks — checking with BulkPublish that a post really went live
-  for (const c of ['audience TEXT', 'theme TEXT', 'slot_id TEXT', 'first_comment TEXT', 'title TEXT', 'notes TEXT', 'alerted INTEGER NOT NULL DEFAULT 0', 'confirm_state TEXT', 'platform_url TEXT', 'confirm_checks INTEGER NOT NULL DEFAULT 0']) {
+  for (const c of ['audience TEXT', 'theme TEXT', 'slot_id TEXT', 'first_comment TEXT', 'title TEXT', 'notes TEXT', 'alerted INTEGER NOT NULL DEFAULT 0', 'confirm_state TEXT', 'platform_url TEXT', 'confirm_checks INTEGER NOT NULL DEFAULT 0', 'media_seconds REAL', 'media_shape TEXT']) { // v101: video length and shape
     try { db.run(`ALTER TABLE social_queue ADD COLUMN ${c}`); } catch {}
   }
   for (const c of ['social_facts TEXT', 'social_alert_emails TEXT', 'social_health_json TEXT', 'social_options_json TEXT', 'social_seeded_at TEXT', 'social_gap_day TEXT']) {

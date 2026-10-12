@@ -1846,5 +1846,15 @@
   "socVideoPopTitle": "{p} needs a video",
   "socVideoPopBody": "{p} only posts videos. Press Add a picture or video, choose an MP4 video, then press Save again.",
   "mktNeedsVideo": "{p} needs a video: choose Video for this post.",
-  "socYtKids": "YouTube: our videos are made for children to watch (leave unticked when they are for parents and teachers)"
+  "socYtKids": "YouTube: our videos are made for children to watch (leave unticked when they are for parents and teachers)",
+  "socShape_vertical": "upright",
+  "socShape_square": "square",
+  "socShape_wide": "landscape",
+  "socYtWillBeShort": "on YouTube this becomes a Short (upright or square, at most 3 minutes)",
+  "socYtWillBeVideo": "on YouTube this becomes an ordinary video",
+  "socYtTooLong15": "This video is {len} long. YouTube takes up to 15 minutes until the channel is verified. Go to youtube.com/verify, log in with Mare's Google account and verify with a phone number. Then, under Social media → Channels, tick \"Our YouTube channel is verified\" and press Save again. Or remove the video, add one of at most 15 minutes, then press Save again.",
+  "socYtTooLong12": "This video is {len} long. YouTube takes videos of at most 12 hours. Remove the video, add a shorter MP4, then press Save again.",
+  "socYtVerified": "Our YouTube channel is verified (youtube.com/verify): videos may be longer than 15 minutes",
+  "socYtVerifiedOn": "YouTube videos may now be up to 12 hours.",
+  "socYtVerifiedOff": "YouTube videos are now 15 minutes at most."
 }

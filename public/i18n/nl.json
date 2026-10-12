@@ -1846,5 +1846,15 @@
   "socVideoPopTitle": "{p} heeft een video nodig",
   "socVideoPopBody": "{p} plaatst alleen video's. Druk op Foto of video toevoegen, kies een MP4-video en druk daarna opnieuw op Opslaan.",
   "mktNeedsVideo": "{p} heeft een video nodig: kies Video bij dit bericht.",
-  "socYtKids": "YouTube: onze video's zijn gemaakt voor kinderen om te kijken (niet aanvinken als ze voor ouders en leerkrachten zijn)"
+  "socYtKids": "YouTube: onze video's zijn gemaakt voor kinderen om te kijken (niet aanvinken als ze voor ouders en leerkrachten zijn)",
+  "socShape_vertical": "staand",
+  "socShape_square": "vierkant",
+  "socShape_wide": "liggend",
+  "socYtWillBeShort": "op YouTube wordt dit een Short (staand of vierkant, hooguit 3 minuten)",
+  "socYtWillBeVideo": "op YouTube wordt dit een gewone video",
+  "socYtTooLong15": "Deze video duurt {len}. YouTube neemt tot 15 minuten zolang het kanaal niet geverifieerd is. Ga naar youtube.com/verify, log in met het Google-account van Mare en verifieer met een telefoonnummer. Vink daarna onder Social media → Kanalen \"Ons YouTube-kanaal is geverifieerd\" aan en druk opnieuw op Opslaan. Of haal de video weg, voeg er een van hooguit 15 minuten toe en druk opnieuw op Opslaan.",
+  "socYtTooLong12": "Deze video duurt {len}. YouTube neemt video's van hooguit 12 uur. Haal de video weg, voeg een kortere MP4 toe en druk opnieuw op Opslaan.",
+  "socYtVerified": "Ons YouTube-kanaal is geverifieerd (youtube.com/verify): video's mogen langer zijn dan 15 minuten",
+  "socYtVerifiedOn": "YouTube-video's mogen nu tot 12 uur duren.",
+  "socYtVerifiedOff": "YouTube-video's duren nu hooguit 15 minuten."
 }

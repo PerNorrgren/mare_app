@@ -2285,3 +2285,8 @@ body.soc-full-open { overflow: hidden; }
 .soc-emoji button { border: 0; background: transparent; font-size: 1.25rem; line-height: 1; padding: 4px 5px; border-radius: 8px; cursor: pointer; }
 .soc-emoji button:hover, .soc-emoji button:focus-visible { background: rgba(226,190,110,0.25); }
 .soc-xprem { display: flex; gap: 8px; align-items: center; font-weight: 600; cursor: pointer; }
+
+/* v101 — the video's length under the post's video */
+.soc-media-info { margin: 4px 0 2px; font-size: 0.88rem; font-weight: 600; color: #16305C; }
+.soc-media-info[hidden] { display: none; }
+.soc-media-info.bad { color: #A5473A; }
