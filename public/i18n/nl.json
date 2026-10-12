@@ -1837,9 +1837,9 @@
   "shopTreasureReady": "Je schatkistcode {code} is al ingevuld: {percent}% korting op deze bestelling.",
   "shopTreasureMore": "Je hebt {n} codes; per bestelling wordt er één gebruikt.",
   "socTimesAdded": "Plaatsingstijden toegevoegd voor {names}. Je vindt ze onder Plaatsingstijden; daar kun je ze aanpassen.",
-  "socXPremium": "Ons X-account heeft X Premium: berichten op X mogen tot 25.000 tekens zijn",
-  "socXPremiumOn": "X Premium aan: berichten op X mogen tot 25.000 tekens zijn.",
-  "socXPremiumOff": "X Premium uit: berichten op X zijn hooguit 280 tekens.",
+  "socXPremium": "Lange X-berichten gaan als draad (BulkPublish plaatst hooguit 280 tekens per X-bericht, ook met X Premium)",
+  "socXPremiumOn": "Lange X-berichten gaan nu als draad van berichten van 280 tekens.",
+  "socXPremiumOff": "X-berichten zijn nu hooguit 280 tekens.",
   "socYtTitle": "Titel (YouTube, hooguit 100 tekens)",
   "socYtNeedsTitle": "YouTube heeft een titel nodig. Schrijf er een in het vak Titel en druk daarna opnieuw op Opslaan.",
   "socYtNeedsVideo": "YouTube neemt alleen een video, geen foto. Druk op Weghalen, voeg een MP4-video toe en druk daarna opnieuw op Opslaan.",
@@ -1856,5 +1856,6 @@
   "socYtTooLong12": "Deze video duurt {len}. YouTube neemt video's van hooguit 12 uur. Haal de video weg, voeg een kortere MP4 toe en druk opnieuw op Opslaan.",
   "socYtVerified": "Ons YouTube-kanaal is geverifieerd (youtube.com/verify): video's mogen langer zijn dan 15 minuten",
   "socYtVerifiedOn": "YouTube-video's mogen nu tot 12 uur duren.",
-  "socYtVerifiedOff": "YouTube-video's duren nu hooguit 15 minuten."
+  "socYtVerifiedOff": "YouTube-video's duren nu hooguit 15 minuten.",
+  "socXThreadCount": "{n} tekens · gaat als draad van {k} berichten (hooguit {max})"
 }

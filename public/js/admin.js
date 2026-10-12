@@ -2290,12 +2290,47 @@
     }
     return n;
   }
+  // v102 — the same split the server uses: a long X post goes out as a thread
+  const XP = 280;
+  function xThreadParts(text) {
+    const s = String(text || '').trim();
+    if (xCount(s) <= XP) return [s];
+    const room = XP - 7; // space for "\n\n12/25"
+    const pieces = [];
+    const pushPiece = (p) => {
+      p = p.trim(); if (!p) return;
+      if (xCount(p) <= room) { pieces.push(p); return; }
+      const sents = p.split(/(?<=[.!?…])\s+/);
+      if (sents.length > 1) { sents.forEach(pushPiece); return; }
+      let cur = '';
+      for (const w of p.split(/\s+/)) {
+        const next = cur ? cur + ' ' + w : w;
+        if (xCount(next) <= room) cur = next;
+        else { if (cur) pieces.push(cur); cur = xCount(w) <= room ? w : [...w].slice(0, 200).join(''); }
+      }
+      if (cur) pieces.push(cur);
+    };
+    s.split(/\n{2,}/).forEach(para => { if (xCount(para.trim()) <= room) pushPiece(para); else para.split('\n').forEach(pushPiece); });
+    const parts = [];
+    let cur = '';
+    for (const p of pieces) {
+      const glue = cur ? (s.includes(cur + '\n\n' + p) ? '\n\n' : s.includes(cur + '\n' + p) ? '\n' : '\n\n') : '';
+      const next = cur ? cur + glue + p : p;
+      if (xCount(next) <= room) cur = next; else { if (cur) parts.push(cur); cur = p; }
+    }
+    if (cur) parts.push(cur);
+    return parts.length > 1 ? parts.map((p, i) => `${p}\n\n${i + 1}/${parts.length}`) : parts;
+  }
   function socCount() {
     socMediaInfo(); // v101
     const p = document.getElementById('sp-platform').value, txt = document.getElementById('sp-text').value;
     const n = p === 'x' ? xCount(txt) : txt.length; // v99: X counts emoji as 2 and a web address as 23
     const max = ((socState && socState.maxLen) || {})[p] || 5000;
-    const c = document.getElementById('sp-count'); c.textContent = `${n} / ${max}`; c.classList.toggle('over', n > max);
+    const c = document.getElementById('sp-count');
+    if (p === 'x' && socState && socState.xPremium && n > XP) { // v102
+      const k = xThreadParts(txt).length, maxParts = socState.xMaxParts || 25;
+      c.textContent = t('socXThreadCount', { n, k, max: maxParts }); c.classList.toggle('over', k > maxParts);
+    } else { c.textContent = `${n} / ${p === 'x' ? XP : max}`; c.classList.toggle('over', n > (p === 'x' ? XP : max)); }
     const fcOk = !socState || (socState.firstCommentPlatforms || []).includes(p);
     document.getElementById('sp-fc-wrap').hidden = !fcOk;
     document.getElementById('sp-title-wrap').hidden = !socNeedsTitle(p); // v100: Pinterest and YouTube

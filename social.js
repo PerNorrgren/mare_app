@@ -64,6 +64,40 @@ const VIDEO_ONLY = new Set(['youtube']);
 // v101 — YouTube video length: 15 minutes until the channel is verified, then 12 hours; a Short is vertical or square and at most 3 minutes
 const YT_MAX_UNVERIFIED = 15 * 60, YT_MAX_VERIFIED = 12 * 3600, YT_SHORT_MAX = 180;
 const fmtLen = (s) => { s = Math.round(Number(s) || 0); const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), x = s % 60; return h ? `${h}:${String(m).padStart(2, '0')}:${String(x).padStart(2, '0')}` : `${m}:${String(x).padStart(2, '0')}`; };
+// v102 — BulkPublish posts at most 280 characters per X post, even with X
+// Premium. A longer X post goes out as a thread: split at paragraphs, then
+// lines, then sentences, then words, each part at most 280 (counted like
+// X), numbered "1/3" at the end. At most 25 parts.
+const X_PART = 280, X_MAX_PARTS = 25;
+function xThreadParts(text) {
+  const s = String(text || '').trim();
+  if (xLength(s) <= X_PART) return [s];
+  const room = X_PART - 7; // space for "\n\n12/25"
+  const pieces = [];
+  const pushPiece = (p) => {
+    p = p.trim(); if (!p) return;
+    if (xLength(p) <= room) { pieces.push(p); return; }
+    const sents = p.split(/(?<=[.!?…])\s+/);
+    if (sents.length > 1) { sents.forEach(pushPiece); return; }
+    let cur = '';
+    for (const w of p.split(/\s+/)) {
+      const next = cur ? cur + ' ' + w : w;
+      if (xLength(next) <= room) cur = next;
+      else { if (cur) pieces.push(cur); cur = xLength(w) <= room ? w : [...w].slice(0, 200).join(''); }
+    }
+    if (cur) pieces.push(cur);
+  };
+  s.split(/\n{2,}/).forEach(para => { if (xLength(para.trim()) <= room) pushPiece(para); else para.split('\n').forEach(pushPiece); });
+  const parts = [];
+  let cur = '';
+  for (const p of pieces) {
+    const glue = cur ? (s.includes(cur + '\n\n' + p) ? '\n\n' : s.includes(cur + '\n' + p) ? '\n' : '\n\n') : '';
+    const next = cur ? cur + glue + p : p;
+    if (xLength(next) <= room) cur = next; else { if (cur) parts.push(cur); cur = p; }
+  }
+  if (cur) parts.push(cur);
+  return parts.length > 1 ? parts.map((p, i) => `${p}\n\n${i + 1}/${parts.length}`) : parts;
+}
 const MAX_LEN = { youtube: 5000, x: 280, bluesky: 300, threads: 500, pinterest: 500, instagram: 2200, tiktok: 2200, linkedin: 3000, facebook: 5000 };
 // v85: links can't be clicked in captions or comments here: "Link in bio"
 const LINK_IN_BIO = new Set(['instagram', 'tiktok']);
@@ -194,7 +228,9 @@ function register(app, { db, auth, media, email, anthropic, model, publicUrl }) 
       const said = (raw && (typeof raw === 'string' ? raw : raw.message || JSON.stringify(raw))) || `error ${res.status}`;
       throw new Error(res.status === 401 || res.status === 403
         ? 'BulkPublish did not accept Mare\'s key. Log in to app.bulkpublish.com with Mare\'s login, make a new API key under Settings, put it in Railway under Variables as BULKPUBLISH_API_KEY, and wait for it to restart. Then press Try again.'
-        : `BulkPublish said: "${said}". Wait a few minutes and press Try again. If the same message comes back, log in to app.bulkpublish.com and look at this platform under Channels.`);
+        : /exceeds \d+ character limit/i.test(said) // v102: too long is not a wait-and-retry problem
+          ? `BulkPublish said: "${said}". The text is too long for this platform. Click Edit, shorten the text until the counter under it is not red, press Save, then press Try again.`
+          : `BulkPublish said: "${said}". Wait a few minutes and press Try again. If the same message comes back, log in to app.bulkpublish.com and look at this platform under Channels.`);
     }
     return data;
   }
@@ -309,7 +345,19 @@ function register(app, { db, auth, media, email, anthropic, model, publicUrl }) 
       ps.youtube = { title: yt, privacyStatus: 'public', categoryId: '27', madeForKids: !!options().youtubeForKids };
     }
     if (Object.keys(ps).length) body.platformSpecific = ps;
-    if (mediaKey) {
+    // v102: a long X post goes out as a thread (BulkPublish caps one X post at 280)
+    let xParts = null;
+    if (platform === 'x' && xLength(text) > X_PART) {
+      if (!xPremium()) throw new Error(`This X post is ${xLength(text)} characters; X takes 280. Click Edit, shorten it to 280 characters, press Save, then press Try again. Or tick "Long X posts go out as a thread" under Social media → Channels, then press Try again.`);
+      xParts = xThreadParts(text);
+      if (xParts.length > X_MAX_PARTS) throw new Error(`This X post would become a thread of ${xParts.length} posts; at most ${X_MAX_PARTS} can go out. Click Edit, shorten the text, press Save, then press Try again.`);
+      body.content = xParts[0];
+      body.postFormat = 'thread';
+      body.threadParts = xParts.map(c => ({ content: c }));
+    }
+    if (mediaKey && xParts) { // the picture or video goes with the first post of the thread
+      body.threadParts[0].mediaFileIds = [await uploadMedia(mediaKey)];
+    } else if (mediaKey) {
       body.mediaFiles = [await uploadMedia(mediaKey)];
       const o = MEDIA_TYPES[platform] && MEDIA_TYPES[platform][mediaType === 'video' ? 'video' : 'image'];
       if (o) body.postTypeOverrides = { [platform]: o };
@@ -665,7 +713,7 @@ function register(app, { db, auth, media, email, anthropic, model, publicUrl }) 
   function refusedFix(platform, err) {
     const p = label(platform);
     if (platform === 'x' && /too long|length|280|characters|premium/i.test(String(err || ''))) // v99
-      return `X did not take the post because it is too long for the X account${err ? ` ("${err}")` : ''}. Long posts need X Premium on the X account that is linked in BulkPublish. Check in X that X Premium is still active on that account, then open the post in the app and press Try again. If the account no longer has X Premium, untick "Our X account has X Premium" under Social media → Channels, press Edit on the post, shorten it to 280 characters, press Save, then press Try again.`;
+      return `X did not take the post because it is too long for the X account${err ? ` ("${err}")` : ''}. Tick "Long X posts go out as a thread" under Social media → Channels, then open the post and press Try again. Or press Edit, shorten it to 280 characters, press Save, then press Try again.`;
     return `${p} did not take the post${err ? ` ("${err}")` : ''}. Open the post in the app and press Try again. If it fails again, press Edit, shorten the text or change the picture, press Save, then press Try again.`;
   }
   async function mailPostCopy(r, state, err, toList) {
@@ -804,7 +852,8 @@ function register(app, { db, auth, media, email, anthropic, model, publicUrl }) 
     content = r.content; firstComment = r.firstComment; notes = r.notes;
     const max = maxLen()[platform] || 500;
     const len = platform === 'x' ? xLength(content) : content.length; // v99
-    if (len > max) notes.warnings.push(`Too long for ${label(platform)}: ${len} of ${max} characters.${platform === 'x' && !xPremium() ? ' With X Premium, tick "Our X account has X Premium" under Channels.' : ''}`);
+    if (platform === 'x' && xPremium() && len > X_PART) { const n = xThreadParts(content).length; if (n > X_MAX_PARTS) notes.warnings.push(`Too long for X: it would be a thread of ${n} posts (at most ${X_MAX_PARTS}).`); } // v102
+    else if (len > max) notes.warnings.push(`Too long for ${label(platform)}: ${len} of ${max} characters.${platform === 'x' && !xPremium() ? ' Tick "Long X posts go out as a thread" under Channels to post it as a thread.' : ''}`);
     const hay = ` ${(content + ' ' + firstComment + ' ' + (p.title || '')).toLowerCase()} `;
     const flags = RED_FLAGS.filter(w => hay.includes(w));
     if (flags.length) notes.warnings.push(`Check the wording: contains "${flags.map(w => w.trim()).join('", "')}".`);
@@ -876,7 +925,7 @@ function register(app, { db, auth, media, email, anthropic, model, publicUrl }) 
       hashtags: hashtagSets(), hashtagPlatforms: Object.keys(HASHTAG_PLATFORMS), // v93
       postLinks: postLinks(), postLinksFull: Object.fromEntries(AUDIENCES.map(a => [a, linkFor(a)])), linkToken: LINK_TOKEN,
       facts: c.social_facts || DEFAULT_FACTS,
-      firstCommentPlatforms: [...FIRST_COMMENT_OK], noLinkPlatforms: [...NO_LINK_IN_POST], needsMedia: [...NEEDS_MEDIA], maxLen: maxLen(), xPremium: xPremium(), needsTitle: [...NEEDS_TITLE], videoOnly: [...VIDEO_ONLY], youtubeForKids: !!options().youtubeForKids, youtubeVerified: !!options().youtubeVerified, ytLimits: { unverified: YT_MAX_UNVERIFIED, verified: YT_MAX_VERIFIED, short: YT_SHORT_MAX },
+      firstCommentPlatforms: [...FIRST_COMMENT_OK], noLinkPlatforms: [...NO_LINK_IN_POST], needsMedia: [...NEEDS_MEDIA], maxLen: maxLen(), xPremium: xPremium(), xPart: X_PART, xMaxParts: X_MAX_PARTS, needsTitle: [...NEEDS_TITLE], videoOnly: [...VIDEO_ONLY], youtubeForKids: !!options().youtubeForKids, youtubeVerified: !!options().youtubeVerified, ytLimits: { unverified: YT_MAX_UNVERIFIED, verified: YT_MAX_VERIFIED, short: YT_SHORT_MAX },
       job: job && { id: job.id, total: job.total, done: job.done, created: job.created, errors: job.errors, finished: job.finished },
     });
   });
@@ -1034,7 +1083,7 @@ function register(app, { db, auth, media, email, anthropic, model, publicUrl }) 
       const id = crypto.randomUUID();
       db.runBatch([[`INSERT INTO social_queue (id, platform, content, first_comment, title, notes, audience, theme, slot_id, media_key, media_type, ai_media, status, scheduled_for, created_by, media_seconds, media_shape) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
         [id, r.platform, r.content, r.first_comment, r.title, r.notes, r.audience || 'any', theme, slotId, r.media_key, r.media_type, r.ai_media || 0, when === 'now' ? 'sending' : 'queued', at, req.user.id, r.media_seconds == null ? null : r.media_seconds, r.media_shape || null]]]);
-      if (when === 'now') { const out = await sendRow(row(id)); if (!out.ok) return res.status(502).json({ error: out.error, id }); }
+      if (when === 'now') { const out = await sendRow(row(id)); if (!out.ok) return res.status(422).json({ error: out.error, id }); }
       res.json({ ok: true, id, scheduledFor: at });
     } catch (e) { fail(res, e); }
   });
@@ -1104,7 +1153,7 @@ function register(app, { db, auth, media, email, anthropic, model, publicUrl }) 
     if (r.status === 'published' || r.status === 'sending') return res.status(409).json({ error: 'This post has already gone out.' });
     db.runBatch([[`UPDATE social_queue SET status = 'sending' WHERE id = ?`, [r.id]]]);
     const out = await sendRow(r);
-    if (!out.ok) return res.status(502).json({ error: out.error });
+    if (!out.ok) return res.status(422).json({ error: out.error });
     res.json({ ok: true });
   });
   // publish straight away (from the generator or the post window)
@@ -1115,7 +1164,7 @@ function register(app, { db, auth, media, email, anthropic, model, publicUrl }) 
       db.runBatch([[`INSERT INTO social_queue (id, platform, content, first_comment, title, notes, audience, media_key, media_type, ai_media, status, scheduled_for, created_by, media_seconds, media_shape) VALUES (?,?,?,?,?,?,?,?,?,?, 'sending', ?, ?, ?, ?)`,
         [id, f.platform, f.content, f.first_comment || null, f.title || null, f.notes || null, f.audience || 'any', f.media_key || null, f.media_type || null, f.ai_media || 0, new Date().toISOString(), req.user.id, f.media_seconds == null ? null : f.media_seconds, f.media_shape || null]]]);
       const out = await sendRow(row(id));
-      if (!out.ok) return res.status(502).json({ error: out.error });
+      if (!out.ok) return res.status(422).json({ error: out.error });
       res.json({ ok: true, id });
     } catch (e) { fail(res, e); }
   });

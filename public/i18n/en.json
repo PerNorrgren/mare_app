@@ -1837,9 +1837,9 @@
   "shopTreasureReady": "Your treasure chest code {code} is filled in: {percent}% off this order.",
   "shopTreasureMore": "You have {n} codes; one is used per order.",
   "socTimesAdded": "Posting times added for {names}. You'll find them under Posting times, where you can change them.",
-  "socXPremium": "Our X account has X Premium: posts on X can be up to 25,000 characters",
-  "socXPremiumOn": "X Premium on: posts on X can be up to 25,000 characters.",
-  "socXPremiumOff": "X Premium off: posts on X are 280 characters at most.",
+  "socXPremium": "Long X posts go out as a thread (BulkPublish posts at most 280 characters per X post, also with X Premium)",
+  "socXPremiumOn": "Long X posts now go out as a thread of 280-character posts.",
+  "socXPremiumOff": "X posts are now 280 characters at most.",
   "socYtTitle": "Title (YouTube, at most 100 characters)",
   "socYtNeedsTitle": "YouTube needs a title. Write one in the Title box, then press Save again.",
   "socYtNeedsVideo": "YouTube only takes a video, not a picture. Press Remove, add an MP4 video, then press Save again.",
@@ -1856,5 +1856,6 @@
   "socYtTooLong12": "This video is {len} long. YouTube takes videos of at most 12 hours. Remove the video, add a shorter MP4, then press Save again.",
   "socYtVerified": "Our YouTube channel is verified (youtube.com/verify): videos may be longer than 15 minutes",
   "socYtVerifiedOn": "YouTube videos may now be up to 12 hours.",
-  "socYtVerifiedOff": "YouTube videos are now 15 minutes at most."
+  "socYtVerifiedOff": "YouTube videos are now 15 minutes at most.",
+  "socXThreadCount": "{n} characters · goes out as a thread of {k} posts (at most {max})"
 }
