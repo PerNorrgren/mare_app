@@ -1813,8 +1813,8 @@
   "socSend": "Versturen",
   "socSentNow": "Verstuurd naar {p}. Zodra het online staat, volgt een kopie per e-mail.",
   "socEmailed": "Kopie verstuurd naar {to}.",
-  "socHashtags": "Hashtags (Instagram en TikTok)",
-  "socHashtagsNote": "Een bericht voor Instagram of TikTok zonder hashtags krijgt de set voor de doelgroep, bij het opslaan en nog eens vlak voor het plaatsen (TikTok neemt de eerste 5). Een Engelstalig bericht krijgt Engelse hashtags. Typ ze met spaties ertussen.",
+  "socHashtags": "Hashtags (Instagram, TikTok en YouTube)",
+  "socHashtagsNote": "Een bericht voor Instagram, TikTok of YouTube zonder hashtags krijgt de set voor de doelgroep, bij het opslaan en nog eens vlak voor het plaatsen (TikTok neemt de eerste 5, YouTube de eerste 3). Een Engelstalig bericht krijgt Engelse hashtags. Typ ze met spaties ertussen.",
   "socSaveTags": "Hashtags opslaan",
   "socTagsAuto": "Geen hashtags? Die worden voor {p} vanzelf toegevoegd bij het opslaan, passend bij de doelgroep.",
   "socMediaPopTitle": "{p} heeft een foto of video nodig",
@@ -1839,5 +1839,12 @@
   "socTimesAdded": "Plaatsingstijden toegevoegd voor {names}. Je vindt ze onder Plaatsingstijden; daar kun je ze aanpassen.",
   "socXPremium": "Ons X-account heeft X Premium: berichten op X mogen tot 25.000 tekens zijn",
   "socXPremiumOn": "X Premium aan: berichten op X mogen tot 25.000 tekens zijn.",
-  "socXPremiumOff": "X Premium uit: berichten op X zijn hooguit 280 tekens."
+  "socXPremiumOff": "X Premium uit: berichten op X zijn hooguit 280 tekens.",
+  "socYtTitle": "Titel (YouTube, hooguit 100 tekens)",
+  "socYtNeedsTitle": "YouTube heeft een titel nodig. Schrijf er een in het vak Titel en druk daarna opnieuw op Opslaan.",
+  "socYtNeedsVideo": "YouTube neemt alleen een video, geen foto. Druk op Weghalen, voeg een MP4-video toe en druk daarna opnieuw op Opslaan.",
+  "socVideoPopTitle": "{p} heeft een video nodig",
+  "socVideoPopBody": "{p} plaatst alleen video's. Druk op Foto of video toevoegen, kies een MP4-video en druk daarna opnieuw op Opslaan.",
+  "mktNeedsVideo": "{p} heeft een video nodig: kies Video bij dit bericht.",
+  "socYtKids": "YouTube: onze video's zijn gemaakt voor kinderen om te kijken (niet aanvinken als ze voor ouders en leerkrachten zijn)"
 }

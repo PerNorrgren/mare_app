@@ -36,7 +36,7 @@ const crypto = require('crypto');
 const cron = require('node-cron');
 const BP = 'https://app.bulkpublish.com/api';
 const TZ = 'Europe/Amsterdam'; // posting times are Dutch time (Mare's audience)
-const BASE_PLATFORMS = ['instagram', 'facebook', 'linkedin', 'pinterest', 'threads', 'bluesky', 'tiktok'];
+const BASE_PLATFORMS = ['instagram', 'facebook', 'linkedin', 'pinterest', 'threads', 'bluesky', 'tiktok', 'youtube']; // v100: YouTube
 const LABEL = { instagram: 'Instagram', facebook: 'Facebook', linkedin: 'LinkedIn', pinterest: 'Pinterest', threads: 'Threads', bluesky: 'Bluesky', x: 'X', tiktok: 'TikTok', youtube: 'YouTube', gmb: 'Google Business', mastodon: 'Mastodon', reddit: 'Reddit', telegram: 'Telegram', tumblr: 'Tumblr', discord: 'Discord', snapchat: 'Snapchat' };
 const label = (p) => LABEL[p] || (p ? p[0].toUpperCase() + p.slice(1) : '');
 const AUDIENCES = ['any', 'teachers', 'parents', 'sales'];
@@ -58,7 +58,10 @@ function xLength(text) {
   }
   return n;
 }
-const MAX_LEN = { x: 280, bluesky: 300, threads: 500, pinterest: 500, instagram: 2200, tiktok: 2200, linkedin: 3000, facebook: 5000 };
+// v100 — platforms that need a title, and those that only take a video
+const NEEDS_TITLE = new Set(['pinterest', 'youtube']);
+const VIDEO_ONLY = new Set(['youtube']);
+const MAX_LEN = { youtube: 5000, x: 280, bluesky: 300, threads: 500, pinterest: 500, instagram: 2200, tiktok: 2200, linkedin: 3000, facebook: 5000 };
 // v85: links can't be clicked in captions or comments here: "Link in bio"
 const LINK_IN_BIO = new Set(['instagram', 'tiktok']);
 // v85: TikTok takes video, or JPG/WebP pictures as a slideshow (no PNG)
@@ -117,7 +120,7 @@ const STARTER_TIMES = {
     [0, '20:00', 'parents', 'Zondagavond: één klein idee voor een rustige week thuis'],
   ],
   youtube: [
-    [3, '15:30', 'parents', 'Een korte video: een plaat uit het boek of de Book Companion, met één klein idee'],
+    [3, '15:30', 'any', 'Een korte video: een plaat uit het boek of de Book Companion, met één klein idee'], // v100: any, so teachers' videos have a time too
     [6, '09:30', 'parents', 'Weekend: samen kijken, samen lezen'],
   ],
   gmb: [
@@ -259,7 +262,7 @@ function register(app, { db, auth, media, email, anthropic, model, publicUrl }) 
     if (!up.ok || !data.file || !data.file.id) throw new Error(`BulkPublish could not take the picture or video${data && data.error ? ` ("${data.error.message || data.error}")` : ''}. Wait a few minutes and press Try again. If it fails again, click Edit, use a smaller picture or a shorter MP4 video, press Save, then press Try again.`);
     return data.file.id;
   }
-  const MEDIA_TYPES = { instagram: { image: 'feed_photo', video: 'feed_video' }, threads: { image: 'image', video: 'video' }, pinterest: { image: 'pin', video: 'video_pin' }, tiktok: { image: 'photo_slideshow', video: 'video' } };
+  const MEDIA_TYPES = { youtube: { video: 'video' }, instagram: { image: 'feed_photo', video: 'feed_video' }, threads: { image: 'image', video: 'video' }, pinterest: { image: 'pin', video: 'video_pin' }, tiktok: { image: 'photo_slideshow', video: 'video' } };
   // v85: TikTok posts are private unless the post says otherwise, and only
   // the privacy levels the account itself allows are accepted. Ask once an
   // hour per channel and always choose public.
@@ -297,6 +300,10 @@ function register(app, { db, auth, media, email, anthropic, model, publicUrl }) 
       const level = await tiktokPublicLevel(ch);
       if (!level) throw new Error('Mare\'s TikTok account is private, so it can\'t post. In the TikTok app, log in as Mare, tap Profile, tap ☰, tap Settings and privacy, tap Privacy and switch Private account off. Then press Try again.');
       ps.tiktok = { privacyLevel: level, isAigc: !!(mediaKey && aiMedia), disableComment: false, disableDuet: false, disableStitch: false };
+    }
+    if (platform === 'youtube') { // v100: a title is required; public, Education, for parents and teachers
+      const yt = String(title || text.split('\n')[0] || 'Mare').replace(/[<>]/g, '').trim().slice(0, 100);
+      ps.youtube = { title: yt, privacyStatus: 'public', categoryId: '27', madeForKids: !!options().youtubeForKids };
     }
     if (Object.keys(ps).length) body.platformSpecific = ps;
     if (mediaKey) {
@@ -422,6 +429,16 @@ function register(app, { db, auth, media, email, anthropic, model, publicUrl }) 
     try { seedOnce(); } catch (e) { console.error('social seed failed:', e.message); }
     try { seedTiktokOnce(); } catch (e) { console.error('tiktok seed failed:', e.message); }
     try { ensureTimes(Object.keys(chosen()).filter(p => chosen()[p])); } catch (e) { console.error('posting times check failed:', e.message); } // v98
+    // v100 — once: YouTube's untouched Wednesday starter time was for parents
+    // only, so a video for teachers had no time. Make it for anyone.
+    try {
+      if (!options().ytWedAny) {
+        db.runBatch([
+          [`UPDATE social_slots SET audience = 'any' WHERE platform = 'youtube' AND day = 3 AND time = '15:30' AND audience = 'parents' AND theme LIKE 'Een korte video: een plaat uit het boek%'`, []],
+          [`UPDATE app_config SET social_options_json = ? WHERE id = 'default'`, [JSON.stringify({ ...options(), ytWedAny: new Date().toISOString() })]],
+        ]);
+      }
+    } catch (e) { console.error('youtube times fix failed:', e.message); }
   });
 
   // facts the writer may use, with the live Amazon links appended
@@ -474,7 +491,7 @@ function register(app, { db, auth, media, email, anthropic, model, publicUrl }) 
   // ── v93 — hashtags: Instagram and TikTok posts always get them. A post
   // without any gets the set for its audience (editable under Hashtags;
   // English sets for English posts), on saving and again before posting.
-  const HASHTAG_PLATFORMS = { instagram: 8, tiktok: 5 };
+  const HASHTAG_PLATFORMS = { instagram: 8, tiktok: 5, youtube: 3 }; // v100: YouTube shows the first 3 above the title
   const DEFAULT_HASHTAGS = {
     any: '#voorlezen #kinderboeken #samenlezen #basisonderwijs #opvoeding #rustinjehoofd #mareenhetfluisterbos',
     parents: '#voorlezen #samenlezen #kinderboeken #opvoeding #ouders #rustinjehoofd #mareenhetfluisterbos',
@@ -547,6 +564,7 @@ function register(app, { db, auth, media, email, anthropic, model, publicUrl }) 
   // what a post still needs before it may go in the queue ('' = nothing)
   function mediaProblem(platform, key, type) {
     if (NEEDS_MEDIA.has(platform) && !key) return `${label(platform)} always needs a picture or video. Click Edit, add a picture or video, press Save, then press Try again.`;
+    if (VIDEO_ONLY.has(platform) && key && type !== 'video') return `${label(platform)} only takes a video, not a picture. Click Edit, remove the picture, add an MP4 video, press Save, then press Try again.`; // v100
     if (platform === 'tiktok' && key && type !== 'video' && !tiktokPictureOk(key)) return 'TikTok only takes JPG pictures. Click Edit, remove the picture, add it again (the app saves it as JPG), press Save, then press Try again.';
     return '';
   }
@@ -654,7 +672,7 @@ function register(app, { db, auth, media, email, anthropic, model, publicUrl }) 
     let html = `<div style="font-family:Arial,sans-serif;color:#16305C;max-width:560px;"><p style="font-size:1.05rem;"><strong>${esc(head[1])}</strong></p>`;
     if (r.platform_url) html += `<p><a href="${esc(r.platform_url)}" style="display:inline-block;background:#EAC066;color:#16305C;text-decoration:none;font-weight:bold;padding:9px 16px;border-radius:999px;">View the post on ${esc(p)}</a></p>`;
     html += `<p style="color:#6b7a99;font-size:0.9rem;">For: ${audience}${r.theme ? ` · Theme: ${esc(r.theme)}` : ''}${r.media_key ? ` · With ${r.media_type === 'video' ? 'a video' : 'a picture'}` : ''}</p>`;
-    if (r.title && r.platform === 'pinterest') html += `<p><strong>Title:</strong> ${esc(r.title)}</p>`;
+    if (r.title && NEEDS_TITLE.has(r.platform)) html += `<p><strong>Title:</strong> ${esc(r.title)}</p>`;
     html += box(fillLink(r.content, r.audience || 'any'));
     if (r.first_comment && FIRST_COMMENT_OK.has(r.platform)) html += `<p style="margin-bottom:0;"><strong>First comment:</strong></p>${box(fillLink(r.first_comment, r.audience || 'any'))}`;
     html += `<p style="font-size:0.85rem;color:#6b7a99;"><a href="${APP_LINK}admin.html" style="color:#6b7a99;">${APP_LINK}admin.html</a> → Sales &amp; Marketing → Social media</p></div>`;
@@ -778,7 +796,8 @@ function register(app, { db, auth, media, email, anthropic, model, publicUrl }) 
     if (flags.length) notes.warnings.push(`Check the wording: contains "${flags.map(w => w.trim()).join('", "')}".`);
     content = withHashtags(platform, content, audience || 'any'); // v93: the writer forgot them → the audience's set
     if (LINK_IN_BIO.has(platform) && !/#\w/.test(content)) notes.warnings.push(`No hashtags: ${label(platform)} posts should end with 3–8 of them.`);
-    return { content, firstComment, title: platform === 'pinterest' ? String(p.title || '').trim().slice(0, 100) : '', notes };
+    if (platform === 'youtube' && !String(p.title || '').trim()) notes.warnings.push('No title: YouTube needs one. Click Edit, write a title, press Save.'); // v100
+    return { content, firstComment, title: NEEDS_TITLE.has(platform) ? String(p.title || '').trim().slice(0, 100) : '', notes };
   }
   async function writePosts(items, lang) {
     // items: [{ key, platform, audience, theme, when }]
@@ -843,7 +862,7 @@ function register(app, { db, auth, media, email, anthropic, model, publicUrl }) 
       hashtags: hashtagSets(), hashtagPlatforms: Object.keys(HASHTAG_PLATFORMS), // v93
       postLinks: postLinks(), postLinksFull: Object.fromEntries(AUDIENCES.map(a => [a, linkFor(a)])), linkToken: LINK_TOKEN,
       facts: c.social_facts || DEFAULT_FACTS,
-      firstCommentPlatforms: [...FIRST_COMMENT_OK], noLinkPlatforms: [...NO_LINK_IN_POST], needsMedia: [...NEEDS_MEDIA], maxLen: maxLen(), xPremium: xPremium(),
+      firstCommentPlatforms: [...FIRST_COMMENT_OK], noLinkPlatforms: [...NO_LINK_IN_POST], needsMedia: [...NEEDS_MEDIA], maxLen: maxLen(), xPremium: xPremium(), needsTitle: [...NEEDS_TITLE], videoOnly: [...VIDEO_ONLY], youtubeForKids: !!options().youtubeForKids,
       job: job && { id: job.id, total: job.total, done: job.done, created: job.created, errors: job.errors, finished: job.finished },
     });
   });
@@ -910,7 +929,8 @@ function register(app, { db, auth, media, email, anthropic, model, publicUrl }) 
         opts.hashtags = hs;
       }
       if (b.xPremium !== undefined) opts.xPremium = !!b.xPremium; // v99
-      if (b.pinterestBoard !== undefined || b.postLinks !== undefined || b.hashtags !== undefined || b.xPremium !== undefined) list.push([`UPDATE app_config SET social_options_json = ? WHERE id = 'default'`, [JSON.stringify(opts)]]);
+      if (b.youtubeForKids !== undefined) opts.youtubeForKids = !!b.youtubeForKids; // v100
+      if (b.pinterestBoard !== undefined || b.postLinks !== undefined || b.hashtags !== undefined || b.xPremium !== undefined || b.youtubeForKids !== undefined) list.push([`UPDATE app_config SET social_options_json = ? WHERE id = 'default'`, [JSON.stringify(opts)]]);
       db.runBatch(list);
       res.json({ ok: true });
     } catch (e) { fail(res, e); }

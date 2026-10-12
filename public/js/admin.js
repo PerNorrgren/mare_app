@@ -1715,8 +1715,8 @@
     const bd = document.createElement('div');
     bd.className = 'admin-modal-backdrop'; bd.id = 'soc-media-pop';
     bd.innerHTML = `<div class="admin-modal-card soc-media-pop" role="dialog" aria-modal="true">
-      <h3>📷 ${escapeHtml(t('socMediaPopTitle', { p: socLabel(platform) }))}</h3>
-      <p>${escapeHtml(t('socMediaPopBody', { p: socLabel(platform) }))}</p>
+      <h3>📷 ${escapeHtml(t(socVideoOnly(platform) ? 'socVideoPopTitle' : 'socMediaPopTitle', { p: socLabel(platform) }))}</h3>
+      <p>${escapeHtml(t(socVideoOnly(platform) ? 'socVideoPopBody' : 'socMediaPopBody', { p: socLabel(platform) }))}</p>
       <div class="admin-modal-btns">
         ${onDraft ? `<button type="button" class="btn-ghost" data-a="draft" data-no-busy>${escapeHtml(t('socMediaPopDraft'))}</button>` : ''}
         <button type="button" class="btn-primary" data-a="add" data-no-busy>${escapeHtml(t('socMediaPopAdd'))}</button>
@@ -1728,6 +1728,8 @@
     bd.addEventListener('click', (e) => { if (e.target === bd) bd.remove(); });
   }
   const socNeedsMedia = (p) => ((socState && socState.needsMedia) || []).includes(p);
+  const socVideoOnly = (p) => ((socState && socState.videoOnly) || []).includes(p); // v100
+  const socNeedsTitle = (p) => ((socState && socState.needsTitle) || ['pinterest']).includes(p); // v100
   function renderPostLinks() {
     const box = document.getElementById('soc-post-links'); if (!box || !socState) return;
     const pl = socState.postLinks || {}, dis = socIsAdmin() ? '' : 'disabled';
@@ -1816,10 +1818,10 @@
     const p = card.dataset.platform, v = card.querySelector('.mkt-media-pick').value;
     const needs = ((socState && socState.needsMedia) || []).includes(p);
     const warn = card.querySelector('.mkt-media-warn');
-    warn.textContent = needs && v === 'none' ? t('mktNeedsMedia', { p: socLabel(p) }) : '';
+    warn.textContent = needs && v === 'none' ? t(socVideoOnly(p) ? 'mktNeedsVideo' : 'mktNeedsMedia', { p: socLabel(p) }) : socVideoOnly(p) && v === 'image' ? t('mktNeedsVideo', { p: socLabel(p) }) : '';
     warn.hidden = !warn.textContent;
     const pub = card.querySelector('[data-publish]');
-    if (pub) pub.hidden = needs && v === 'none';
+    if (pub) pub.hidden = (needs && v === 'none') || (socVideoOnly(p) && v === 'image');
   }
   // what a generated post sends, with the chosen picture/video
   function mktMediaFor(card) {
@@ -1961,6 +1963,7 @@
     renderPostLinks();
     renderHashtags(); // v93
     { const xp = document.getElementById('soc-x-premium'); if (xp) { xp.checked = !!socState.xPremium; xp.disabled = !socIsAdmin(); } } // v99
+    { const yk = document.getElementById('soc-yt-kids'); if (yk) { yk.checked = !!socState.youtubeForKids; yk.disabled = !socIsAdmin(); } } // v100
     renderHealth(socState.lastHealth);
     document.getElementById('soc-alert-emails').textContent = socState.alertEmails || '—'; // v90: the notification group
     const facts = document.getElementById('soc-facts');
@@ -2240,7 +2243,8 @@
     const c = document.getElementById('sp-count'); c.textContent = `${n} / ${max}`; c.classList.toggle('over', n > max);
     const fcOk = !socState || (socState.firstCommentPlatforms || []).includes(p);
     document.getElementById('sp-fc-wrap').hidden = !fcOk;
-    document.getElementById('sp-title-wrap').hidden = p !== 'pinterest';
+    document.getElementById('sp-title-wrap').hidden = !socNeedsTitle(p); // v100: Pinterest and YouTube
+    document.getElementById('sp-title-label').textContent = t(p === 'youtube' ? 'socYtTitle' : 'socPinTitle');
     { // v93: say hashtags come by themselves
       const tn = document.getElementById('sp-tags-note');
       const on = socState && (socState.hashtagPlatforms || []).includes(p);
@@ -2309,7 +2313,7 @@
       const platform = document.getElementById('sp-platform').value;
       const body = { platform, content: document.getElementById('sp-text').value, audience: document.getElementById('sp-audience').value,
         firstComment: document.getElementById('sp-fc-wrap').hidden ? '' : document.getElementById('sp-fc').value,
-        title: platform === 'pinterest' ? document.getElementById('sp-pin-title').value : '' };
+        title: socNeedsTitle(platform) ? document.getElementById('sp-pin-title').value : '' };
       const w = document.getElementById('sp-when').value;
       if (w === 'at' && document.getElementById('sp-at').value) body.scheduledFor = new Date(document.getElementById('sp-at').value).toISOString();
       else body.scheduledFor = 'next';
@@ -2325,6 +2329,13 @@
       const err = document.getElementById('sp-error'); err.hidden = true;
       const when = document.getElementById('sp-when').value;
       const platform = document.getElementById('sp-platform').value;
+      // v100: YouTube needs a title and a video, not a picture
+      if (socNeedsTitle(platform) && platform === 'youtube' && !document.getElementById('sp-pin-title').value.trim() && !ev.socAsDraft) {
+        err.textContent = t('socYtNeedsTitle'); err.hidden = false; document.getElementById('sp-pin-title').focus(); throw new Error('title');
+      }
+      if (socVideoOnly(platform) && socMedia && socMedia.type !== 'video' && !ev.socAsDraft) {
+        err.textContent = t('socYtNeedsVideo'); err.hidden = false; throw new Error('video');
+      }
       // v93: no picture or video for a platform that needs one → ask for it first
       if (socNeedsMedia(platform) && !socMedia && !ev.socAsDraft) {
         const canDraft = !socEditing || (socEditRow && socEditRow.status === 'draft');
@@ -2336,7 +2347,7 @@
       }
       const body = { platform, content: document.getElementById('sp-text').value, audience: document.getElementById('sp-audience').value,
         firstComment: document.getElementById('sp-fc-wrap').hidden ? '' : document.getElementById('sp-fc').value,
-        title: platform === 'pinterest' ? document.getElementById('sp-pin-title').value : '',
+        title: socNeedsTitle(platform) ? document.getElementById('sp-pin-title').value : '',
         mediaKey: socMedia ? socMedia.key : null, mediaType: socMedia ? socMedia.type : null, aiMedia: document.getElementById('sp-ai').checked };
       if (socEditRow && socEditRow.notes && !socEditing) body.notes = socEditRow.notes;
       if (when === 'next') body.scheduledFor = 'next';
@@ -2366,6 +2377,13 @@
         if (!document.getElementById('soc-pin-row').hidden) await api('/api/admin/social/settings', { method: 'PUT', body: JSON.stringify({ pinterestBoard: document.getElementById('soc-pin-board').value }) });
       } catch (e) { const st = document.getElementById('soc-status'); st.textContent = e.message; st.hidden = false; throw e; }
       await loadSocial(true);
+    });
+    if (document.getElementById('soc-yt-kids')) document.getElementById('soc-yt-kids').addEventListener('change', async (e) => { // v100: saved straight away
+      const box = e.target; box.disabled = true;
+      try { await api('/api/admin/social/settings', { method: 'PUT', body: JSON.stringify({ youtubeForKids: box.checked }) }); socNote(t('adminSaved')); }
+      catch (err) { box.checked = !box.checked; alert(err.message); }
+      box.disabled = false;
+      await loadSocial();
     });
     if (document.getElementById('soc-x-premium')) document.getElementById('soc-x-premium').addEventListener('change', async (e) => { // v99: saved straight away
       const box = e.target; box.disabled = true;

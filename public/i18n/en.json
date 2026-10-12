@@ -1813,8 +1813,8 @@
   "socSend": "Send",
   "socSentNow": "Sent to {p}. A copy follows by email once it is live.",
   "socEmailed": "Copy sent to {to}.",
-  "socHashtags": "Hashtags (Instagram and TikTok)",
-  "socHashtagsNote": "An Instagram or TikTok post without hashtags gets the set for who it is for, when it is saved and again just before it is posted (TikTok takes the first 5). A post in English gets English hashtags. Type them with spaces between.",
+  "socHashtags": "Hashtags (Instagram, TikTok and YouTube)",
+  "socHashtagsNote": "An Instagram, TikTok or YouTube post without hashtags gets the set for who it is for, when it is saved and again just before it is posted (TikTok takes the first 5, YouTube the first 3). A post in English gets English hashtags. Type them with spaces between.",
   "socSaveTags": "Save hashtags",
   "socTagsAuto": "No hashtags? They are added for {p} by themselves when you save, for who the post is for.",
   "socMediaPopTitle": "{p} needs a picture or video",
@@ -1839,5 +1839,12 @@
   "socTimesAdded": "Posting times added for {names}. You'll find them under Posting times, where you can change them.",
   "socXPremium": "Our X account has X Premium: posts on X can be up to 25,000 characters",
   "socXPremiumOn": "X Premium on: posts on X can be up to 25,000 characters.",
-  "socXPremiumOff": "X Premium off: posts on X are 280 characters at most."
+  "socXPremiumOff": "X Premium off: posts on X are 280 characters at most.",
+  "socYtTitle": "Title (YouTube, at most 100 characters)",
+  "socYtNeedsTitle": "YouTube needs a title. Write one in the Title box, then press Save again.",
+  "socYtNeedsVideo": "YouTube only takes a video, not a picture. Press Remove, add an MP4 video, then press Save again.",
+  "socVideoPopTitle": "{p} needs a video",
+  "socVideoPopBody": "{p} only posts videos. Press Add a picture or video, choose an MP4 video, then press Save again.",
+  "mktNeedsVideo": "{p} needs a video: choose Video for this post.",
+  "socYtKids": "YouTube: our videos are made for children to watch (leave unticked when they are for parents and teachers)"
 }
