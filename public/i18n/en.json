@@ -1191,7 +1191,7 @@
   "adminPicTitle": "Pictures for each chapter",
   "adminPicDesc": "The book itself isn't in the app (it's on Amazon). Here you add the pictures a child explores while a grown-up reads: upload a picture, then click on it to add a glowing spot and choose what happens when it's tapped.",
   "adminPicChapter": "Chapter",
-  "adminPicAdd": "+ Add a picture",
+  "adminPicAdd": "+ Add a step (picture or video)",
   "adminPicUpload": "Upload a picture or video",
   "adminPicClickHint": "Click on the picture to add a spot. Drag a spot to move it.",
   "adminPicDelete": "Delete this picture",
@@ -1857,5 +1857,8 @@
   "socYtVerified": "Our YouTube channel is verified (youtube.com/verify): videos may be longer than 15 minutes",
   "socYtVerifiedOn": "YouTube videos may now be up to 12 hours.",
   "socYtVerifiedOff": "YouTube videos are now 15 minutes at most.",
-  "socXThreadCount": "{n} characters · goes out as a thread of {k} posts (at most {max})"
+  "socXThreadCount": "{n} characters · goes out as a thread of {k} posts (at most {max})",
+  "socLinkBioX": "On X the link is in the profile (bio): links are taken out when you save, and 'Free preview: link in our profile.' goes at the bottom by itself.",
+  "adminPicEmpty": "Still empty: choose a picture or an MP4 video for this step.",
+  "adminPicChoose": "Choose a picture or video"
 }

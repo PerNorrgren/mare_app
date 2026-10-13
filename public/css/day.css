@@ -2290,3 +2290,10 @@ body.soc-full-open { overflow: hidden; }
 .soc-media-info { margin: 4px 0 2px; font-size: 0.88rem; font-weight: 600; color: #16305C; }
 .soc-media-info[hidden] { display: none; }
 .soc-media-info.bad { color: #A5473A; }
+
+/* v103 — an empty picture step, and upload messages beside the button */
+.pic-canvas.pic-canvas-empty { cursor: default; min-height: 220px; display: flex; align-items: center; justify-content: center; border: 2px dashed rgba(226,190,110,0.6); background: rgba(11,23,18,0.88); }
+.pic-empty { text-align: center; color: #FFF6DC; padding: 20px; }
+.pic-empty p { margin: 0 0 12px; font-weight: 600; }
+.pic-up-msg { font-size: 0.88rem; font-weight: 600; color: #16305C; margin-left: 6px; }
+.pic-up-msg.err { color: #A5473A; }

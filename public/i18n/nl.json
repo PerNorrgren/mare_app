@@ -1191,7 +1191,7 @@
   "adminPicTitle": "Platen per hoofdstuk",
   "adminPicDesc": "Het boek zelf staat niet in de app (het is te koop op Amazon). Hier voeg je de platen toe die een kind ontdekt terwijl een volwassene voorleest: upload een plaat, klik erop om een lichtje toe te voegen en kies wat er gebeurt als erop getikt wordt.",
   "adminPicChapter": "Hoofdstuk",
-  "adminPicAdd": "+ Plaat toevoegen",
+  "adminPicAdd": "+ Stap toevoegen (foto of video)",
   "adminPicUpload": "Plaat of video uploaden",
   "adminPicClickHint": "Klik op de plaat om een lichtje toe te voegen. Sleep een lichtje om het te verplaatsen.",
   "adminPicDelete": "Deze plaat verwijderen",
@@ -1857,5 +1857,8 @@
   "socYtVerified": "Ons YouTube-kanaal is geverifieerd (youtube.com/verify): video's mogen langer zijn dan 15 minuten",
   "socYtVerifiedOn": "YouTube-video's mogen nu tot 12 uur duren.",
   "socYtVerifiedOff": "YouTube-video's duren nu hooguit 15 minuten.",
-  "socXThreadCount": "{n} tekens · gaat als draad van {k} berichten (hooguit {max})"
+  "socXThreadCount": "{n} tekens · gaat als draad van {k} berichten (hooguit {max})",
+  "socLinkBioX": "Op X staat de link in het profiel (bio): links gaan er bij het opslaan uit, en 'Gratis voorproefje: link in ons profiel.' komt er vanzelf onder.",
+  "adminPicEmpty": "Nog leeg: kies een foto of een MP4-video voor deze stap.",
+  "adminPicChoose": "Foto of video kiezen"
 }

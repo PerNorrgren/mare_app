@@ -390,6 +390,13 @@
   // ── Mare App 5 — Picture explorer editor (Admin → Book Companion) ──
   let picData = null;
   let picSelected = null; // spot id
+  // v103 — put a picture or an MP4 video on a step
+  async function picPutScene(sceneId, file) {
+    const isVid = (file.type || '').startsWith('video/') || /\.(mp4|mov|webm|m4v|avi|mkv)$/i.test(file.name);
+    if (isVid && !/\.mp4$/i.test(file.name)) throw new Error(t('adminVidMp4Only'));
+    const key = await picUpload(file, isVid ? 'scene-videos' : 'scenes');
+    await api(`/api/admin/pictures/${sceneId}`, { method: 'PATCH', body: JSON.stringify(isVid ? { videoKey: key, imageKey: null } : { imageKey: key, videoKey: null }) });
+  }
   async function picUpload(file, folder) {
     const key = `pictures/${folder}/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, '_').slice(-80)}`;
     const { url } = await api('/api/admin/upload-url', { method: 'POST', body: JSON.stringify({ key, contentType: file.type || 'application/octet-stream' }) });
@@ -604,6 +611,7 @@
         <input type="text" class="pic-title-nl" placeholder="Titel (NL, optioneel)" value="${escapeHtml(scene.title_nl)}">
         <label class="pic-upload btn-ghost btn-small">${escapeHtml(t('adminPicUpload'))}<input type="file" accept="image/*,video/mp4,.mp4" hidden></label>
         <button type="button" class="btn-ghost btn-small btn-danger pic-del">${escapeHtml(t('adminPicDelete'))}</button>
+        <span class="pic-up-msg" role="status"></span>
       </div>
       <div class="admin-form-row pic-notes">
         <div class="field"><label>${escapeHtml(t('adminPicNoteEn'))}</label><textarea data-editor="plain" class="pic-note-en" rows="3">${escapeHtml(scene.context_en || '')}</textarea></div>
@@ -613,7 +621,7 @@
       <p class="admin-empty-note">${escapeHtml(scene.videoUrl ? t('adminVidClickHint') : scene.imageUrl ? t('adminPicClickHint') : t('adminPicLandscape'))}</p>
       <div class="pic-body">
         <div>
-        <div class="pic-canvas">${scene.videoUrl ? `<video src="${escapeHtml(scene.videoUrl)}" preload="metadata" playsinline></video>` : scene.imageUrl ? `<img src="${escapeHtml(scene.imageUrl)}" alt="" draggable="false">` : ''}<div class="pic-spots"></div></div>
+        <div class="pic-canvas${scene.videoUrl || scene.imageUrl ? '' : ' pic-canvas-empty'}">${scene.videoUrl ? `<video src="${escapeHtml(scene.videoUrl)}" preload="metadata" playsinline></video>` : scene.imageUrl ? `<img src="${escapeHtml(scene.imageUrl)}" alt="" draggable="false">` : `<div class="pic-empty"><p>${escapeHtml(t('adminPicEmpty'))}</p><label class="btn-primary btn-small">${escapeHtml(t('adminPicChoose'))}<input type="file" class="pic-empty-file" accept="image/*,video/mp4,.mp4" hidden></label></div>`}<div class="pic-spots"></div></div>
         ${scene.videoUrl ? `<div class="vid-bar">
           <button type="button" class="btn-ghost btn-small vid-play" data-no-busy>▶</button>
           <span class="vid-time">0:00.0</span>
@@ -639,17 +647,18 @@
     });
     el.querySelector('.pic-title-en').addEventListener('change', saveTitles);
     el.querySelector('.pic-title-nl').addEventListener('change', saveTitles);
-    el.querySelector('.pic-upload input').addEventListener('change', async (e) => {
+    // v103: the upload message sits next to the upload button (it used to overwrite the note above)
+    const upFile = async (e) => {
       const file = e.target.files[0]; if (!file) return;
-      const note = el.querySelector('.admin-empty-note'); note.textContent = t('adminUploading');
+      const note = el.querySelector('.pic-up-msg'); note.className = 'pic-up-msg'; note.textContent = t('adminUploading');
+      const say = (txt) => { note.textContent = txt; note.className = 'pic-up-msg err'; e.target.value = ''; };
       try {
-        const isVid = (file.type || '').startsWith('video/') || /\.(mov|webm|m4v|avi|mkv)$/i.test(file.name);
-        if (isVid && !/\.mp4$/i.test(file.name)) { note.textContent = t('adminVidMp4Only'); e.target.value = ''; return; }
-        const key = await picUpload(file, isVid ? 'scene-videos' : 'scenes');
-        await api(`/api/admin/pictures/${scene.id}`, { method: 'PATCH', body: JSON.stringify(isVid ? { videoKey: key, imageKey: null } : { imageKey: key, videoKey: null }) });
+        await picPutScene(scene.id, file);
         loadPictures(scene.chapter_no);
-      } catch (err) { note.textContent = err.message || t('errorGeneric'); }
-    });
+      } catch (err) { say(err.message || t('errorGeneric')); }
+    };
+    el.querySelector('.pic-upload input').addEventListener('change', upFile);
+    if (el.querySelector('.pic-empty-file')) el.querySelector('.pic-empty-file').addEventListener('change', upFile);
     el.querySelector('.pic-del').addEventListener('click', async () => {
       if (!confirm(t('adminPicDeleteConfirm'))) return;
       await api(`/api/admin/pictures/${scene.id}`, { method: 'DELETE' });
@@ -1003,10 +1012,32 @@
     const sel = document.getElementById('pic-chapter');
     if (sel) {
       sel.addEventListener('change', renderPictures);
-      document.getElementById('pic-add').addEventListener('click', async () => {
+      // v103: adding a step starts with choosing its picture or video; cancelling adds nothing
+      const addBtn = document.getElementById('pic-add');
+      const addFile = document.createElement('input');
+      addFile.type = 'file'; addFile.accept = 'image/*,video/mp4,.mp4'; addFile.hidden = true;
+      addBtn.after(addFile);
+      const addMsg = document.createElement('span'); addMsg.className = 'pic-up-msg'; addMsg.setAttribute('role', 'status');
+      addFile.after(addMsg);
+      addBtn.addEventListener('click', () => { addMsg.textContent = ''; addFile.value = ''; addFile.click(); });
+      addFile.addEventListener('change', async () => {
+        const file = addFile.files[0]; if (!file) return;
         const ch = Number(sel.value) || 1;
-        await api('/api/admin/pictures', { method: 'POST', body: JSON.stringify({ chapter: ch }) });
-        loadPictures(ch);
+        addBtn.disabled = true; addMsg.className = 'pic-up-msg'; addMsg.textContent = t('adminUploading');
+        let id = null;
+        try {
+          const isVid = (file.type || '').startsWith('video/') || /\.(mp4|mov|webm|m4v|avi|mkv)$/i.test(file.name);
+          if (isVid && !/\.mp4$/i.test(file.name)) throw new Error(t('adminVidMp4Only'));
+          id = (await api('/api/admin/pictures', { method: 'POST', body: JSON.stringify({ chapter: ch }) })).id;
+          await picPutScene(id, file);
+          addMsg.textContent = '';
+          await loadPictures(ch);
+          const card = document.querySelector(`.pic-card[data-scene="${id}"]`);
+          if (card) card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        } catch (err) {
+          if (id) { try { await api(`/api/admin/pictures/${id}`, { method: 'DELETE' }); } catch { /* leave it */ } }
+          addMsg.className = 'pic-up-msg err'; addMsg.textContent = err.message || t('errorGeneric');
+        } finally { addBtn.disabled = false; }
       });
     }
   }
@@ -2344,7 +2375,7 @@
     const noLink = socState && (socState.noLinkPlatforms || []).includes(p);
     const aud = document.getElementById('sp-audience').value;
     const goes = socState && socState.postLinksFull ? ' ' + t('socLinkGoesTo', { url: socState.postLinksFull[aud] || socState.postLinksFull.any }) : '';
-    document.getElementById('sp-link-note').textContent = (noLink ? t('socLinkMoves', { p: socLabel(p) }) : ['instagram', 'tiktok'].includes(p) ? t('socLinkBio', { p: socLabel(p) }) : '') + goes;
+    document.getElementById('sp-link-note').textContent = (p === 'x' ? t('socLinkBioX') : noLink ? t('socLinkMoves', { p: socLabel(p) }) : ['instagram', 'tiktok'].includes(p) ? t('socLinkBio', { p: socLabel(p) }) : '') + (p === 'x' ? '' : goes); // v103
   }
   // open the post window: r = existing post (edit), a copy (id null), or a generated post
   function openSocialPost(r) {
