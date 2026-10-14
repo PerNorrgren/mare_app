@@ -2301,3 +2301,17 @@ body.soc-full-open { overflow: hidden; }
 .pic-empty p { margin: 0 0 12px; font-weight: 600; }
 .pic-up-msg { font-size: 0.88rem; font-weight: 600; color: #16305C; margin-left: 6px; }
 .pic-up-msg.err { color: #A5473A; }
+
+/* v105: replace / put back a step's picture or video (under the picture) */
+.pic-media-tools { margin-top: 10px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.pic-replace-box, .pic-restore-box { flex-basis: 100%; background: #FFFBF1; border: 1.5px solid var(--gold); border-radius: 12px; padding: 10px 12px; }
+.pic-replace-box p { margin: 0 0 8px; }
+.pic-replace-box label { cursor: pointer; margin-right: 6px; }
+.pic-restore-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 10px; max-height: 460px; overflow: auto; margin-top: 6px; }
+.pic-restore-item { border: 1px solid rgba(22,48,92,0.18); border-radius: 10px; padding: 6px; background: #fff; display: flex; flex-direction: column; gap: 6px; font-size: 0.85em; }
+.pic-restore-item.cur { border: 2px solid var(--gold); }
+.pic-restore-item img, .pic-restore-item video { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; border-radius: 8px; background: #222; }
+.pic-restore-meta { word-break: break-word; color: var(--navy); }
+
+.pic-empty .pic-up-msg { display: block; margin-top: 8px; color: #FFFBF1; }
+.pic-empty .pic-up-msg.err { color: #FFC9BF; }

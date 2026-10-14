@@ -265,6 +265,25 @@ function register(app, { db, auth, media, email, publicUrl }) {
     db.updatePictureScene(req.params.id, f);
     res.json({ ok: true });
   });
+  // v105 — every picture and video ever uploaded for a step (they are never
+  // deleted), newest first, so one replaced by mistake can be put back
+  app.get('/api/admin/pictures/earlier-media', staff, async (req, res) => {
+    try {
+      const files = [...await media.listObjects('pictures/scenes/'), ...await media.listObjects('pictures/scene-videos/')]
+        .filter(f => KEY_OK.test(f.key) && f.sizeBytes > 0)
+        .sort((a, b) => String(b.modifiedAt || '').localeCompare(String(a.modifiedAt || ''))).slice(0, 80);
+      const scenes = db.pictureScenes(null);
+      const usedBy = new Map();
+      for (const s of scenes) for (const k of [s.image_key, s.video_key]) if (k) usedBy.set(k, s);
+      const stepNo = (s) => scenes.filter(x => x.chapter_no === s.chapter_no).findIndex(x => x.id === s.id) + 1;
+      const out = [];
+      for (const f of files) {
+        const u = usedBy.get(f.key);
+        out.push({ key: f.key, video: f.key.startsWith('pictures/scene-videos/'), name: f.key.split('/').pop().replace(/^\d{10,}-/, ''), at: f.modifiedAt, url: await url(f.key), usedBy: u ? { chapter: u.chapter_no, step: stepNo(u) } : null });
+      }
+      res.json({ files: out });
+    } catch (e) { res.status(422).json({ error: 'The list of earlier files could not be read. Wait a minute, then press the button again.' }); }
+  });
   app.delete('/api/admin/pictures/:id', staff, (req, res) => { db.deletePictureScene(req.params.id); res.json({ ok: true }); });
 
   function spotFields(b) {

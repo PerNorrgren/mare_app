@@ -1194,7 +1194,7 @@
   "adminPicAdd": "+ Stap toevoegen (foto of video)",
   "adminPicUpload": "Plaat of video uploaden",
   "adminPicClickHint": "Klik op de plaat om een lichtje toe te voegen. Sleep een lichtje om het te verplaatsen.",
-  "adminPicDelete": "Deze plaat verwijderen",
+  "adminPicDelete": "Deze stap verwijderen",
   "adminPicDeleteConfirm": "Deze plaat en al haar lichtjes verwijderen?",
   "adminPicNone": "Nog geen platen bij dit hoofdstuk.",
   "adminPicPreview": "Bekijk als kind",
@@ -1864,5 +1864,17 @@
   "socCountOut": "{n} / {max} zoals het geplaatst wordt (met hashtags en notities)",
   "socTooLong": "Te lang voor {p}: {n} tekens zoals het geplaatst wordt (hashtags en notities meegeteld), terwijl hooguit {max} mag. Maak de tekst {cut} tekens korter tot de teller niet meer rood is en druk daarna opnieuw op Opslaan.",
   "adminVidStoppedNoHint": "De video stopt hier. (Nog geen instructie geschreven.)",
-  "adminVidTryTap": "Probeer: tik op de plek"
+  "adminVidTryTap": "Probeer: tik op de plek",
+  "adminPicDeleteConfirmN": "Stap {n} helemaal verwijderen: de plaat of video en alle {spots} lichtjes? Dit kan niet ongedaan worden.",
+  "adminPicReplaceImg": "Deze plaat vervangen…",
+  "adminPicReplaceVid": "Deze video vervangen…",
+  "adminPicReplaceWarn": "Hiermee zet je een andere plaat of video in deze stap. De {n} lichtjes blijven, op dezelfde plek en tijd, op de nieuwe staan. Het huidige bestand blijft bewaard: je zet het terug met \"Een eerdere plaat of video terugzetten\". Wil je juist een nieuwe stap? Gebruik dan \"+ Stap toevoegen\" onderaan het hoofdstuk.",
+  "adminPicReplaceChoose": "Kies de nieuwe plaat of video",
+  "adminPicRestore": "Een eerdere plaat of video terugzetten",
+  "adminPicRestoreNote": "Elke plaat en video die voor een stap is geüpload, blijft bewaard. Nieuwste eerst. Druk op \"Deze gebruiken\" om hem in deze stap te zetten; de lichtjes blijven.",
+  "adminPicRestoreHere": "Staat nu in deze stap",
+  "adminPicRestoreUsed": "Gebruikt in hoofdstuk {ch}, stap {n}",
+  "adminPicRestoreFree": "In geen enkele stap gebruikt",
+  "adminPicRestoreUse": "Deze gebruiken",
+  "adminPicRestoreNone": "Geen eerdere platen of video's gevonden."
 }

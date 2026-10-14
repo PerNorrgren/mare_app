@@ -1194,7 +1194,7 @@
   "adminPicAdd": "+ Add a step (picture or video)",
   "adminPicUpload": "Upload a picture or video",
   "adminPicClickHint": "Click on the picture to add a spot. Drag a spot to move it.",
-  "adminPicDelete": "Delete this picture",
+  "adminPicDelete": "Delete this step",
   "adminPicDeleteConfirm": "Delete this picture and all its spots?",
   "adminPicNone": "No pictures for this chapter yet.",
   "adminPicPreview": "Preview as a child",
@@ -1864,5 +1864,17 @@
   "socCountOut": "{n} / {max} as it goes out (with hashtags and notes)",
   "socTooLong": "Too long for {p}: {n} characters as it goes out (hashtags and notes included), and the most allowed is {max}. Shorten the text by {cut} characters until the counter is not red, then press Save again.",
   "adminVidStoppedNoHint": "The video stops here. (No instruction written yet.)",
-  "adminVidTryTap": "Try: tap the spot"
+  "adminVidTryTap": "Try: tap the spot",
+  "adminPicDeleteConfirmN": "Delete Step {n} completely: its picture or video and all {spots} spots? This can't be undone.",
+  "adminPicReplaceImg": "Replace this picture…",
+  "adminPicReplaceVid": "Replace this video…",
+  "adminPicReplaceWarn": "This puts a different picture or video in this step. Its {n} spots stay, in the same places and times, on the new one. The current file is kept: you can put it back with \"Put back an earlier picture or video\". To add a new step instead, use \"+ Add a step\" at the bottom of the chapter.",
+  "adminPicReplaceChoose": "Choose the new picture or video",
+  "adminPicRestore": "Put back an earlier picture or video",
+  "adminPicRestoreNote": "Every picture and video uploaded for a step is kept. Newest first. Press \"Use this one\" to put it in this step; its spots stay.",
+  "adminPicRestoreHere": "In this step now",
+  "adminPicRestoreUsed": "Used in chapter {ch}, step {n}",
+  "adminPicRestoreFree": "Not used in any step",
+  "adminPicRestoreUse": "Use this one",
+  "adminPicRestoreNone": "No earlier pictures or videos found."
 }

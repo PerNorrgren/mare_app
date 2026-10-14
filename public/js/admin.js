@@ -612,9 +612,7 @@
       <div class="pic-head">
         <input type="text" class="pic-title-en" placeholder="Title (EN, optional)" value="${escapeHtml(scene.title_en)}">
         <input type="text" class="pic-title-nl" placeholder="Titel (NL, optioneel)" value="${escapeHtml(scene.title_nl)}">
-        <label class="pic-upload btn-ghost btn-small">${escapeHtml(t('adminPicUpload'))}<input type="file" accept="image/*,video/mp4,.mp4" hidden></label>
         <button type="button" class="btn-ghost btn-small btn-danger pic-del">${escapeHtml(t('adminPicDelete'))}</button>
-        <span class="pic-up-msg" role="status"></span>
       </div>
       <div class="admin-form-row pic-notes">
         <div class="field"><label>${escapeHtml(t('adminPicNoteEn'))}</label><textarea data-editor="plain" class="pic-note-en" rows="3">${escapeHtml(scene.context_en || '')}</textarea></div>
@@ -624,13 +622,24 @@
       <p class="admin-empty-note">${escapeHtml(scene.videoUrl ? t('adminVidClickHint') : scene.imageUrl ? t('adminPicClickHint') : t('adminPicLandscape'))}</p>
       <div class="pic-body">
         <div>
-        <div class="pic-canvas${scene.videoUrl || scene.imageUrl ? '' : ' pic-canvas-empty'}">${scene.videoUrl ? `<video src="${escapeHtml(scene.videoUrl)}" preload="metadata" playsinline></video>` : scene.imageUrl ? `<img src="${escapeHtml(scene.imageUrl)}" alt="" draggable="false">` : `<div class="pic-empty"><p>${escapeHtml(t('adminPicEmpty'))}</p><label class="btn-primary btn-small">${escapeHtml(t('adminPicChoose'))}<input type="file" class="pic-empty-file" accept="image/*,video/mp4,.mp4" hidden></label></div>`}<div class="pic-spots"></div></div>
+        <div class="pic-canvas${scene.videoUrl || scene.imageUrl ? '' : ' pic-canvas-empty'}">${scene.videoUrl ? `<video src="${escapeHtml(scene.videoUrl)}" preload="metadata" playsinline></video>` : scene.imageUrl ? `<img src="${escapeHtml(scene.imageUrl)}" alt="" draggable="false">` : `<div class="pic-empty"><p>${escapeHtml(t('adminPicEmpty'))}</p><label class="btn-primary btn-small">${escapeHtml(t('adminPicChoose'))}<input type="file" class="pic-empty-file" accept="image/*,video/mp4,.mp4" hidden></label><span class="pic-up-msg" role="status"></span></div>`}<div class="pic-spots"></div></div>
         ${scene.videoUrl ? `<div class="vid-bar">
           <button type="button" class="btn-ghost btn-small vid-play" data-no-busy>▶</button>
           <span class="vid-time">0:00.0</span>
           <div class="vid-track"><input type="range" class="vid-seek" min="0" max="1" step="0.1" value="0"><div class="vid-marks"></div></div>
         </div>
         <div class="vid-list"></div>` : ''}
+        ${scene.videoUrl || scene.imageUrl ? `<div class="pic-media-tools">
+          <button type="button" class="btn-ghost btn-small pic-replace" data-no-busy>${escapeHtml(t(scene.videoUrl ? 'adminPicReplaceVid' : 'adminPicReplaceImg'))}</button>
+          <button type="button" class="btn-ghost btn-small pic-restore" data-no-busy>${escapeHtml(t('adminPicRestore'))}</button>
+          <span class="pic-up-msg" role="status"></span>
+          <div class="pic-replace-box" hidden>
+            <p>${escapeHtml(t('adminPicReplaceWarn', { n: (scene.spots || []).length }))}</p>
+            <label class="btn-primary btn-small">${escapeHtml(t('adminPicReplaceChoose'))}<input type="file" class="pic-replace-file" accept="image/*,video/mp4,.mp4" hidden></label>
+            <button type="button" class="btn-ghost btn-small pic-replace-cancel" data-no-busy>${escapeHtml(t('adminCancel'))}</button>
+          </div>
+          <div class="pic-restore-box" hidden></div>
+        </div>` : ''}
         </div>
         <div class="pic-form"><p class="admin-empty-note">${escapeHtml(t('adminSpotNone'))}</p></div>
       </div>`;
@@ -662,10 +671,38 @@
         loadPictures(scene.chapter_no);
       } catch (err) { say(err.message || t('errorGeneric')); }
     };
-    el.querySelector('.pic-upload input').addEventListener('change', upFile);
     if (el.querySelector('.pic-empty-file')) el.querySelector('.pic-empty-file').addEventListener('change', upFile);
+    // v105 — replacing the picture/video is a deliberate two-step action under
+    // the picture (it used to sit in the header, where it was easy to mistake
+    // for "add a picture"); anything replaced can be put back from the list
+    if (el.querySelector('.pic-replace')) {
+      const box = el.querySelector('.pic-replace-box'), rbox = el.querySelector('.pic-restore-box');
+      el.querySelector('.pic-replace').addEventListener('click', () => { rbox.hidden = true; box.hidden = !box.hidden; });
+      el.querySelector('.pic-replace-cancel').addEventListener('click', () => { box.hidden = true; });
+      el.querySelector('.pic-replace-file').addEventListener('change', upFile);
+      el.querySelector('.pic-restore').addEventListener('click', async () => {
+        box.hidden = true;
+        if (!rbox.hidden) { rbox.hidden = true; return; }
+        rbox.hidden = false; rbox.innerHTML = `<p class="admin-empty-note"><span class="soc-spin"></span> ${escapeHtml(t('adminLoading'))}</p>`;
+        let files = [];
+        try { files = (await api('/api/admin/pictures/earlier-media')).files || []; }
+        catch (err) { rbox.innerHTML = `<p class="form-error">${escapeHtml(err.message || t('errorGeneric'))}</p>`; return; }
+        const current = scene.video_key || scene.image_key;
+        rbox.innerHTML = `<p class="admin-empty-note">${escapeHtml(t('adminPicRestoreNote'))}</p>` + (files.length ? `<div class="pic-restore-list">${files.map(f => `
+          <div class="pic-restore-item${f.key === current ? ' cur' : ''}">
+            ${f.video ? `<video src="${escapeHtml(f.url ? f.url + '#t=0.5' : '')}" preload="metadata" muted playsinline></video>` : `<img src="${escapeHtml(f.url || '')}" alt="" loading="lazy">`}
+            <div class="pic-restore-meta"><b>${escapeHtml(f.name)}</b><br>${escapeHtml(f.at ? new Date(f.at).toLocaleString() : '')}<br>${f.key === current ? escapeHtml(t('adminPicRestoreHere')) : f.usedBy ? escapeHtml(t('adminPicRestoreUsed', { ch: f.usedBy.chapter, n: f.usedBy.step })) : escapeHtml(t('adminPicRestoreFree'))}</div>
+            ${f.key === current ? '' : `<button type="button" class="btn-primary btn-small pic-restore-use" data-key="${escapeHtml(f.key)}" data-video="${f.video ? 1 : 0}">${escapeHtml(t('adminPicRestoreUse'))}</button>`}
+          </div>`).join('')}</div>` : `<p class="admin-empty-note">${escapeHtml(t('adminPicRestoreNone'))}</p>`);
+        rbox.querySelectorAll('.pic-restore-use').forEach(b => b.addEventListener('click', async () => {
+          const isVid = b.dataset.video === '1';
+          await api(`/api/admin/pictures/${scene.id}`, { method: 'PATCH', body: JSON.stringify(isVid ? { videoKey: b.dataset.key, imageKey: null } : { imageKey: b.dataset.key, videoKey: null }) });
+          loadPictures(scene.chapter_no);
+        }));
+      });
+    }
     el.querySelector('.pic-del').addEventListener('click', async () => {
-      if (!confirm(t('adminPicDeleteConfirm'))) return;
+      if (!confirm(t('adminPicDeleteConfirmN', { n: no || '', spots: (scene.spots || []).length }))) return;
       await api(`/api/admin/pictures/${scene.id}`, { method: 'DELETE' });
       loadPictures(scene.chapter_no);
     });
