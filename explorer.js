@@ -123,6 +123,8 @@ function register(app, { db, auth, media, email, publicUrl }) {
     }
     return ids;
   }
+  // v106: the "view as child / parent" preview family is a preview too: empty chest each time, example code only
+  const isPreviewUser = (u) => !u || u.role !== 'parent' || /@preview\.mare\.invalid$/i.test(String(u.email || ''));
   function treasureCodeFor(parentId, chapterNo) {
     const row = db.get(`SELECT t.code, o.expires_at FROM treasure_codes t LEFT JOIN offers o ON o.code = t.code WHERE t.parent_id = ? AND t.chapter_no = ?`, [parentId, chapterNo]);
     return row ? { code: row.code, expires: row.expires_at || null } : null;
@@ -132,8 +134,8 @@ function register(app, { db, auth, media, email, publicUrl }) {
     if (!cfg.chapters.includes(chapterNo)) return null;
     const total = chapterQuizIds(chapterNo).length;
     if (!total) return null;
-    const done = user.role === 'parent' ? treasureCodeFor(user.id, chapterNo) : null;
-    return { total, preview: user.role !== 'parent', percent: cfg.percent, closed: cfg.closedKey ? await url(cfg.closedKey) : null, open: (cfg.openKey ? await url(cfg.openKey) : null) || CHEST_OPEN, done };
+    const done = isPreviewUser(user) ? null : treasureCodeFor(user.id, chapterNo);
+    return { total, preview: isPreviewUser(user), percent: cfg.percent, closed: cfg.closedKey ? await url(cfg.closedKey) : null, open: (cfg.openKey ? await url(cfg.openKey) : null) || CHEST_OPEN, done };
   }
   app.post('/api/pictures/treasure', family, (req, res) => {
     const chapterNo = Math.round(Number(req.body && req.body.chapter));
@@ -142,7 +144,7 @@ function register(app, { db, auth, media, email, publicUrl }) {
     const need = chapterQuizIds(chapterNo);
     const have = new Set(Array.isArray(req.body.spots) ? req.body.spots.map(String) : []);
     if (!need.length || need.some(id => !have.has(id))) return res.status(400).json({ error: 'Not every question has been answered yet.' });
-    if (req.user.role !== 'parent') return res.json({ ok: true, preview: true, code: 'VOORBEELD', percent: cfg.percent });
+    if (isPreviewUser(req.user)) return res.json({ ok: true, preview: true, code: 'VOORBEELD', percent: cfg.percent });
     let got = treasureCodeFor(req.user.id, chapterNo);
     if (!got) {
       let code = null;

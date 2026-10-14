@@ -559,7 +559,7 @@
     const s = picData.scenes.find(x => x.id === sceneId); if (!s) return;
     flowOpen(`${s.title_en ? `<h3>${escapeHtml(s.title_en)}</h3>` : ''}${s.videoUrl ? `<video src="${escapeHtml(s.videoUrl)}" controls autoplay playsinline></video>` : `<img src="${escapeHtml(s.imageUrl)}" alt="">`}`);
   }
-  async function flowPreviewSpot(sceneId, spotId, host, draft) {
+  async function flowPreviewSpot(sceneId, spotId, host, draft, opts = {}) {
     const s = picData.scenes.find(x => x.id === sceneId); if (!s) return;
     const sp = draft || s.spots.find(x => x.id === spotId); if (!sp) return;
     if (flowAudio) { flowAudio.pause(); flowAudio = null; }
@@ -588,6 +588,10 @@
         const m = root.querySelector('.flow-quiz-msg');
         m.textContent = right ? (q.right_en || t('picturesQuizRight')) : (q.wrong_en || t('picturesQuizWrong'));
         m.className = 'flow-quiz-msg ' + (right ? 'right' : 'wrong');
+        if (!right) { b.disabled = true; return; }
+        // v105 — as the child sees it: no button to press; the chest comes with its row of diamonds
+        root.querySelectorAll('.flow-ans').forEach(x => { x.disabled = true; });
+        setTimeout(() => flowChest(s, sp, root, opts.onDone), 1100);
       }));
       return;
     }
@@ -601,6 +605,25 @@
     }
   }
 
+  // v105 — the chest after a right answer in "Try": this question's diamond
+  // lights up in the row (the questions before it counted as answered), then
+  // a tap anywhere goes on (the editor video plays on if it was stopped here)
+  const FLOW_GEM_COLOURS = ['#ff9ad5', '#9fdcff', '#c7a6ff', '#ffe08a', '#a6f0d0'];
+  const flowGem = (i) => `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12l4 6-10 12L2 9z" fill="${FLOW_GEM_COLOURS[i % FLOW_GEM_COLOURS.length]}"/><path d="M2 9h20M6 3l3 6 3-6 3 6 3-6M9 9l3 12 3-12" fill="none" stroke="rgba(255,255,255,0.75)" stroke-width="0.9" stroke-linejoin="round"/></svg>`;
+  function flowChest(scene, sp, root, onDone) {
+    const quizzes = chapterSteps(scene.chapter_no).flatMap(st => st.spots.filter(x => x.type === 'quiz').sort((a, b) => (a.t_start || 0) - (b.t_start || 0)));
+    const total = Math.max(1, quizzes.length), n = Math.max(1, quizzes.findIndex(x => x.id === sp.id) + 1);
+    const card = root.closest('.pic-try-card') || root;
+    card.innerHTML = `<div class="flow-chest">
+      <img src="/images/mare-spot-treasure-chest.png" alt="">
+      <div class="flow-gems">${Array.from({ length: total }, (_, i) => `<i class="${i < n ? 'on' : ''}${i === n - 1 ? ' new' : ''}">${flowGem(i)}</i>`).join('')}</div>
+      <p class="flow-chest-say">${escapeHtml(t('picturesDiamondN', { n, total }))}</p>
+      ${n >= total ? `<p class="admin-empty-note">${escapeHtml(t('adminTryLastDiamond'))}</p>` : ''}
+      <p class="flow-chest-tap">${escapeHtml(t('picturesTapToGoOn'))}</p></div>`;
+    const ov = card.closest('.pic-try');
+    const go = () => { flowClose(); if (onDone) onDone(); };
+    (ov || card).addEventListener('click', go, { once: true });
+  }
   function pictureCard(scene, no) {
     const el = document.createElement('div');
     el.className = 'pic-card';
@@ -754,7 +777,7 @@
       askEd.style.left = (hit.x * 100) + '%'; askEd.style.top = (hit.y * 100) + '%';
       const hint = ((window.MareI18n && window.MareI18n.locale) === 'nl' ? (hit.hint_nl || hit.hint_en) : (hit.hint_en || hit.hint_nl)) || '';
       askEd.innerHTML = `<span>⏸ ${escapeHtml(hint || t('adminVidStoppedNoHint'))}</span><button type="button" class="btn-primary btn-small" data-no-busy>${escapeHtml(t('adminVidTryTap'))}</button>`;
-      askEd.querySelector('button').addEventListener('click', (e) => { e.stopPropagation(); hideAskEd(); flowPreviewSpot(scene.id, hit.id, canvas.parentElement); });
+      askEd.querySelector('button').addEventListener('click', (e) => { e.stopPropagation(); hideAskEd(); flowPreviewSpot(scene.id, hit.id, canvas.parentElement, null, { onDone: () => video.play() }); });
       askEd.addEventListener('click', (e) => e.stopPropagation());
       canvas.appendChild(askEd);
     };

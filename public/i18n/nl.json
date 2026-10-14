@@ -1876,5 +1876,6 @@
   "adminPicRestoreUsed": "Gebruikt in hoofdstuk {ch}, stap {n}",
   "adminPicRestoreFree": "In geen enkele stap gebruikt",
   "adminPicRestoreUse": "Deze gebruiken",
-  "adminPicRestoreNone": "Geen eerdere platen of video's gevonden."
+  "adminPicRestoreNone": "Geen eerdere platen of video's gevonden.",
+  "adminTryLastDiamond": "In de app gaat de kist nu open en toont de winkelcode (in voorbeelden: een voorbeeldcode)."
 }

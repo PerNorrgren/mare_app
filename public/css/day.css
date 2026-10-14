@@ -2315,3 +2315,16 @@ body.soc-full-open { overflow: hidden; }
 
 .pic-empty .pic-up-msg { display: block; margin-top: 8px; color: #FFFBF1; }
 .pic-empty .pic-up-msg.err { color: #FFC9BF; }
+
+/* v105: the chest and diamonds in "Try" */
+.flow-chest { display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center; cursor: pointer; padding: 6px 0; }
+.flow-chest img { width: min(200px, 60%); height: auto; animation: flow-chest-in 0.6s cubic-bezier(.2,1.5,.4,1) both; }
+.flow-gems { display: flex; flex-wrap: wrap; justify-content: center; gap: 5px; background: rgba(22,48,92,0.85); padding: 6px 10px; border-radius: 999px; }
+.flow-gems i { width: 26px; height: 26px; opacity: 0.25; filter: grayscale(1); }
+.flow-gems i.on { opacity: 1; filter: none; }
+.flow-gems i.new { animation: flow-gem-pop 0.7s cubic-bezier(.2,1.8,.4,1) 0.5s both; }
+.flow-gems svg { width: 100%; height: 100%; display: block; }
+.flow-chest-say { margin: 0; font-weight: 800; font-size: 1.15rem; color: var(--navy); }
+.flow-chest-tap { margin: 0; font-weight: 700; color: #6b7a99; }
+@keyframes flow-chest-in { from { transform: scale(0.6); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes flow-gem-pop { 0% { transform: scale(0.2) translateY(-20px); opacity: 0; } 70% { transform: scale(1.4); opacity: 1; } 100% { transform: none; } }

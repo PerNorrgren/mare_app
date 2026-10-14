@@ -1876,5 +1876,6 @@
   "adminPicRestoreUsed": "Used in chapter {ch}, step {n}",
   "adminPicRestoreFree": "Not used in any step",
   "adminPicRestoreUse": "Use this one",
-  "adminPicRestoreNone": "No earlier pictures or videos found."
+  "adminPicRestoreNone": "No earlier pictures or videos found.",
+  "adminTryLastDiamond": "In the app the chest now opens and shows the shop code (in previews: an example code)."
 }

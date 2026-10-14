@@ -152,12 +152,15 @@
   let chestRight = new Set();
   const chestStore = () => (data && data.treasure && data.treasure.preview ? sessionStorage : localStorage);
   const chestKey = () => `px-chest-${data.chapter}`;
-  function chestSave() { try { chestStore().setItem(chestKey(), JSON.stringify([...chestRight])); } catch { /* private mode */ } }
+  // v106: previews (staff, "view as child", teachers) start with an empty chest every time
+  const chestPreview = () => !!(data && data.treasure && data.treasure.preview);
+  function chestSave() { if (chestPreview()) return; try { chestStore().setItem(chestKey(), JSON.stringify([...chestRight])); } catch { /* private mode */ } }
   function setupChest() {
     const old = $('px-chest'); if (old) old.remove();
     const tr = data && data.treasure;
     if (!tr) return;
-    try { chestRight = new Set(JSON.parse(chestStore().getItem(chestKey()) || '[]')); } catch { chestRight = new Set(); }
+    try { chestRight = chestPreview() ? new Set() : new Set(JSON.parse(chestStore().getItem(chestKey()) || '[]')); } catch { chestRight = new Set(); }
+    if (chestPreview()) { tr.done = null; try { sessionStorage.removeItem(chestKey()); } catch { /* fine */ } }
     const el = document.createElement('button');
     el.type = 'button'; el.id = 'px-chest'; el.className = 'px-chest';
     el.innerHTML = `<span class="px-chest-pics"><img class="px-chest-img px-chest-closed" alt="" draggable="false"><img class="px-chest-open" alt="" draggable="false"><span class="px-chest-burst">${'<i></i>'.repeat(8)}</span></span><span class="px-chest-gems"></span>`;
@@ -311,6 +314,26 @@
     readyToGoOn(box);
     return true;
   }
+  // v105 — a question answered right again: the chest and its row of
+  // diamonds (none added — this one was won before), then a tap goes on
+  async function chestAgain() {
+    const tr = data && data.treasure; if (!tr) return;
+    const total = tr.total, n = Math.min(chestRight.size, total);
+    closeMoment(true);
+    const box = document.createElement('div');
+    box.id = 'px-moment'; box.className = 'px-moment';
+    box.innerHTML = `<div class="pm-stage" role="dialog" aria-modal="true" aria-live="polite">
+      <div class="pm-chest${tr.closed ? '' : ' nodark'}"><img class="pm-closed" src="${esc(tr.closed || tr.open)}" alt="" draggable="false"><img class="pm-open" src="${esc(tr.open)}" alt="" draggable="false"><span class="px-chest-burst">${'<i></i>'.repeat(8)}</span></div>
+      <div class="px-chest-gems pm-gems">${gemRow(n, total).replace(' new', '')}</div>
+      <p class="pm-say">${esc(t('picturesDiamondN', { n, total }))}</p>
+      <p class="pm-tap" hidden>${esc(t('picturesTapToGoOn'))}</p></div>`;
+    document.body.appendChild(box);
+    await wait(550);
+    box.classList.add('open', 'lid', 'burst'); chime([988, 1319]);
+    await wait(900);
+    box.classList.remove('open', 'lid');
+    readyToGoOn(box);
+  }
   function showTreasure(done) {
     const tr = data.treasure;
     if (!$('px-pop').hidden) closePop(); // the last question's window makes way for the chest
@@ -353,12 +376,13 @@
         b.classList.add('right');
         msg.textContent = q.right || t('picturesQuizRight');
         msg.className = 'px-quiz-msg right';
-        if (chestWants(spot.id)) { // v97: the question makes way for the treasure chest
+        const tr = data && data.treasure;
+        if (chestWants(spot.id) || (tr && !tr.done)) { // v97: the question makes way for the treasure chest (v105: also when this diamond was won before)
           setTimeout(() => {
             $('px-pop').hidden = true; $('px-pop-body').innerHTML = ''; stopSound(); // the video stays stopped until the chest is done
-            chestMoment(spot.id);
+            if (chestWants(spot.id)) chestMoment(spot.id); else chestAgain();
           }, 1100);
-        } else $('px-carry').hidden = false;
+        } else setTimeout(() => { if (!$('px-pop').hidden) closePop(); }, 1400); // v105: no button to press — it just goes on
       } else {
         b.classList.add('wrong'); b.disabled = true;
         msg.textContent = q.wrong || t('picturesQuizWrong');
