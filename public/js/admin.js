@@ -423,7 +423,7 @@
     const list = document.getElementById('pic-list');
     const scenes = chapterSteps(ch);
     list.innerHTML = scenes.length ? '' : `<p class="admin-empty-note">${escapeHtml(t('adminPicNone'))}</p>`;
-    scenes.forEach(scene => list.appendChild(pictureCard(scene)));
+    scenes.forEach((scene, i) => list.appendChild(pictureCard(scene, i + 1))); // v104: numbered
   }
   // ── Mare App 6 (v75) — the chapter as a flow, top to bottom (view only).
   // Each step (picture or video) is a box; its spots branch off to the
@@ -601,11 +601,14 @@
     }
   }
 
-  function pictureCard(scene) {
+  function pictureCard(scene, no) {
     const el = document.createElement('div');
     el.className = 'pic-card';
     el.dataset.scene = scene.id;
+    // v104: the step's number (and title) sits in the frame, top left
+    const cardLabel = () => [no ? t('adminFlowStep', { n: no }) : '', ((window.MareI18n && window.MareI18n.locale) === 'nl' ? (scene.title_nl || scene.title_en) : (scene.title_en || scene.title_nl)) || ''].filter(Boolean).join(' · ');
     el.innerHTML = `
+      <div class="pic-card-label">${escapeHtml(cardLabel())}</div>
       <div class="pic-head">
         <input type="text" class="pic-title-en" placeholder="Title (EN, optional)" value="${escapeHtml(scene.title_en)}">
         <input type="text" class="pic-title-nl" placeholder="Titel (NL, optioneel)" value="${escapeHtml(scene.title_nl)}">
@@ -635,6 +638,8 @@
     const spotsEl = el.querySelector('.pic-spots');
     const form = el.querySelector('.pic-form');
     const saveTitles = async () => {
+      scene.title_en = el.querySelector('.pic-title-en').value; scene.title_nl = el.querySelector('.pic-title-nl').value;
+      el.querySelector('.pic-card-label').textContent = cardLabel();
       await api(`/api/admin/pictures/${scene.id}`, { method: 'PATCH', body: JSON.stringify({ titleEn: el.querySelector('.pic-title-en').value, titleNl: el.querySelector('.pic-title-nl').value }) });
     };
     el.querySelector('.pic-note-save').addEventListener('click', async () => {
@@ -692,11 +697,36 @@
         picSelected = sp.id; drawForm(sp);
       }));
     };
+    // v104 — playing here stops at a spot marked "Stop the video", as it
+    // does for the child: the instruction shows beside the spot, with a
+    // button to try what happens when the child taps it.
+    let lastT = 0, askEd = null;
+    const hideAskEd = () => { if (askEd) { askEd.remove(); askEd = null; } };
+    const stopAtSpot = () => {
+      if (!video || video.paused) { lastT = video ? video.currentTime || 0 : 0; return; }
+      const now = video.currentTime || 0;
+      const hit = scene.spots.filter(sp => sp.type !== 'mask' && Number(sp.pause_on_show) && (sp.t_start || 0) > lastT && (sp.t_start || 0) <= now)
+        .sort((a, b) => (a.t_start || 0) - (b.t_start || 0))[0];
+      lastT = now;
+      if (!hit) return;
+      video.pause(); video.currentTime = Math.min((hit.t_start || 0) + 0.05, (video.duration || 1) - 0.05); lastT = video.currentTime;
+      picSelected = hit.id; drawForm(hit);
+      hideAskEd();
+      askEd = document.createElement('div');
+      askEd.className = 'pic-ask-ed';
+      askEd.style.left = (hit.x * 100) + '%'; askEd.style.top = (hit.y * 100) + '%';
+      const hint = ((window.MareI18n && window.MareI18n.locale) === 'nl' ? (hit.hint_nl || hit.hint_en) : (hit.hint_en || hit.hint_nl)) || '';
+      askEd.innerHTML = `<span>⏸ ${escapeHtml(hint || t('adminVidStoppedNoHint'))}</span><button type="button" class="btn-primary btn-small" data-no-busy>${escapeHtml(t('adminVidTryTap'))}</button>`;
+      askEd.querySelector('button').addEventListener('click', (e) => { e.stopPropagation(); hideAskEd(); flowPreviewSpot(scene.id, hit.id, canvas.parentElement); });
+      askEd.addEventListener('click', (e) => e.stopPropagation());
+      canvas.appendChild(askEd);
+    };
     if (video) {
       video.addEventListener('loadedmetadata', () => { drawTimeline(); drawSpots(); });
-      video.addEventListener('timeupdate', () => { drawTimeline(); drawSpots(); });
+      video.addEventListener('timeupdate', () => { stopAtSpot(); drawTimeline(); drawSpots(); });
       video.addEventListener('seeked', () => { drawTimeline(); drawSpots(); });
-      video.addEventListener('play', drawTimeline); video.addEventListener('pause', drawTimeline);
+      video.addEventListener('play', () => { lastT = video.currentTime || 0; hideAskEd(); drawTimeline(); }); video.addEventListener('pause', drawTimeline);
+      video.addEventListener('seeked', () => { lastT = video.currentTime || 0; });
       el.querySelector('.vid-play').addEventListener('click', () => { if (video.paused) video.play(); else video.pause(); });
       el.querySelector('.vid-seek').addEventListener('input', (e) => { video.currentTime = Number(e.target.value); });
     }
@@ -2303,7 +2333,7 @@
     el.innerHTML = socMedia ? `${socMedia.type === 'video' ? `<video src="${escapeHtml(socMedia.url || '')}" muted controls preload="metadata"></video>` : `<img src="${escapeHtml(socMedia.url || '')}" alt="">`}
       <button type="button" class="btn-ghost btn-small" id="sp-media-rm" data-no-busy>${escapeHtml(t('socRemoveMedia'))}</button>` : '';
     if (socMedia) document.getElementById('sp-media-rm').addEventListener('click', () => { socMedia = null; socMediaShow(); });
-    socMediaInfo();
+    socCount(); // v104: the AI note comes and goes with the picture (also runs socMediaInfo)
     // v101: a video added before lengths were kept: read its length now
     if (socMedia && socMedia.type === 'video' && !socMedia.seconds && socMedia.url && !socMedia.reading) {
       const m = socMedia; m.reading = true;
@@ -2352,6 +2382,35 @@
     if (cur) parts.push(cur);
     return parts.length > 1 ? parts.map((p, i) => `${p}\n\n${i + 1}/${parts.length}`) : parts;
   }
+  // v104 — the length as it goes out: links handled, hashtags added, AI note at the bottom
+  function socLooksEnglish(txt) {
+    const w = ` ${String(txt || '').toLowerCase().replace(/[^a-zà-ÿ\s]/g, ' ')} `;
+    const count = (list) => list.reduce((n, x) => n + (w.split(` ${x} `).length - 1), 0);
+    return count(['the', 'and', 'you', 'your', 'with', 'this', 'what']) > count(['de', 'het', 'een', 'je', 'en', 'van', 'wat']);
+  }
+  function socOutText(p, txt, aud) {
+    const st = socState || {};
+    let s = String(txt || '');
+    const linkRe = /https?:\/\/[^\s<>"')\]]+|\{\{LINK\}\}/gi;
+    if ((st.noLinkPlatforms || []).includes(p) || ['instagram', 'tiktok', 'pinterest'].includes(p)) s = s.replace(linkRe, '').replace(/[ \t]{2,}/g, ' ').replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n');
+    else s = s.split(st.linkToken || '{{LINK}}').join((st.postLinksFull || {})[aud] || (st.postLinksFull || {}).any || '');
+    s = s.trim();
+    const max = (st.hashtagMax || {})[p];
+    if (max && s && !/(^|\s)#[\wÀ-ÿ]/.test(s)) {
+      const sets = socLooksEnglish(s) ? (st.enHashtags || {}) : (st.hashtags || {});
+      const tags = String(sets[aud] || sets.any || '').split(/\s+/).filter(x => /^#[\wÀ-ÿ]+$/.test(x)).slice(0, max).join(' ');
+      if (tags) s = `${s}\n\n${tags}`;
+    }
+    if (socMedia && document.getElementById('sp-ai').checked) s = `${s}\n\n${socMedia.type === 'video' ? 'Video generated by AI.' : 'Image generated by AI.'}`;
+    return s;
+  }
+  function socTooLong() { // '' = fits
+    const p = document.getElementById('sp-platform').value;
+    if (p === 'x') return '';
+    const max = ((socState && socState.maxLen) || {})[p]; if (!max) return '';
+    const n = socOutText(p, document.getElementById('sp-text').value, document.getElementById('sp-audience').value).length;
+    return n > max ? t('socTooLong', { p: socLabel(p), n, max, cut: n - max }) : '';
+  }
   function socCount() {
     socMediaInfo(); // v101
     const p = document.getElementById('sp-platform').value, txt = document.getElementById('sp-text').value;
@@ -2361,7 +2420,11 @@
     if (p === 'x' && socState && socState.xPremium && n > XP) { // v102
       const k = xThreadParts(txt).length, maxParts = socState.xMaxParts || 25;
       c.textContent = t('socXThreadCount', { n, k, max: maxParts }); c.classList.toggle('over', k > maxParts);
-    } else { c.textContent = `${n} / ${p === 'x' ? XP : max}`; c.classList.toggle('over', n > (p === 'x' ? XP : max)); }
+    } else if (p === 'x') { c.textContent = `${n} / ${XP}`; c.classList.toggle('over', n > XP); }
+    else { // v104: count what actually goes out
+      const out = socOutText(p, txt, document.getElementById('sp-audience').value).length;
+      c.textContent = out !== n ? t('socCountOut', { n: out, max }) : `${n} / ${max}`; c.classList.toggle('over', out > max);
+    }
     const fcOk = !socState || (socState.firstCommentPlatforms || []).includes(p);
     document.getElementById('sp-fc-wrap').hidden = !fcOk;
     document.getElementById('sp-title-wrap').hidden = !socNeedsTitle(p); // v100: Pinterest and YouTube
@@ -2422,6 +2485,7 @@
     });
     document.getElementById('sp-platform').addEventListener('change', socCount);
     document.getElementById('sp-audience').addEventListener('change', socCount);
+    document.getElementById('sp-ai').addEventListener('change', socCount); // v104: the AI note counts too
     document.getElementById('sp-file').addEventListener('change', async (e) => {
       const file = e.target.files[0]; if (!file) return;
       const el = document.getElementById('sp-media'); el.innerHTML = `<span class="soc-spin"></span> ${escapeHtml(t('adminUploading'))}`;
@@ -2460,6 +2524,7 @@
       if (platform === 'youtube' && socYtProblem(socMedia) && !ev.socAsDraft) { // v101: too long for YouTube
         err.textContent = socYtProblem(socMedia); err.hidden = false; throw new Error('length');
       }
+      if (socTooLong() && !ev.socAsDraft) { err.textContent = socTooLong(); err.hidden = false; document.getElementById('sp-text').focus(); throw new Error('length'); } // v104
       // v93: no picture or video for a platform that needs one → ask for it first
       if (socNeedsMedia(platform) && !socMedia && !ev.socAsDraft) {
         const canDraft = !socEditing || (socEditRow && socEditRow.status === 'draft');

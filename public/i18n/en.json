@@ -1860,5 +1860,9 @@
   "socXThreadCount": "{n} characters · goes out as a thread of {k} posts (at most {max})",
   "socLinkBioX": "On X the link is in the profile (bio): links are taken out when you save, and 'Free preview: link in our profile.' goes at the bottom by itself.",
   "adminPicEmpty": "Still empty: choose a picture or an MP4 video for this step.",
-  "adminPicChoose": "Choose a picture or video"
+  "adminPicChoose": "Choose a picture or video",
+  "socCountOut": "{n} / {max} as it goes out (with hashtags and notes)",
+  "socTooLong": "Too long for {p}: {n} characters as it goes out (hashtags and notes included), and the most allowed is {max}. Shorten the text by {cut} characters until the counter is not red, then press Save again.",
+  "adminVidStoppedNoHint": "The video stops here. (No instruction written yet.)",
+  "adminVidTryTap": "Try: tap the spot"
 }

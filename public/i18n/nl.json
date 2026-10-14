@@ -1860,5 +1860,9 @@
   "socXThreadCount": "{n} tekens · gaat als draad van {k} berichten (hooguit {max})",
   "socLinkBioX": "Op X staat de link in het profiel (bio): links gaan er bij het opslaan uit, en 'Gratis voorproefje: link in ons profiel.' komt er vanzelf onder.",
   "adminPicEmpty": "Nog leeg: kies een foto of een MP4-video voor deze stap.",
-  "adminPicChoose": "Foto of video kiezen"
+  "adminPicChoose": "Foto of video kiezen",
+  "socCountOut": "{n} / {max} zoals het geplaatst wordt (met hashtags en notities)",
+  "socTooLong": "Te lang voor {p}: {n} tekens zoals het geplaatst wordt (hashtags en notities meegeteld), terwijl hooguit {max} mag. Maak de tekst {cut} tekens korter tot de teller niet meer rood is en druk daarna opnieuw op Opslaan.",
+  "adminVidStoppedNoHint": "De video stopt hier. (Nog geen instructie geschreven.)",
+  "adminVidTryTap": "Probeer: tik op de plek"
 }

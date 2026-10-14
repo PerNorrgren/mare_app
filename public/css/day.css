@@ -1753,7 +1753,11 @@ body.has-viewas-bar { padding-bottom: 70px; }
 .pic-toolbar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
 .pic-toolbar label { font-weight: 700; color: var(--navy); }
 .pic-toolbar select { font: inherit; padding: 7px 10px; border-radius: 10px; border: 1.5px solid rgba(22,48,92,0.2); background: var(--cloud); color: var(--navy); }
-.pic-card { border: 1px solid rgba(22,48,92,0.14); border-radius: 12px; padding: 12px; margin-bottom: 14px; }
+.pic-card { position: relative; border: 2px solid rgba(22,48,92,0.4); border-radius: 12px; padding: 18px 12px 12px; margin: 26px 0 18px; }
+/* v104: the step's number and title in the frame, top left */
+.pic-card-label { position: absolute; top: -13px; left: 14px; max-width: calc(100% - 28px); padding: 1px 10px; background: #fff; border: 2px solid rgba(22,48,92,0.4); border-radius: 999px; font-weight: 700; font-size: 0.95em; color: var(--navy); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* v104: the editor video stopped at a spot */
+.pic-ask-ed { position: absolute; z-index: 5; transform: translate(-50%, calc(-100% - 34px)); max-width: min(320px, 80%); background: #FFFBF1; color: var(--navy); border: 2px solid var(--gold); border-radius: 14px; padding: 8px 10px; box-shadow: 0 6px 18px rgba(0,0,0,0.3); display: flex; flex-direction: column; gap: 6px; align-items: flex-start; font-size: 0.95em; }
 .pic-head { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
 .pic-head input[type=text] { flex: 1; min-width: 160px; font: inherit; padding: 7px 10px; border-radius: 8px; border: 1.5px solid rgba(22,48,92,0.2); }
 .pic-upload { cursor: pointer; }
