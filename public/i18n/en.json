@@ -1919,5 +1919,6 @@
   "adminTrPreviewDiamonds": "Preview the diamonds ({n})",
   "adminTrPreviewEnd": "Preview the ending",
   "adminTrNewName": "Chest {n}",
-  "picturesTreasurePreviewShared": "Preview: every family that fills this chest gets this same code."
+  "picturesTreasurePreviewShared": "Preview: every family that fills this chest gets this same code.",
+  "adminSpotLookSection": "How the spot looks (colour, picture, invisible, size)"
 }

@@ -2347,3 +2347,9 @@ body.soc-full-open { overflow: hidden; }
 .tr-chest-head .tr-name { flex: 1; font: inherit; font-weight: 700; padding: 7px 10px; border-radius: 8px; border: 1.5px solid rgba(22,48,92,0.2); }
 .tr-ch.taken { opacity: 0.45; }
 .tr-sum { margin: 6px 0 10px; font-weight: 600; color: var(--navy); }
+
+/* v109: the spot form puts what happens first; the look folds away */
+.sp-look { margin: 12px 0; border: 1.5px solid rgba(22,48,92,0.18); border-radius: 12px; padding: 8px 12px; background: #FBFAF6; }
+.sp-look > summary { cursor: pointer; font-weight: 700; color: var(--navy); }
+.sp-look[open] > summary { margin-bottom: 8px; }
+.pic-form .quiz-box { border-left: 3px solid var(--gold); padding-left: 10px; }

@@ -1919,5 +1919,6 @@
   "adminTrPreviewDiamonds": "Bekijk de diamanten ({n})",
   "adminTrPreviewEnd": "Bekijk het einde",
   "adminTrNewName": "Kist {n}",
-  "picturesTreasurePreviewShared": "Voorbeeld: elk gezin dat deze kist vult, krijgt deze zelfde code."
+  "picturesTreasurePreviewShared": "Voorbeeld: elk gezin dat deze kist vult, krijgt deze zelfde code.",
+  "adminSpotLookSection": "Hoe het lichtje eruitziet (kleur, plaatje, onzichtbaar, grootte)"
 }

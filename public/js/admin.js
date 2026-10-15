@@ -972,6 +972,27 @@
       form.innerHTML = `
         <div class="field"><label>${escapeHtml(t('adminSpotType'))}</label><select class="sp-type">
           ${['popup', 'sound', 'voice', 'video', 'quiz', 'write', 'mask'].map(k => `<option value="${k}"${k === type ? ' selected' : ''}>${escapeHtml(t('adminSpotType_' + k))}</option>`).join('')}</select></div>
+        ${type === 'mask' ? '' : `<button type="button" class="btn-ghost btn-small sp-try" data-no-busy>▶ ${escapeHtml(t('adminSpotTry'))}</button>`}
+        ${type === 'mask' ? `<p class="admin-empty-note">${escapeHtml(t('adminMaskNote'))}</p>` : ''}
+        <div class="admin-form-row"${type === 'mask' ? ' hidden' : ''}><div class="field"><label>${escapeHtml(t(type === 'quiz' ? 'adminQuizQuestion' : type === 'write' ? 'adminWritePrompt' : 'adminSpotTitle'))} EN</label><input type="text" class="sp-title-en" value="${escapeHtml(sp.title_en || '')}"></div>
+          <div class="field"><label>${escapeHtml(t(type === 'quiz' ? 'adminQuizQuestion' : type === 'write' ? 'adminWritePrompt' : 'adminSpotTitle'))} NL</label><input type="text" class="sp-title-nl" value="${escapeHtml(sp.title_nl || '')}"></div></div>
+        ${type === 'quiz' ? quizFields(sp) : ''}
+        ${type !== 'sound' && type !== 'mask' ? `<div class="admin-form-row"><div class="field"><label>${escapeHtml(t('adminSpotText'))} EN</label><textarea data-editor="plain" class="sp-text-en" rows="3">${escapeHtml(sp.text_en || '')}</textarea></div>
+          <div class="field"><label>${escapeHtml(t('adminSpotText'))} NL</label><textarea data-editor="plain" class="sp-text-nl" rows="3">${escapeHtml(sp.text_nl || '')}</textarea></div></div>` : ''}
+        ${type === 'popup' || type === 'voice' || type === 'quiz' || type === 'write' ? mediaField(t('adminSpotImage'), 'image_key', 'image/*', 'spots', sp) : ''}
+        ${type === 'sound' || type === 'voice' ? mediaField(t('adminSpotAudioEn'), 'audio_key_en', 'audio/*', 'sounds', sp) + mediaField(t('adminSpotAudioNl'), 'audio_key_nl', 'audio/*', 'sounds', sp) : ''}
+        ${type === 'video' ? mediaField(t('adminSpotVideo'), 'video_key', 'video/*', 'videos', sp) + `<div class="field"><label>${escapeHtml(t('adminSpotVideoUrl'))}</label><input type="text" class="sp-video-url" value="${escapeHtml(sp.video_url || '')}" placeholder="https://www.youtube.com/watch?v=…"></div>` : ''}
+        ${video ? `<div class="admin-form-row vid-times">
+          <div class="field"><label>${escapeHtml(t('adminVidFrom'))}</label><div class="vid-tin"><input type="number" class="sp-t-start" min="0" step="0.1" value="${sp.t_start == null ? '' : sp.t_start}"><button type="button" class="btn-ghost btn-small sp-now-start" data-no-busy>${escapeHtml(t('adminVidNow'))}</button></div></div>
+          <div class="field"><label>${escapeHtml(t('adminVidTo'))}</label><div class="vid-tin"><input type="number" class="sp-t-end" min="0" step="0.1" value="${sp.t_end == null ? '' : sp.t_end}" placeholder="${escapeHtml(t('adminVidEnd'))}"><button type="button" class="btn-ghost btn-small sp-now-end" data-no-busy>${escapeHtml(t('adminVidNow'))}</button></div></div>
+        </div>
+        ${type === 'mask' ? '' : `<label class="vid-pause"><input type="checkbox" class="sp-pause"${sp.pause_on_show ? ' checked' : ''}> ${escapeHtml(t('adminVidPause'))}</label>
+        <div class="sp-hint-box"${sp.pause_on_show ? '' : ' hidden'}>
+          <p class="admin-empty-note">${escapeHtml(t('adminSpotHintNote'))}</p>
+          <div class="admin-form-row"><div class="field"><label>${escapeHtml(t('adminSpotHint'))} EN</label><input type="text" class="sp-hint-en" maxlength="200" value="${escapeHtml(sp.hint_en || '')}" placeholder="${escapeHtml(t('adminSpotHintPhEn'))}"></div>
+            <div class="field"><label>${escapeHtml(t('adminSpotHint'))} NL</label><input type="text" class="sp-hint-nl" maxlength="200" value="${escapeHtml(sp.hint_nl || '')}" placeholder="${escapeHtml(t('adminSpotHintPhNl'))}"></div></div>
+        </div>`}` : ''}
+        <details class="sp-look"${type === 'mask' ? ' open' : ''}><summary>${escapeHtml(t('adminSpotLookSection'))}</summary>
         ${(() => { const lk = lookOf(sp); return `<div class="admin-form-row look-row">
           <div class="field"><label>${escapeHtml(t(type === 'mask' ? 'adminMaskColour' : 'adminSpotColour'))}</label><div class="look-colour"><input type="color" class="sp-colour" value="${escapeHtml(lk.colour || (type === 'mask' ? '#16305C' : '#FFE9A8'))}"><a href="#" class="sp-colour-reset">${escapeHtml(t('adminSpotColourReset'))}</a></div></div>
           ${type === 'mask' ? `<div class="field"><label>${escapeHtml(t('adminMaskMode'))}</label><select class="sp-mask-mode"><option value="blur"${lk.mode === 'blur' ? ' selected' : ''}>${escapeHtml(t('adminMaskBlur'))}</option><option value="colour"${lk.mode === 'colour' ? ' selected' : ''}>${escapeHtml(t('adminMaskSolid'))}</option></select></div>
@@ -991,28 +1012,9 @@
           </div>` : `<p class="admin-empty-note">${escapeHtml(t('adminSpotPicHint'))}</p>`}
         </div>
         <label class="vid-pause"><input type="checkbox" class="sp-hide"${lk.hidden ? ' checked' : ''}> ${escapeHtml(t('adminSpotInvisible'))}</label>`}`; })()}
-        ${video ? `<div class="admin-form-row vid-times">
-          <div class="field"><label>${escapeHtml(t('adminVidFrom'))}</label><div class="vid-tin"><input type="number" class="sp-t-start" min="0" step="0.1" value="${sp.t_start == null ? '' : sp.t_start}"><button type="button" class="btn-ghost btn-small sp-now-start" data-no-busy>${escapeHtml(t('adminVidNow'))}</button></div></div>
-          <div class="field"><label>${escapeHtml(t('adminVidTo'))}</label><div class="vid-tin"><input type="number" class="sp-t-end" min="0" step="0.1" value="${sp.t_end == null ? '' : sp.t_end}" placeholder="${escapeHtml(t('adminVidEnd'))}"><button type="button" class="btn-ghost btn-small sp-now-end" data-no-busy>${escapeHtml(t('adminVidNow'))}</button></div></div>
-        </div>
-        ${type === 'mask' ? '' : `<label class="vid-pause"><input type="checkbox" class="sp-pause"${sp.pause_on_show ? ' checked' : ''}> ${escapeHtml(t('adminVidPause'))}</label>
-        <div class="sp-hint-box"${sp.pause_on_show ? '' : ' hidden'}>
-          <p class="admin-empty-note">${escapeHtml(t('adminSpotHintNote'))}</p>
-          <div class="admin-form-row"><div class="field"><label>${escapeHtml(t('adminSpotHint'))} EN</label><input type="text" class="sp-hint-en" maxlength="200" value="${escapeHtml(sp.hint_en || '')}" placeholder="${escapeHtml(t('adminSpotHintPhEn'))}"></div>
-            <div class="field"><label>${escapeHtml(t('adminSpotHint'))} NL</label><input type="text" class="sp-hint-nl" maxlength="200" value="${escapeHtml(sp.hint_nl || '')}" placeholder="${escapeHtml(t('adminSpotHintPhNl'))}"></div></div>
-        </div>`}` : ''}
         <div class="field"><label>${escapeHtml(t(type === 'mask' ? 'adminMaskWidth' : 'adminSpotSize'))}</label><input type="range" class="sp-r" min="0.03" max="${type === 'mask' ? '0.5' : '0.2'}" step="0.005" value="${sp.r}"></div>
         ${type === 'mask' && lookOf(sp).shape === 'rect' ? `<div class="field"><label>${escapeHtml(t('adminMaskHeight'))}</label><input type="range" class="sp-mask-h" min="0.03" max="1" step="0.005" value="${lookOf(sp).h || Math.min(1, sp.r * 2)}"></div>` : ''}
-        ${type === 'mask' ? '' : `<button type="button" class="btn-ghost btn-small sp-try" data-no-busy>▶ ${escapeHtml(t('adminSpotTry'))}</button>`}
-        ${type === 'mask' ? `<p class="admin-empty-note">${escapeHtml(t('adminMaskNote'))}</p>` : ''}
-        <div class="admin-form-row"${type === 'mask' ? ' hidden' : ''}><div class="field"><label>${escapeHtml(t(type === 'quiz' ? 'adminQuizQuestion' : type === 'write' ? 'adminWritePrompt' : 'adminSpotTitle'))} EN</label><input type="text" class="sp-title-en" value="${escapeHtml(sp.title_en || '')}"></div>
-          <div class="field"><label>${escapeHtml(t(type === 'quiz' ? 'adminQuizQuestion' : type === 'write' ? 'adminWritePrompt' : 'adminSpotTitle'))} NL</label><input type="text" class="sp-title-nl" value="${escapeHtml(sp.title_nl || '')}"></div></div>
-        ${type === 'quiz' ? quizFields(sp) : ''}
-        ${type !== 'sound' && type !== 'mask' ? `<div class="admin-form-row"><div class="field"><label>${escapeHtml(t('adminSpotText'))} EN</label><textarea data-editor="plain" class="sp-text-en" rows="3">${escapeHtml(sp.text_en || '')}</textarea></div>
-          <div class="field"><label>${escapeHtml(t('adminSpotText'))} NL</label><textarea data-editor="plain" class="sp-text-nl" rows="3">${escapeHtml(sp.text_nl || '')}</textarea></div></div>` : ''}
-        ${type === 'popup' || type === 'voice' || type === 'quiz' || type === 'write' ? mediaField(t('adminSpotImage'), 'image_key', 'image/*', 'spots', sp) : ''}
-        ${type === 'sound' || type === 'voice' ? mediaField(t('adminSpotAudioEn'), 'audio_key_en', 'audio/*', 'sounds', sp) + mediaField(t('adminSpotAudioNl'), 'audio_key_nl', 'audio/*', 'sounds', sp) : ''}
-        ${type === 'video' ? mediaField(t('adminSpotVideo'), 'video_key', 'video/*', 'videos', sp) + `<div class="field"><label>${escapeHtml(t('adminSpotVideoUrl'))}</label><input type="text" class="sp-video-url" value="${escapeHtml(sp.video_url || '')}" placeholder="https://www.youtube.com/watch?v=…"></div>` : ''}
+        </details>
         <div class="pic-form-btns"><button type="button" class="btn-primary btn-small sp-save">${escapeHtml(t('adminSaveItem'))}</button>
           <button type="button" class="btn-ghost btn-small btn-danger sp-del">${escapeHtml(t('adminSpotDelete'))}</button>
           <span class="staff-row-msg" role="status"></span></div>`;
