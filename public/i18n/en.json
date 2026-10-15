@@ -1877,5 +1877,18 @@
   "adminPicRestoreFree": "Not used in any step",
   "adminPicRestoreUse": "Use this one",
   "adminPicRestoreNone": "No earlier pictures or videos found.",
-  "adminTryLastDiamond": "In the app the chest now opens and shows the shop code (in previews: an example code)."
+  "adminTryLastDiamond": "In the app the chest now opens and shows the shop code (in previews: an example code).",
+  "adminPicPreviewStep": "Preview as a child",
+  "adminPicUploadNew": "Upload a picture or video…",
+  "adminPicSaveStep": "Save",
+  "adminPicNothingToSave": "Nothing to save: everything is saved.",
+  "adminPicChoiceVid": "Step {n} already has a video. What should \"{file}\" do?",
+  "adminPicChoiceImg": "Step {n} already has a picture. What should \"{file}\" do?",
+  "adminPicChoiceReplace": "Replace it in Step {n} (its spots stay)",
+  "adminPicChoiceAdd": "Add it as a new step after this one",
+  "adminPicUnsaved": "Step {n} has changes that are not saved yet.",
+  "adminPicUnsavedSave": "Save Step {n}",
+  "adminPicUnsavedDrop": "Don't save",
+  "adminPicUnsavedBack": "Back to Step {n}",
+  "adminSpotUnsaved": "This spot has changes that are not saved yet. Save them before opening the other spot? (OK = save, Cancel = don't save)"
 }

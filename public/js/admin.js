@@ -624,6 +624,62 @@
     const go = () => { flowClose(); if (onDone) onDone(); };
     (ov || card).addEventListener('click', go, { once: true });
   }
+  // v107 — leaving a step with unsaved work, and choosing what an upload does
+  let picDirty = null;
+  function picChoice({ text, buttons }) {
+    document.querySelectorAll('.pic-choice').forEach(x => x.remove());
+    const ov = document.createElement('div'); ov.className = 'pic-choice';
+    ov.innerHTML = `<div class="pic-choice-card" role="dialog" aria-modal="true"><p>${escapeHtml(text)}</p><div class="pic-choice-btns">${buttons.map((b, i) => `<button type="button" class="${b.primary ? 'btn-primary' : 'btn-ghost'} btn-small" data-i="${i}" data-no-busy>${escapeHtml(b.label)}</button>`).join('')}</div></div>`;
+    ov.querySelectorAll('button').forEach(btn => btn.addEventListener('click', async () => {
+      ov.querySelectorAll('button').forEach(x => { x.disabled = true; });
+      btn.innerHTML = `<span class="soc-spin"></span> ${escapeHtml(btn.textContent)}`;
+      try { await buttons[Number(btn.dataset.i)].run(); } catch (err) { alert(err.message || t('errorGeneric')); }
+      ov.remove();
+    }));
+    document.body.appendChild(ov);
+  }
+  function picLeaveGuard(e) {
+    const el = picDirty;
+    if (!el || !document.body.contains(el) || !el._isDirty() || document.querySelector('.pic-choice')) return;
+    if (e.target.closest && e.target.closest('.pic-choice')) return;
+    const card = e.target.closest && e.target.closest('.pic-card');
+    const leaving = card ? card !== el : !!(e.target.closest && e.target.closest('#pic-add, #pic-chapter, .pic-view, .admin-tab, [data-tab], #pic-preview'));
+    if (!leaving) return;
+    e.preventDefault(); e.stopPropagation();
+    picChoice({
+      text: t('adminPicUnsaved', { n: el._no || '' }),
+      buttons: [
+        { label: t('adminPicUnsavedSave', { n: el._no || '' }), primary: true, run: async () => { await el._saveAll(); picDirty = null; } },
+        { label: t('adminPicUnsavedDrop'), run: () => { el._discard(); picDirty = null; } },
+        { label: t('adminPicUnsavedBack', { n: el._no || '' }), run: () => el.scrollIntoView({ behavior: 'smooth', block: 'start' }) },
+      ],
+    });
+  }
+  if (document.getElementById('pic-list')) {
+    document.addEventListener('pointerdown', picLeaveGuard, true);
+    document.addEventListener('focusin', picLeaveGuard, true);
+    window.addEventListener('beforeunload', (e) => { if (picDirty && document.body.contains(picDirty) && picDirty._isDirty()) { e.preventDefault(); e.returnValue = ''; } });
+  }
+  // a file added as a new step straight after this one
+  async function addStepAfter(scene, file, el) {
+    const ch = scene.chapter_no;
+    const isVid = (file.type || '').startsWith('video/') || /\.(mp4|mov|webm|m4v|avi|mkv)$/i.test(file.name);
+    if (isVid && !/\.mp4$/i.test(file.name)) throw new Error(t('adminVidMp4Only'));
+    const msg = el.querySelector('.pic-media-tools .pic-up-msg'); if (msg) { msg.className = 'pic-up-msg'; msg.textContent = t('adminUploading'); }
+    const id = (await api('/api/admin/pictures', { method: 'POST', body: JSON.stringify({ chapter: ch }) })).id;
+    try { await picPutScene(id, file); } catch (err) { await api(`/api/admin/pictures/${id}`, { method: 'DELETE' }).catch(() => {}); if (msg) msg.textContent = ''; throw err; }
+    picData = await api('/api/admin/pictures');
+    const steps = chapterSteps(ch).filter(x => x.id !== id);
+    const at = steps.findIndex(x => x.id === scene.id);
+    steps.splice(at + 1, 0, picData.scenes.find(x => x.id === id));
+    for (let k = 0; k < steps.length; k++) {
+      const want = (k + 1) * 10;
+      if (steps[k] && steps[k].sort_order !== want) await api(`/api/admin/pictures/${steps[k].id}`, { method: 'PATCH', body: JSON.stringify({ sortOrder: want }) });
+    }
+    await loadPictures(ch);
+    const card = document.querySelector(`.pic-card[data-scene="${id}"]`);
+    if (card) { card.scrollIntoView({ behavior: 'smooth', block: 'start' }); card.classList.add('flash'); setTimeout(() => card.classList.remove('flash'), 1600); }
+  }
   function pictureCard(scene, no) {
     const el = document.createElement('div');
     el.className = 'pic-card';
@@ -635,6 +691,7 @@
       <div class="pic-head">
         <input type="text" class="pic-title-en" placeholder="Title (EN, optional)" value="${escapeHtml(scene.title_en)}">
         <input type="text" class="pic-title-nl" placeholder="Titel (NL, optioneel)" value="${escapeHtml(scene.title_nl)}">
+        <a class="btn-ghost btn-small pic-child" href="/pictures.html?chapter=${scene.chapter_no}&step=${no || 1}" target="_blank" rel="noopener">${escapeHtml(t('adminPicPreviewStep'))}</a>
         <button type="button" class="btn-ghost btn-small btn-danger pic-del">${escapeHtml(t('adminPicDelete'))}</button>
       </div>
       <div class="admin-form-row pic-notes">
@@ -653,14 +710,10 @@
         </div>
         <div class="vid-list"></div>` : ''}
         ${scene.videoUrl || scene.imageUrl ? `<div class="pic-media-tools">
-          <button type="button" class="btn-ghost btn-small pic-replace" data-no-busy>${escapeHtml(t(scene.videoUrl ? 'adminPicReplaceVid' : 'adminPicReplaceImg'))}</button>
+          <label class="btn-ghost btn-small pic-upload-new">${escapeHtml(t('adminPicUploadNew'))}<input type="file" class="pic-new-file" accept="image/*,video/mp4,.mp4" hidden></label>
           <button type="button" class="btn-ghost btn-small pic-restore" data-no-busy>${escapeHtml(t('adminPicRestore'))}</button>
+          <button type="button" class="btn-primary btn-small pic-save-all">${escapeHtml(t('adminPicSaveStep'))}</button>
           <span class="pic-up-msg" role="status"></span>
-          <div class="pic-replace-box" hidden>
-            <p>${escapeHtml(t('adminPicReplaceWarn', { n: (scene.spots || []).length }))}</p>
-            <label class="btn-primary btn-small">${escapeHtml(t('adminPicReplaceChoose'))}<input type="file" class="pic-replace-file" accept="image/*,video/mp4,.mp4" hidden></label>
-            <button type="button" class="btn-ghost btn-small pic-replace-cancel" data-no-busy>${escapeHtml(t('adminCancel'))}</button>
-          </div>
           <div class="pic-restore-box" hidden></div>
         </div>` : ''}
         </div>
@@ -674,14 +727,28 @@
       el.querySelector('.pic-card-label').textContent = cardLabel();
       await api(`/api/admin/pictures/${scene.id}`, { method: 'PATCH', body: JSON.stringify({ titleEn: el.querySelector('.pic-title-en').value, titleNl: el.querySelector('.pic-title-nl').value }) });
     };
-    el.querySelector('.pic-note-save').addEventListener('click', async () => {
+    const saveNotes = async () => {
       const msg = el.querySelector('.pic-note-hint .staff-row-msg');
       try {
         await api(`/api/admin/pictures/${scene.id}`, { method: 'PATCH', body: JSON.stringify({ contextEn: el.querySelector('.pic-note-en').value, contextNl: el.querySelector('.pic-note-nl').value }) });
         scene.context_en = el.querySelector('.pic-note-en').value; scene.context_nl = el.querySelector('.pic-note-nl').value;
-        msg.textContent = t('adminSaved'); msg.className = 'staff-row-msg ok';
-      } catch (err) { msg.textContent = err.message || t('errorGeneric'); msg.className = 'staff-row-msg err'; }
-    });
+        msg.textContent = t('adminSaved'); msg.className = 'staff-row-msg ok'; el._dirtyNotes = false;
+      } catch (err) { msg.textContent = err.message || t('errorGeneric'); msg.className = 'staff-row-msg err'; throw err; }
+    };
+    el.querySelector('.pic-note-save').addEventListener('click', () => saveNotes().catch(() => {}));
+    // v107 — unsaved work in this step: the notes or the open spot's form.
+    // Leaving for another step asks first (see picLeaveGuard).
+    el._dirtyNotes = false; form._dirty = false; el._no = no;
+    el._isDirty = () => !!(el._dirtyNotes || form._dirty);
+    el._saveAll = async () => {
+      if (el._dirtyNotes) await saveNotes();
+      if (form._dirty && form._save) await form._save();
+      return !el._isDirty();
+    };
+    el._discard = () => { el._dirtyNotes = false; form._dirty = false; };
+    el.querySelector('.pic-notes').addEventListener('input', () => { el._dirtyNotes = true; picDirty = el; });
+    form.addEventListener('input', (e) => { if (e.target.closest('.sp-type')) return; form._dirty = true; picDirty = el; });
+    form.addEventListener('change', (e) => { if (e.target.matches('input[type=file]')) return; form._dirty = true; picDirty = el; });
     el.querySelector('.pic-title-en').addEventListener('change', saveTitles);
     el.querySelector('.pic-title-nl').addEventListener('change', saveTitles);
     // v103: the upload message sits next to the upload button (it used to overwrite the note above)
@@ -698,13 +765,29 @@
     // v105 — replacing the picture/video is a deliberate two-step action under
     // the picture (it used to sit in the header, where it was easy to mistake
     // for "add a picture"); anything replaced can be put back from the list
-    if (el.querySelector('.pic-replace')) {
-      const box = el.querySelector('.pic-replace-box'), rbox = el.querySelector('.pic-restore-box');
-      el.querySelector('.pic-replace').addEventListener('click', () => { rbox.hidden = true; box.hidden = !box.hidden; });
-      el.querySelector('.pic-replace-cancel').addEventListener('click', () => { box.hidden = true; });
-      el.querySelector('.pic-replace-file').addEventListener('change', upFile);
+    if (el.querySelector('.pic-media-tools')) {
+      const rbox = el.querySelector('.pic-restore-box');
+      // v107 — a file chosen here: replace this step's picture/video, or add it as a new step after this one?
+      el.querySelector('.pic-new-file').addEventListener('change', (e) => {
+        const file = e.target.files[0]; if (!file) return;
+        picChoice({
+          text: t(scene.videoUrl ? 'adminPicChoiceVid' : 'adminPicChoiceImg', { n: no || '', spots: (scene.spots || []).length, file: file.name }),
+          buttons: [
+            { label: t('adminPicChoiceReplace', { n: no || '' }), primary: true, run: () => upFile(e) },
+            { label: t('adminPicChoiceAdd'), run: () => addStepAfter(scene, file, el) },
+            { label: t('adminCancel'), run: () => { e.target.value = ''; } },
+          ],
+        });
+      });
+      el.querySelector('.pic-save-all').addEventListener('click', async () => {
+        const msg = el.querySelector('.pic-media-tools .pic-up-msg');
+        try {
+          const was = el._isDirty();
+          await el._saveAll();
+          msg.className = 'pic-up-msg ok'; msg.textContent = was ? t('adminSaved') : t('adminPicNothingToSave');
+        } catch (err) { msg.className = 'pic-up-msg err'; msg.textContent = err.message || t('errorGeneric'); }
+      });
       el.querySelector('.pic-restore').addEventListener('click', async () => {
-        box.hidden = true;
         if (!rbox.hidden) { rbox.hidden = true; return; }
         rbox.hidden = false; rbox.innerHTML = `<p class="admin-empty-note"><span class="soc-spin"></span> ${escapeHtml(t('adminLoading'))}</p>`;
         let files = [];
@@ -876,7 +959,15 @@
         <div class="admin-form-row"><div class="field"><label>${escapeHtml(t('adminQuizWrong'))} EN</label><input type="text" class="qz-wrong-en" value="${escapeHtml(q.wrong_en || '')}" placeholder="${escapeHtml(t('picturesQuizWrong'))}"></div>
           <div class="field"><label>${escapeHtml(t('adminQuizWrong'))} NL</label><input type="text" class="qz-wrong-nl" value="${escapeHtml(q.wrong_nl || '')}"></div></div></div>`;
     }
+    // v107: switching to another spot with unsaved changes in this one: save them first?
     function drawForm(sp) {
+      if (form._dirty && form._spId && form._spId !== sp.id && form._save) {
+        if (confirm(t('adminSpotUnsaved'))) form._save(); // reads the form now, then saves
+      }
+      form._dirty = false; form._spId = sp.id;
+      drawFormNow(sp);
+    }
+    function drawFormNow(sp) {
       const type = sp.type;
       form.innerHTML = `
         <div class="field"><label>${escapeHtml(t('adminSpotType'))}</label><select class="sp-type">
@@ -1082,13 +1173,14 @@
           applyLocal(body); drawForm(sp);
         });
       });
-      q('.sp-save').addEventListener('click', async () => {
+      form._save = async () => {
         const body = typed();
         try {
           await api(`/api/admin/picture-spots/${sp.id}`, { method: 'PATCH', body: JSON.stringify(body) });
-          applyLocal(body); drawSpots(); drawTimeline(); say(true, t('adminSaved'));
-        } catch (err) { say(false, err.message || t('errorGeneric')); }
-      });
+          applyLocal(body); drawSpots(); drawTimeline(); say(true, t('adminSaved')); form._dirty = false;
+        } catch (err) { say(false, err.message || t('errorGeneric')); throw err; }
+      };
+      q('.sp-save').addEventListener('click', () => form._save().catch(() => {}));
       q('.sp-del').addEventListener('click', async () => {
         await api(`/api/admin/picture-spots/${sp.id}`, { method: 'DELETE' });
         scene.spots = scene.spots.filter(x => x.id !== sp.id); picSelected = null; drawSpots(); drawTimeline();

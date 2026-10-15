@@ -1877,5 +1877,18 @@
   "adminPicRestoreFree": "In geen enkele stap gebruikt",
   "adminPicRestoreUse": "Deze gebruiken",
   "adminPicRestoreNone": "Geen eerdere platen of video's gevonden.",
-  "adminTryLastDiamond": "In de app gaat de kist nu open en toont de winkelcode (in voorbeelden: een voorbeeldcode)."
+  "adminTryLastDiamond": "In de app gaat de kist nu open en toont de winkelcode (in voorbeelden: een voorbeeldcode).",
+  "adminPicPreviewStep": "Bekijk als kind",
+  "adminPicUploadNew": "Plaat of video uploaden…",
+  "adminPicSaveStep": "Opslaan",
+  "adminPicNothingToSave": "Niets op te slaan: alles is bewaard.",
+  "adminPicChoiceVid": "Stap {n} heeft al een video. Wat moet er met \"{file}\" gebeuren?",
+  "adminPicChoiceImg": "Stap {n} heeft al een plaat. Wat moet er met \"{file}\" gebeuren?",
+  "adminPicChoiceReplace": "Vervangen in stap {n} (de lichtjes blijven)",
+  "adminPicChoiceAdd": "Toevoegen als nieuwe stap na deze",
+  "adminPicUnsaved": "Stap {n} heeft wijzigingen die nog niet zijn opgeslagen.",
+  "adminPicUnsavedSave": "Stap {n} opslaan",
+  "adminPicUnsavedDrop": "Niet opslaan",
+  "adminPicUnsavedBack": "Terug naar stap {n}",
+  "adminSpotUnsaved": "Dit lichtje heeft wijzigingen die nog niet zijn opgeslagen. Eerst opslaan voordat je het andere lichtje opent? (OK = opslaan, Annuleren = niet opslaan)"
 }

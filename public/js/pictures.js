@@ -158,6 +158,7 @@
   function setupChest() {
     const old = $('px-chest'); if (old) old.remove();
     const tr = data && data.treasure;
+    if ($('px-gembar')) $('px-gembar').hidden = !tr;
     if (!tr) return;
     try { chestRight = chestPreview() ? new Set() : new Set(JSON.parse(chestStore().getItem(chestKey()) || '[]')); } catch { chestRight = new Set(); }
     if (chestPreview()) { tr.done = null; try { sessionStorage.removeItem(chestKey()); } catch { /* fine */ } }
@@ -191,6 +192,14 @@
     el.style.setProperty('--fill', String(tr.total ? n / tr.total : 0));
     el.setAttribute('aria-label', full ? t('picturesTreasureOpenAgain') : t('picturesTreasureHint', { n, total: tr.total }));
     el.querySelector('.px-chest-gems').innerHTML = Array.from({ length: tr.total }, (_, i) => `<i class="${i < n ? 'on' : ''}">${gemSvg(i)}</i>`).join('');
+    // v107: the row of diamonds stays in sight at the top, over the pictures and videos
+    const bar = $('px-gembar');
+    if (bar) {
+      bar.hidden = false;
+      bar.innerHTML = Array.from({ length: tr.total }, (_, i) => `<i class="${i < n ? 'on' : ''}">${gemSvg(i)}</i>`).join('');
+      bar.setAttribute('aria-label', full ? t('picturesTreasureOpenAgain') : t('picturesTreasureHint', { n, total: tr.total }));
+      bar.onclick = () => el.click();
+    }
   }
   function chime(notes) {
     try {
@@ -613,7 +622,7 @@
     }
     $('px-empty').hidden = true;
     $('px-talk').hidden = !data.talk;
-    showScene(0);
+    showScene(Math.max(0, (Number(params.get('step')) || 1) - 1)); // v107: ?step=n from the editor's "Preview as a child"
     setupChest(); // v89
     if (!sessionStorage.getItem('px-hinted')) {
       $('px-hint').textContent = t('picturesHint');
