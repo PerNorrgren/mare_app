@@ -981,26 +981,23 @@
       <!-- Mare App 8 (v89) — treasure chest for the quizzes -->
       <div class="admin-card" id="tr-card">
         <h2 data-i18n="adminTrTitle">Treasure chest for the quizzes</h2>
-        <p class="admin-card-sub" data-i18n="adminTrDesc">In the chapters ticked here, a chest sits in the corner of the pictures. Each quiz answered right adds a diamond. When every quiz in the chapter is right, the chest opens and shows a personal shop code for the child to show their grown-up. The code also appears in the parent's Book Companion.</p>
-        <label class="field-label" data-i18n="adminTrChapters">Chapters with a treasure chest</label>
-        <div class="tr-chapters" id="tr-chapters"></div>
-        <div class="admin-form-row">
-          <div class="field"><label for="tr-percent" data-i18n="adminTrPercent">Discount (%)</label><input type="number" id="tr-percent" min="1" max="90"></div>
-          <div class="field"><label for="tr-days" data-i18n="adminTrDays">Code works for (days)</label><input type="number" id="tr-days" min="7" max="730"></div>
-        </div>
-        <div class="tr-pics" id="tr-pics"></div>
+        <p class="admin-card-sub" data-i18n="adminTrDesc">A chest collects a diamond for every quiz question answered right, in the chapters you give it (one chapter or several). When every question in those chapters is right, the chest opens and shows a shop code for the child to show their grown-up; the code is also put in the parent's shop basket. Each chest has its own code: a personal code per family, or one code from Offers.</p>
+        <!-- v108: what is in each chapter so far, then the chests -->
+        <h3 class="tr-h" data-i18n="adminTrOverview">Questions in each chapter so far</h3>
+        <div class="tr-overview" id="tr-overview"></div>
+        <h3 class="tr-h" data-i18n="adminTrChests">Chests</h3>
+        <div id="tr-chests"></div>
         <p class="admin-empty-note" id="tr-given"></p>
         <div class="tr-btns">
-          <button type="button" class="btn-primary btn-small" id="tr-save" data-i18n="adminSaveChanges">Save</button>
-          <!-- v95: see the chest as a child does -->
-          <label class="tr-prev-n"><span data-i18n="adminTrPreviewN">Diamonds</span> <select id="tr-prev-n"></select></label>
-          <button type="button" class="btn-ghost btn-small" id="tr-preview" data-no-busy data-i18n="adminTrPreview">Preview</button>
+          <button type="button" class="btn-ghost btn-small" id="tr-add" data-no-busy data-i18n="adminTrAdd">+ Add a chest</button>
+          <button type="button" class="btn-primary btn-small" id="tr-save" data-i18n="adminTrSaveAll">Save the chests</button>
+          <span class="staff-row-msg" id="tr-msg" role="status"></span>
         </div>
       </div>
       <div class="admin-modal-backdrop" id="tr-prev-modal" hidden>
         <div class="admin-modal-card tr-prev-card">
           <h3 data-i18n="adminTrPreviewTitle">Treasure chest — preview</h3>
-          <p class="admin-empty-note" data-i18n="adminTrPreviewNote">Press Right answer to see what a child sees after each correct answer. Press Start again to begin again. Save first to see changed pictures or discount.</p>
+          <p class="admin-empty-note" data-i18n="adminTrPreviewNote">Press Right answer to see what a child sees after each correct answer; Start again begins again. Preview saves the chests first, so it shows what children will get.</p>
           <iframe id="tr-prev-frame" title="Treasure chest preview"></iframe>
         </div>
       </div>

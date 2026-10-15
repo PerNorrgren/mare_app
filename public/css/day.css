@@ -2336,3 +2336,14 @@ body.soc-full-open { overflow: hidden; }
 .pic-choice-btns { display: flex; flex-wrap: wrap; gap: 8px; }
 .pic-upload-new { cursor: pointer; }
 .pic-up-msg.ok { color: #2F7A4A; }
+
+/* v108: chests over chapters; the chapter overview */
+.tr-h { margin: 18px 0 8px; font-size: 1.05rem; color: var(--navy); }
+.tr-table td, .tr-table th { white-space: nowrap; }
+.tr-table .tr-total td { font-weight: 700; border-top: 2px solid rgba(22,48,92,0.25); }
+.tr-warn { color: #A5473A; font-weight: 600; }
+.tr-chest { border: 2px solid rgba(22,48,92,0.3); border-radius: 14px; padding: 14px; margin: 12px 0; background: #fff; }
+.tr-chest-head { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
+.tr-chest-head .tr-name { flex: 1; font: inherit; font-weight: 700; padding: 7px 10px; border-radius: 8px; border: 1.5px solid rgba(22,48,92,0.2); }
+.tr-ch.taken { opacity: 0.45; }
+.tr-sum { margin: 6px 0 10px; font-weight: 600; color: var(--navy); }

@@ -206,7 +206,7 @@ html, body { margin: 0; height: 100%; background: #0B1712; overflow: hidden; ove
 /* ── v95: admin preview of the treasure chest ── */
 body.px-chest-demo { background: radial-gradient(circle at 50% 35%, #1d3a2b, #0b1712 70%); }
 body.px-chest-demo #px-exit, body.px-chest-demo .px-exit { display: none; }
-.px-demo-bar { position: fixed; left: 50%; bottom: calc(22px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); z-index: 15; display: flex; gap: 10px; }
+.px-demo-bar { position: fixed; left: 50%; top: calc(64px + env(safe-area-inset-top, 0px)); /* v108: at the top, clear of the code card */ transform: translateX(-50%); z-index: 16; display: flex; gap: 10px; }
 .px-demo-bar button[disabled] { opacity: 0.45; }
 
 /* v96 — the instruction while the video waits for a spot: a speech

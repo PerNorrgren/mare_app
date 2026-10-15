@@ -105,16 +105,35 @@ function register(app, { db, auth, media, email, publicUrl }) {
   // personal shop code (one per family per chapter, kept). Staff and
   // teachers previewing get an example code; nothing is created for them.
   const CHEST_OPEN = '/images/mare-spot-treasure-chest.png';
-  function treasureCfg() {
-    let o = {}; try { o = JSON.parse((db.getAppConfig() || {}).treasure_json || '{}') || {}; } catch { o = {}; }
-    const okKey = (k) => typeof k === 'string' && (KEY_OK.test(k) || BUILTIN_ICON.test(k)) ? k : null;
+  // v108 — several chests, each collecting diamonds over one or more
+  // chapters, each with its own code (a personal code per family, or one
+  // code chosen from Offers) and its own pictures. A chapter is in at most
+  // one chest. The old single setting (one chest per ticked chapter) is
+  // read as one chest per chapter.
+  const okKey = (k) => typeof k === 'string' && (KEY_OK.test(k) || BUILTIN_ICON.test(k)) ? k : null;
+  function cleanChest(c, i) {
     return {
-      chapters: (Array.isArray(o.chapters) ? o.chapters : []).map(Number).filter(n => Number.isInteger(n) && n > 0),
-      percent: Math.round(clamp(o.percent == null ? 10 : o.percent, 1, 90)),
-      days: Math.round(clamp(o.days == null ? 90 : o.days, 7, 730)),
-      closedKey: okKey(o.closedKey), openKey: okKey(o.openKey),
+      id: /^[a-z0-9-]{1,40}$/i.test(String(c.id || '')) ? String(c.id) : 'c' + crypto.randomBytes(4).toString('hex'),
+      name: String(c.name || '').trim().slice(0, 80) || `Kist ${i + 1}`,
+      chapters: [...new Set((Array.isArray(c.chapters) ? c.chapters : []).map(Number).filter(n => Number.isInteger(n) && n > 0))].sort((x, y) => x - y),
+      mode: c.mode === 'offer' ? 'offer' : 'personal',
+      offerCode: c.mode === 'offer' ? String(c.offerCode || '').toUpperCase().trim().slice(0, 40) : '',
+      percent: Math.round(clamp(c.percent == null ? 10 : c.percent, 1, 90)),
+      days: Math.round(clamp(c.days == null ? 90 : c.days, 7, 730)),
+      closedKey: okKey(c.closedKey), openKey: okKey(c.openKey),
     };
   }
+  function treasureCfg() {
+    let o = {}; try { o = JSON.parse((db.getAppConfig() || {}).treasure_json || '{}') || {}; } catch { o = {}; }
+    let chests;
+    if (Array.isArray(o.chests)) chests = o.chests.map(cleanChest);
+    else chests = (Array.isArray(o.chapters) ? o.chapters : []).map(Number).filter(n => Number.isInteger(n) && n > 0)
+      .map((n, i) => cleanChest({ id: 'ch' + n, name: `Hoofdstuk ${n}`, chapters: [n], mode: 'personal', percent: o.percent, days: o.days, closedKey: o.closedKey, openKey: o.openKey }, i));
+    const seen = new Set(); // a chapter belongs to the first chest that has it
+    for (const c of chests) c.chapters = c.chapters.filter(n => (seen.has(n) ? false : (seen.add(n), true)));
+    return { chests };
+  }
+  const chestOf = (chapterNo) => treasureCfg().chests.find(c => c.chapters.includes(chapterNo)) || null;
   // the quiz spots of a chapter that count (active steps, with answers)
   function chapterQuizIds(chapterNo) {
     const ids = [];
@@ -123,38 +142,51 @@ function register(app, { db, auth, media, email, publicUrl }) {
     }
     return ids;
   }
+  const chestQuizIds = (chest) => chest.chapters.flatMap(n => chapterQuizIds(n));
+  // the chest's code: the chosen Offers code while it is active, else a personal code
+  function chestOffer(chest) {
+    if (chest.mode !== 'offer' || !chest.offerCode) return null;
+    const o = db.getOfferByCode(chest.offerCode);
+    return o && o.active && (!o.expires_at || o.expires_at >= new Date().toISOString().slice(0, 10)) ? o : null;
+  }
+  const chestPercent = (chest) => { const o = chestOffer(chest); return o ? (o.discount_type === 'percent' ? o.discount_value : null) : chest.percent; };
   // v106: the "view as child / parent" preview family is a preview too: empty chest each time, example code only
   const isPreviewUser = (u) => !u || u.role !== 'parent' || /@preview\.mare\.invalid$/i.test(String(u.email || ''));
-  function treasureCodeFor(parentId, chapterNo) {
-    const row = db.get(`SELECT t.code, o.expires_at FROM treasure_codes t LEFT JOIN offers o ON o.code = t.code WHERE t.parent_id = ? AND t.chapter_no = ?`, [parentId, chapterNo]);
+  function treasureCodeFor(parentId, chest) {
+    if (!chest.chapters.length) return null;
+    const row = db.get(`SELECT t.code, o.expires_at FROM treasure_codes t LEFT JOIN offers o ON o.code = t.code WHERE t.parent_id = ? AND t.chapter_no IN (${chest.chapters.map(() => '?').join(',')}) ORDER BY t.created_at DESC LIMIT 1`, [parentId, ...chest.chapters]);
     return row ? { code: row.code, expires: row.expires_at || null } : null;
   }
   async function treasureFor(chapterNo, user) {
-    const cfg = treasureCfg();
-    if (!cfg.chapters.includes(chapterNo)) return null;
-    const total = chapterQuizIds(chapterNo).length;
-    if (!total) return null;
-    const done = isPreviewUser(user) ? null : treasureCodeFor(user.id, chapterNo);
-    return { total, preview: isPreviewUser(user), percent: cfg.percent, closed: cfg.closedKey ? await url(cfg.closedKey) : null, open: (cfg.openKey ? await url(cfg.openKey) : null) || CHEST_OPEN, done };
+    const chest = chestOf(chapterNo);
+    if (!chest) return null;
+    const ids = chestQuizIds(chest);
+    if (!ids.length) return null;
+    const done = isPreviewUser(user) ? null : treasureCodeFor(user.id, chest);
+    return { id: chest.id, name: chest.name, chapters: chest.chapters, ids, total: ids.length, preview: isPreviewUser(user), percent: chestPercent(chest),
+      closed: chest.closedKey ? await url(chest.closedKey) : null, open: (chest.openKey ? await url(chest.openKey) : null) || CHEST_OPEN, done };
   }
   app.post('/api/pictures/treasure', family, (req, res) => {
     const chapterNo = Math.round(Number(req.body && req.body.chapter));
-    const cfg = treasureCfg();
-    if (!cfg.chapters.includes(chapterNo)) return res.status(400).json({ error: 'No treasure chest in this chapter.' });
-    const need = chapterQuizIds(chapterNo);
+    const chest = chestOf(chapterNo);
+    if (!chest) return res.status(400).json({ error: 'No treasure chest in this chapter.' });
+    const need = chestQuizIds(chest);
     const have = new Set(Array.isArray(req.body.spots) ? req.body.spots.map(String) : []);
     if (!need.length || need.some(id => !have.has(id))) return res.status(400).json({ error: 'Not every question has been answered yet.' });
-    if (isPreviewUser(req.user)) return res.json({ ok: true, preview: true, code: 'VOORBEELD', percent: cfg.percent });
-    let got = treasureCodeFor(req.user.id, chapterNo);
+    const offer = chestOffer(chest);
+    if (isPreviewUser(req.user)) return res.json({ ok: true, preview: true, code: offer ? offer.code : 'VOORBEELD', percent: chestPercent(chest) });
+    let got = treasureCodeFor(req.user.id, chest);
     if (!got) {
-      let code = null;
-      for (let i = 0; i < 6 && !code; i++) { const c = 'SCHAT' + crypto.randomBytes(3).toString('hex').toUpperCase(); if (!db.getOfferByCode(c)) code = c; }
-      const expires = new Date(Date.now() + cfg.days * 864e5).toISOString().slice(0, 10);
-      db.createOffer({ code, description: `Treasure chest, chapter ${chapterNo} (${cfg.percent}%, one family)`, discountType: 'percent', discountValue: cfg.percent, expiresAt: expires });
-      db.run(`INSERT OR IGNORE INTO treasure_codes (parent_id, chapter_no, code) VALUES (?,?,?)`, [req.user.id, chapterNo, code]);
-      got = treasureCodeFor(req.user.id, chapterNo);
+      let code = offer ? offer.code : null;
+      if (!code) {
+        for (let i = 0; i < 6 && !code; i++) { const c = 'SCHAT' + crypto.randomBytes(3).toString('hex').toUpperCase(); if (!db.getOfferByCode(c)) code = c; }
+        const expires = new Date(Date.now() + chest.days * 864e5).toISOString().slice(0, 10);
+        db.createOffer({ code, description: `Treasure chest "${chest.name}" (${chest.percent}%, one family)`, discountType: 'percent', discountValue: chest.percent, expiresAt: expires });
+      }
+      db.run(`INSERT OR IGNORE INTO treasure_codes (parent_id, chapter_no, code) VALUES (?,?,?)`, [req.user.id, Math.min(...chest.chapters), code]);
+      got = treasureCodeFor(req.user.id, chest);
     }
-    res.json({ ok: true, code: got.code, expires: got.expires, percent: cfg.percent });
+    res.json({ ok: true, code: got.code, expires: got.expires, percent: chestPercent(chest) });
   });
   // v97 — the family's treasure chest codes that can still be used, so the
   // shop puts one in the basket by itself (best discount first). Signed-out
@@ -167,24 +199,42 @@ function register(app, { db, auth, media, email, publicUrl }) {
       ORDER BY o.discount_value DESC, o.expires_at ASC`, [payload.id]);
     res.json({ codes: rows.map(r => ({ code: r.code, chapter: r.chapter_no, percent: r.discount_value, expires: r.expires_at || null })) });
   });
-  // staff: the settings, and how many quizzes each chapter has
+  // staff: the chests, every chapter's steps and questions, and the Offers codes to choose from
   app.get('/api/admin/treasure', staff, async (req, res) => {
-    const cfg = treasureCfg();
-    const quizzes = {};
-    for (const p of db.companionPractices()) quizzes[p.chapter_no] = chapterQuizIds(p.chapter_no).length;
+    const { chests } = treasureCfg();
+    const chapters = [];
+    for (const p of db.companionPractices()) {
+      const scenes = db.pictureScenes(p.chapter_no);
+      let quizzesAll = 0;
+      for (const s of scenes) for (const sp of db.pictureSpots(s.id)) if (sp.type === 'quiz') quizzesAll++;
+      const c = chests.find(x => x.chapters.includes(p.chapter_no));
+      chapters.push({ no: p.chapter_no, title: p.chapter_title_en, titleNl: p.chapter_title_nl || '', steps: scenes.length,
+        pictures: scenes.filter(s => s.image_key && !s.video_key).length, videos: scenes.filter(s => s.video_key).length,
+        quizzes: chapterQuizIds(p.chapter_no).length, quizzesUnfinished: Math.max(0, quizzesAll - chapterQuizIds(p.chapter_no).length), chest: c ? c.id : null });
+    }
+    const out = [];
+    for (const c of chests) {
+      const given = c.chapters.length ? (db.get(`SELECT COUNT(*) AS n FROM treasure_codes WHERE chapter_no IN (${c.chapters.map(() => '?').join(',')})`, c.chapters) || { n: 0 }).n : 0;
+      out.push({ ...c, quizzes: chestQuizIds(c).length, given, offerOk: c.mode !== 'offer' || !!chestOffer(c), percentNow: chestPercent(c),
+        closedUrl: c.closedKey ? await url(c.closedKey) : null, openUrl: (c.openKey ? await url(c.openKey) : null) || CHEST_OPEN });
+    }
+    const today = new Date().toISOString().slice(0, 10);
+    const offers = db.getAllOffers().filter(o => o.active && !/^SCHAT/.test(o.code) && (!o.expires_at || o.expires_at >= today))
+      .map(o => ({ code: o.code, type: o.discount_type, value: o.discount_value, expires: o.expires_at || null, description: o.description || '' }));
     const codes = db.get(`SELECT COUNT(*) AS n FROM treasure_codes`) || { n: 0 };
-    res.json({ ...cfg, closedUrl: cfg.closedKey ? await url(cfg.closedKey) : null, openUrl: (cfg.openKey ? await url(cfg.openKey) : null) || CHEST_OPEN,
-      quizzes, chapters: cfg.chapters, titles: db.companionPractices().map(p => ({ no: p.chapter_no, title: p.chapter_title_en })), codesGiven: codes.n || 0 });
+    res.json({ chests: out, chapters, offers, codesGiven: codes.n || 0, defaultOpenUrl: CHEST_OPEN });
   });
   app.put('/api/admin/treasure', staff, (req, res) => {
-    const b = req.body || {}, cur = treasureCfg();
-    const okKey = (k) => (k === null || k === '' ? null : (typeof k === 'string' && (KEY_OK.test(k) || BUILTIN_ICON.test(k)) ? k : undefined));
-    const next = { ...cur };
-    if (Array.isArray(b.chapters)) next.chapters = [...new Set(b.chapters.map(Number).filter(n => db.companionPractice(n)))].sort((x, y) => x - y);
-    if (b.percent !== undefined) next.percent = Math.round(clamp(b.percent, 1, 90));
-    if (b.days !== undefined) next.days = Math.round(clamp(b.days, 7, 730));
-    for (const k of ['closedKey', 'openKey']) if (b[k] !== undefined) { const v = okKey(b[k]); if (v === undefined) return res.status(400).json({ error: 'Bad picture' }); next[k] = v; }
-    db.run(`UPDATE app_config SET treasure_json = ? WHERE id = 'default'`, [JSON.stringify(next)]);
+    const b = req.body || {};
+    if (!Array.isArray(b.chests)) return res.status(400).json({ error: 'Nothing to save.' });
+    const chests = b.chests.slice(0, 30).map(cleanChest);
+    const seen = new Set();
+    for (const c of chests) {
+      c.chapters = c.chapters.filter(n => db.companionPractice(n) && !seen.has(n));
+      c.chapters.forEach(n => seen.add(n));
+      if (c.mode === 'offer' && !db.getOfferByCode(c.offerCode || '')) return res.status(400).json({ error: `The code "${c.offerCode}" for "${c.name}" isn't in Offers. Choose a code from the list, or choose a personal code per family, then press Save again.` });
+    }
+    db.run(`UPDATE app_config SET treasure_json = ? WHERE id = 'default'`, [JSON.stringify({ chests })]);
     res.json({ ok: true });
   });
 

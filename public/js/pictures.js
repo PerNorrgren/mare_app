@@ -151,7 +151,7 @@
   const gemSvg = (i) => `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12l4 6-10 12L2 9z" fill="${GEM_COLOURS[i % GEM_COLOURS.length]}"/><path d="M2 9h20M6 3l3 6 3-6 3 6 3-6M9 9l3 12 3-12" fill="none" stroke="rgba(255,255,255,0.75)" stroke-width="0.9" stroke-linejoin="round"/><path d="M7 4.5l1.6 3" stroke="#fff" stroke-width="1.2" stroke-linecap="round"/></svg>`;
   let chestRight = new Set();
   const chestStore = () => (data && data.treasure && data.treasure.preview ? sessionStorage : localStorage);
-  const chestKey = () => `px-chest-${data.chapter}`;
+  const chestKey = () => `px-chest-${(data.treasure && data.treasure.id) || data.chapter}`; // v108: one per chest (a chest can span chapters)
   // v106: previews (staff, "view as child", teachers) start with an empty chest every time
   const chestPreview = () => !!(data && data.treasure && data.treasure.preview);
   function chestSave() { if (chestPreview()) return; try { chestStore().setItem(chestKey(), JSON.stringify([...chestRight])); } catch { /* private mode */ } }
@@ -162,6 +162,7 @@
     if (!tr) return;
     try { chestRight = chestPreview() ? new Set() : new Set(JSON.parse(chestStore().getItem(chestKey()) || '[]')); } catch { chestRight = new Set(); }
     if (chestPreview()) { tr.done = null; try { sessionStorage.removeItem(chestKey()); } catch { /* fine */ } }
+    if (Array.isArray(tr.ids)) chestRight = new Set([...chestRight].filter(id => tr.ids.includes(id))); // v108: only questions that still count
     const el = document.createElement('button');
     el.type = 'button'; el.id = 'px-chest'; el.className = 'px-chest';
     el.innerHTML = `<span class="px-chest-pics"><img class="px-chest-img px-chest-closed" alt="" draggable="false"><img class="px-chest-open" alt="" draggable="false"><span class="px-chest-burst">${'<i></i>'.repeat(8)}</span></span><span class="px-chest-gems"></span>`;
@@ -220,7 +221,7 @@
     const tr = data && data.treasure;
     if (!tr) return null;
     if (tr.done) return tr.done;
-    if (data.demo) { tr.done = { code: 'VOORBEELD', percent: tr.percent, preview: true }; return tr.done; } // v95: admin preview
+    if (data.demo) { tr.done = { code: tr.demoCode || 'VOORBEELD', percent: tr.percent, preview: true }; return tr.done; } // v95: admin preview (v108: the chest's own Offers code)
     if (finishing) return null;
     finishing = true;
     try {
@@ -228,7 +229,7 @@
       const out = await r.json().catch(() => ({}));
       if (!r.ok) {
         // the questions changed since: keep only diamonds for questions that still exist
-        const live = new Set(data.scenes.flatMap(sc => sc.spots).filter(sp => sp.type === 'quiz').map(sp => sp.id));
+        const live = new Set(Array.isArray(tr.ids) ? tr.ids : data.scenes.flatMap(sc => sc.spots).filter(sp => sp.type === 'quiz').map(sp => sp.id));
         chestRight = new Set([...chestRight].filter(id => live.has(id))); chestSave();
         return null;
       }
@@ -247,7 +248,7 @@
   // Does a right answer to this question add a diamond?
   function chestWants(spotId) {
     const tr = data && data.treasure;
-    return !!(tr && !tr.done && !chestRight.has(spotId));
+    return !!(tr && !tr.done && !chestRight.has(spotId) && (!Array.isArray(tr.ids) || tr.ids.includes(spotId)));
   }
 
   // ── v97 — the treasure chest moment. After a right answer the question
@@ -316,7 +317,7 @@
       <p>${esc(t('picturesTreasureBody'))}</p>
       <div class="px-treasure-code">${esc(done.code)}</div>
       <p class="px-treasure-show">${esc(t('picturesTreasureShow', { percent: done.percent || tr.percent }))}</p>
-      ${done.preview ? `<p class="px-treasure-note">${esc(t('picturesTreasurePreview'))}</p>` : ''}
+      ${done.preview ? `<p class="px-treasure-note">${esc(t(done.code === 'VOORBEELD' ? 'picturesTreasurePreview' : 'picturesTreasurePreviewShared'))}</p>` : ''}
       <button type="button" class="px-again px-carry pm-go">${esc(isVideo ? t('picturesCarryOn') : t('picturesDone'))}</button>`;
     code.hidden = false;
     await wait(1200);
@@ -356,7 +357,7 @@
       <p>${esc(t('picturesTreasureBody'))}</p>
       <div class="px-treasure-code">${esc(done.code)}</div>
       <p class="px-treasure-show">${esc(t('picturesTreasureShow', { percent: done.percent || tr.percent }))}</p>
-      ${done.preview ? `<p class="px-treasure-note">${esc(t('picturesTreasurePreview'))}</p>` : ''}
+      ${done.preview ? `<p class="px-treasure-note">${esc(t(done.code === 'VOORBEELD' ? 'picturesTreasurePreview' : 'picturesTreasurePreviewShared'))}</p>` : ''}
       <button type="button" class="px-again px-carry" id="px-tr-close">${esc(t('picturesDone'))}</button></div>`;
     document.body.appendChild(box);
     // v94: closed first, then the lid opens and the code appears
@@ -741,11 +742,14 @@
     document.body.classList.add('px-chest-demo');
     let cfg = {};
     try { cfg = await getJson('/api/admin/treasure'); } catch { /* not staff: nothing to show */ return; }
-    const n = Math.max(1, Math.min(10, parseInt(new URLSearchParams(location.search).get('chestdemo'), 10) || 4));
-    data = { demo: true, chapter: 'demo', scenes: [], treasure: { total: n, preview: true, percent: cfg.percent, closed: cfg.closedKey ? cfg.closedUrl : null, open: cfg.openUrl, done: null } };
+    const qs = new URLSearchParams(location.search);
+    const n = Math.max(1, Math.min(40, parseInt(qs.get('chestdemo'), 10) || 4));
+    // v108: the chosen chest's pictures and code; ?end=1 starts one diamond before the end
+    const ch = (cfg.chests || []).find(c => c.id === qs.get('chest')) || (cfg.chests || [])[0] || {};
+    data = { demo: true, chapter: 'demo', scenes: [], treasure: { id: 'demo', total: n, preview: true, percent: ch.percentNow != null ? ch.percentNow : ch.percent, closed: ch.closedUrl || null, open: ch.openUrl || cfg.defaultOpenUrl, demoCode: ch.mode === 'offer' && ch.offerOk ? ch.offerCode : 'VOORBEELD', done: null } };
     try { sessionStorage.removeItem('px-chest-demo'); } catch { /* fine */ }
     ['px-found', 'px-talk', 'px-prev', 'px-next'].forEach(id => { const el = $(id); if (el) el.hidden = true; });
-    $('px-chapter').textContent = t('picturesChestDemo');
+    $('px-chapter').textContent = ch.name ? `${t('picturesChestDemo')} · ${ch.name}` : t('picturesChestDemo');
     setupChest();
     const bar = document.createElement('div');
     bar.className = 'px-demo-bar';
@@ -753,6 +757,11 @@
       <button type="button" class="px-again" id="px-demo-reset">↺ ${esc(t('picturesDemoReset'))}</button>`;
     document.body.appendChild(bar);
     let k = 0, busy = false;
+    if (qs.get('end') === '1' && n > 1) { // the ending: every diamond but one is in already
+      for (k = 0; k < n - 1; k++) chestRight.add(`demo-${k + 1}`);
+      renderChest();
+      setTimeout(() => $('px-demo-right').click(), 700);
+    }
     $('px-demo-right').onclick = async () => {
       if (busy || data.treasure.done) return;
       busy = true; $('px-demo-right').disabled = true;

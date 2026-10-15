@@ -4741,64 +4741,132 @@
 
 
   // ── Mare App 8 (v89) — treasure chest settings ──
+  // v108: several chests, each over one or more chapters, each with its own
+  // code (personal per family, or one from Offers) and pictures; an
+  // overview of every chapter's steps and questions; previews of the
+  // diamonds and of the ending.
   let trData = null;
+  const trTitle = (c) => ((window.MareI18n && window.MareI18n.locale) === 'nl' && c.titleNl) || c.title || '';
   async function loadTreasure() {
     try { trData = await api('/api/admin/treasure'); } catch { return; }
-    const on = new Set(trData.chapters);
-    document.getElementById('tr-chapters').innerHTML = trData.titles.map(c => {
-      const n = trData.quizzes[c.no] || 0;
-      return `<label class="${n ? '' : 'noquiz'}" title="${escapeHtml(c.title || '')}"><input type="checkbox" value="${c.no}"${on.has(c.no) ? ' checked' : ''}> ${c.no} <small>(${escapeHtml(t('adminTrQuizCount', { n }))})</small></label>`;
-    }).join('');
-    document.getElementById('tr-percent').value = trData.percent;
-    document.getElementById('tr-days').value = trData.days;
-    document.getElementById('tr-given').textContent = t('adminTrGiven', { n: trData.codesGiven });
-    // v95: preview with as many diamonds as the first ticked chapter has quizzes (or 4)
-    const first = trData.chapters.find(c => trData.quizzes[c]);
-    const want = (first && trData.quizzes[first]) || 4;
-    document.getElementById('tr-prev-n').innerHTML = Array.from({ length: 8 }, (_, i) => `<option value="${i + 1}"${i + 1 === want ? ' selected' : ''}>${i + 1}</option>`).join('');
-    trPics();
+    trRender();
   }
-  function trPics() {
-    const box = document.getElementById('tr-pics');
-    const slot = (which) => {
-      const key = trData[which + 'Key'], src = trData[which + 'Url'];
-      const showDim = which === 'closed' && !key;
-      return `<div class="tr-pic" data-which="${which}"><strong>${escapeHtml(t(which === 'closed' ? 'adminTrClosed' : 'adminTrOpen'))}</strong>
-        <img src="${escapeHtml(showDim ? trData.openUrl : src || '')}" alt=""${showDim ? ' class="dim"' : ''}>
-        <small class="admin-empty-note">${escapeHtml(t(which === 'closed' ? (key ? 'adminTrOwn' : 'adminTrClosedNone') : (key ? 'adminTrOwn' : 'adminTrOpenDefault')))}</small>
-        <span><label class="btn-ghost btn-small">${escapeHtml(t('adminSpotPicUpload'))}<input type="file" accept="image/*" hidden></label>
-        ${key ? ` <a href="#" class="tr-rm">${escapeHtml(t('adminSpotRemove'))}</a>` : ''}</span></div>`;
-    };
-    box.innerHTML = slot('closed') + slot('open');
-    box.querySelectorAll('.tr-pic').forEach(el => {
-      const which = el.dataset.which;
-      el.querySelector('input[type=file]').addEventListener('change', async (e) => {
-        const file = e.target.files[0]; if (!file) return;
-        try {
-          const key = await picUpload(file, 'spot-icons');
-          await api('/api/admin/treasure', { method: 'PUT', body: JSON.stringify({ [which + 'Key']: key }) });
-          await loadTreasure();
-        } catch (err) { alert(err.message || t('errorGeneric')); }
-      });
-      const rm = el.querySelector('.tr-rm');
-      if (rm) rm.addEventListener('click', async (e) => { e.preventDefault(); await api('/api/admin/treasure', { method: 'PUT', body: JSON.stringify({ [which + 'Key']: null }) }); await loadTreasure(); });
+  function trRender() {
+    const chName = (id) => { const c = trData.chests.find(x => x.id === id); return c ? c.name : ''; };
+    document.getElementById('tr-overview').innerHTML = `<div class="stat-detail-scroll"><table class="admin-table tr-table"><thead><tr>
+      <th>${escapeHtml(t('adminTrColChapter'))}</th><th>${escapeHtml(t('adminTrColSteps'))}</th><th>${escapeHtml(t('adminTrColPics'))}</th><th>${escapeHtml(t('adminTrColVids'))}</th><th>${escapeHtml(t('adminTrColQuiz'))}</th><th>${escapeHtml(t('adminTrColChest'))}</th></tr></thead><tbody>
+      ${trData.chapters.map(c => `<tr><td>${c.no}. ${escapeHtml(trTitle(c))}</td><td>${c.steps}</td><td>${c.pictures}</td><td>${c.videos}</td>
+        <td>${c.quizzes}${c.quizzesUnfinished ? ` <small class="tr-warn" title="${escapeHtml(t('adminTrUnfinishedTip'))}">+${c.quizzesUnfinished} ${escapeHtml(t('adminTrUnfinished'))}</small>` : ''}</td>
+        <td>${c.chest ? escapeHtml(chName(c.chest)) : '—'}</td></tr>`).join('')}
+      <tr class="tr-total"><td>${escapeHtml(t('adminTrTotal'))}</td><td>${trData.chapters.reduce((a, c) => a + c.steps, 0)}</td><td>${trData.chapters.reduce((a, c) => a + c.pictures, 0)}</td><td>${trData.chapters.reduce((a, c) => a + c.videos, 0)}</td><td>${trData.chapters.reduce((a, c) => a + c.quizzes, 0)}</td><td></td></tr>
+      </tbody></table></div>`;
+    const box = document.getElementById('tr-chests');
+    box.innerHTML = trData.chests.length ? '' : `<p class="admin-empty-note">${escapeHtml(t('adminTrNoChests'))}</p>`;
+    trData.chests.forEach((c, i) => box.appendChild(trChestCard(c, i)));
+    document.getElementById('tr-given').textContent = t('adminTrGiven', { n: trData.codesGiven });
+  }
+  // what a chest's card currently says (read back before saving or re-drawing)
+  function trCollect() {
+    document.querySelectorAll('#tr-chests .tr-chest').forEach(el => {
+      const c = trData.chests.find(x => x.id === el.dataset.id); if (!c) return;
+      c.name = el.querySelector('.tr-name').value;
+      c.chapters = [...el.querySelectorAll('.tr-ch input:checked')].map(x => Number(x.value));
+      const code = el.querySelector('.tr-code').value;
+      c.mode = code ? 'offer' : 'personal'; c.offerCode = code;
+      c.percent = Number(el.querySelector('.tr-percent').value) || c.percent;
+      c.days = Number(el.querySelector('.tr-days').value) || c.days;
     });
+    // each chapter in one chest only
+    trData.chapters.forEach(ch => { ch.chest = (trData.chests.find(c => c.chapters.includes(ch.no)) || {}).id || null; });
+  }
+  function trChestCard(c, i) {
+    const el = document.createElement('div');
+    el.className = 'tr-chest'; el.dataset.id = c.id;
+    const qOf = (no) => (trData.chapters.find(x => x.no === no) || {}).quizzes || 0;
+    const total = c.chapters.reduce((a, no) => a + qOf(no), 0);
+    const offerOpts = trData.offers.map(o => `<option value="${escapeHtml(o.code)}"${c.mode === 'offer' && c.offerCode === o.code ? ' selected' : ''}>${escapeHtml(o.code)} — ${o.type === 'percent' ? o.value + '%' : '€' + (o.value / 100).toFixed(2)}${o.expires ? ' · ' + escapeHtml(t('adminTrUntil', { date: o.expires })) : ''}</option>`).join('');
+    const missing = c.mode === 'offer' && c.offerCode && !trData.offers.some(o => o.code === c.offerCode);
+    const pic = (which) => {
+      const key = c[which + 'Key'], src = c[which + 'Url'], dim = which === 'closed' && !key;
+      return `<div class="tr-pic" data-which="${which}"><strong>${escapeHtml(t(which === 'closed' ? 'adminTrClosed' : 'adminTrOpen'))}</strong>
+        <img src="${escapeHtml(dim ? c.openUrl : src || '')}" alt=""${dim ? ' class="dim"' : ''}>
+        <small class="admin-empty-note">${escapeHtml(t(which === 'closed' ? (key ? 'adminTrOwn' : 'adminTrClosedNone') : (key ? 'adminTrOwn' : 'adminTrOpenDefault')))}</small>
+        <span><label class="btn-ghost btn-small">${escapeHtml(t('adminSpotPicUpload'))}<input type="file" accept="image/*" hidden></label>${key ? ` <a href="#" class="tr-rm">${escapeHtml(t('adminSpotRemove'))}</a>` : ''}</span></div>`;
+    };
+    el.innerHTML = `
+      <div class="tr-chest-head"><input type="text" class="tr-name" value="${escapeHtml(c.name)}" aria-label="${escapeHtml(t('adminTrName'))}" placeholder="${escapeHtml(t('adminTrName'))}">
+        <button type="button" class="btn-ghost btn-small btn-danger tr-del" data-no-busy>${escapeHtml(t('adminTrDelete'))}</button></div>
+      <label class="field-label">${escapeHtml(t('adminTrItsChapters'))}</label>
+      <div class="tr-chapters">${trData.chapters.map(ch => {
+        const other = ch.chest && ch.chest !== c.id ? trData.chests.find(x => x.id === ch.chest) : null;
+        return `<label class="tr-ch${ch.quizzes ? '' : ' noquiz'}${other ? ' taken' : ''}" title="${escapeHtml(other ? t('adminTrInOther', { name: other.name }) : trTitle(ch))}"><input type="checkbox" value="${ch.no}"${c.chapters.includes(ch.no) ? ' checked' : ''}${other ? ' disabled' : ''}> ${ch.no} <small>(${escapeHtml(t('adminTrQuizCount', { n: ch.quizzes }))})</small></label>`;
+      }).join('')}</div>
+      <p class="tr-sum">${escapeHtml(c.chapters.length ? t('adminTrSum', { n: total, d: total, list: c.chapters.join(', '), last: c.chapters[c.chapters.length - 1] }) : t('adminTrSumNone'))}</p>
+      <div class="admin-form-row">
+        <div class="field"><label>${escapeHtml(t('adminTrCode'))}</label><select class="tr-code"><option value="">${escapeHtml(t('adminTrPersonal'))}</option>${offerOpts}${missing ? `<option value="${escapeHtml(c.offerCode)}" selected>${escapeHtml(c.offerCode)} — ${escapeHtml(t('adminTrCodeGone'))}</option>` : ''}</select>
+          ${missing || (c.mode === 'offer' && !c.offerOk) ? `<small class="tr-warn">${escapeHtml(t('adminTrCodeGoneNote'))}</small>` : ''}</div>
+        <div class="field tr-personal"${c.mode === 'offer' ? ' hidden' : ''}><label>${escapeHtml(t('adminTrPercent'))}</label><input type="number" class="tr-percent" min="1" max="90" value="${c.percent}"></div>
+        <div class="field tr-personal"${c.mode === 'offer' ? ' hidden' : ''}><label>${escapeHtml(t('adminTrDays'))}</label><input type="number" class="tr-days" min="7" max="730" value="${c.days}"></div>
+      </div>
+      <div class="tr-pics">${pic('closed')}${pic('open')}</div>
+      <p class="admin-empty-note">${escapeHtml(t('adminTrGivenChest', { n: c.given || 0 }))}</p>
+      <div class="tr-btns">
+        <button type="button" class="btn-ghost btn-small tr-prev" data-no-busy>${escapeHtml(t('adminTrPreviewDiamonds', { n: Math.max(1, total) }))}</button>
+        <button type="button" class="btn-primary btn-small tr-prev-end" data-no-busy>${escapeHtml(t('adminTrPreviewEnd'))}</button>
+      </div>`;
+    const q = (sel) => el.querySelector(sel);
+    q('.tr-code').addEventListener('change', () => el.querySelectorAll('.tr-personal').forEach(f => { f.hidden = !!q('.tr-code').value; }));
+    el.querySelectorAll('.tr-ch input').forEach(x => x.addEventListener('change', () => { trCollect(); trRender(); }));
+    q('.tr-del').addEventListener('click', () => {
+      if (!confirm(t('adminTrDeleteConfirm', { name: q('.tr-name').value }))) return;
+      trCollect(); trData.chests = trData.chests.filter(x => x.id !== c.id); trCollect(); trRender();
+      document.getElementById('tr-msg').textContent = t('adminTrUnsavedNote'); document.getElementById('tr-msg').className = 'staff-row-msg';
+    });
+    el.querySelectorAll('.tr-pic').forEach(p2 => {
+      const which = p2.dataset.which;
+      p2.querySelector('input[type=file]').addEventListener('change', async (e) => {
+        const file = e.target.files[0]; if (!file) return;
+        try { trCollect(); c[which + 'Key'] = await picUpload(file, 'spot-icons'); await trSave(); }
+        catch (err) { alert(err.message || t('errorGeneric')); }
+      });
+      const rm = p2.querySelector('.tr-rm');
+      if (rm) rm.addEventListener('click', async (e) => { e.preventDefault(); trCollect(); c[which + 'Key'] = null; await trSave(); });
+    });
+    const preview = async (end) => {
+      trCollect(); await trSave(true); // the preview shows what is saved
+      const cur = trData.chests.find(x => x.id === c.id) || c;
+      const n = Math.max(1, cur.chapters.reduce((a, no) => a + qOf(no), 0));
+      const frame = document.getElementById('tr-prev-frame');
+      frame.src = `/pictures.html?chestdemo=${n}&chest=${encodeURIComponent(c.id)}${end ? '&end=1' : ''}&t=${Date.now()}`;
+      document.getElementById('tr-prev-modal').hidden = false;
+    };
+    q('.tr-prev').addEventListener('click', () => preview(false));
+    q('.tr-prev-end').addEventListener('click', () => preview(true));
+    return el;
+  }
+  async function trSave(quiet) {
+    const msg = document.getElementById('tr-msg');
+    const chests = trData.chests.map(c => ({ id: c.id, name: c.name, chapters: c.chapters, mode: c.mode, offerCode: c.offerCode, percent: c.percent, days: c.days, closedKey: c.closedKey || null, openKey: c.openKey || null }));
+    try {
+      await api('/api/admin/treasure', { method: 'PUT', body: JSON.stringify({ chests }) });
+      await loadTreasure();
+      if (!quiet) { msg.textContent = t('adminSaved'); msg.className = 'staff-row-msg ok'; }
+    } catch (err) { msg.textContent = err.message || t('errorGeneric'); msg.className = 'staff-row-msg err'; throw err; }
   }
   function setupTreasure() {
     const modal = document.getElementById('tr-prev-modal'), frame = document.getElementById('tr-prev-frame');
-    document.getElementById('tr-preview').addEventListener('click', () => {
-      frame.src = `/pictures.html?chestdemo=${document.getElementById('tr-prev-n').value}&t=${Date.now()}`;
-      modal.hidden = false;
-    });
     const close = () => { modal.hidden = true; frame.src = 'about:blank'; };
     // the window's own ✕ and Close (added to every admin window) hide it: empty the frame then too
     new MutationObserver(() => { if (modal.hidden) frame.src = 'about:blank'; }).observe(modal, { attributes: true, attributeFilter: ['hidden'] });
     modal.addEventListener('click', (e) => { if (e.target === modal) close(); });
-    document.getElementById('tr-save').addEventListener('click', async () => {
-      const chapters = [...document.querySelectorAll('#tr-chapters input:checked')].map(i => Number(i.value));
-      await api('/api/admin/treasure', { method: 'PUT', body: JSON.stringify({ chapters, percent: Number(document.getElementById('tr-percent').value), days: Number(document.getElementById('tr-days').value) }) });
-      await loadTreasure();
+    document.getElementById('tr-add').addEventListener('click', () => {
+      trCollect();
+      const free = trData.chapters.filter(ch => !ch.chest).map(ch => ch.no);
+      trData.chests.push({ id: 'c' + Math.random().toString(36).slice(2, 10), name: t('adminTrNewName', { n: trData.chests.length + 1 }), chapters: free.slice(0, 1), mode: 'personal', offerCode: '', percent: 10, days: 90, closedKey: null, openKey: null, closedUrl: null, openUrl: trData.defaultOpenUrl, given: 0, offerOk: true });
+      trCollect(); trRender();
+      const last = document.querySelector('#tr-chests .tr-chest:last-child'); if (last) { last.scrollIntoView({ behavior: 'smooth', block: 'center' }); last.querySelector('.tr-name').select(); }
     });
+    document.getElementById('tr-save').addEventListener('click', async () => { trCollect(); await trSave(); });
   }
 
   // ── Mare App 8 (v87) — Comms: email lists, newsletters, welcome series ──
