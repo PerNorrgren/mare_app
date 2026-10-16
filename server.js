@@ -2709,6 +2709,7 @@ app.get('/api/teacher/resources', auth.requireAuthApi(['teacher']), (req, res) =
 // anything typed in by hand are left alone.
 const PAGE_LABELS = {
   '/companion.html': ['Book Companion', 'Pictures and practices for each chapter, after reading.'],
+  '/book.html': ['The book (read together)', 'Cover, contents and a page per chapter with its videos, diamonds and code.'],
   '/pictures.html': ['Pictures (child mode)', 'Full-screen pictures and videos with spots, on the family tablet.'],
   '/forest.html': ['The Forest of Words', 'The Whispering Woods.'],
   '/riddle.html': ['Riddles', 'Riddles from the Whispering Woods.'],

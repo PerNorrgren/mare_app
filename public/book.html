@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0B1712">
+<title>Mare — The book</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/book.css">
+</head>
+<body>
+<!-- v110 — the book flow: the grown-up and the child together. The book
+     cover → the contents → a chapter page with its videos and pictures
+     (each says when to watch it), its diamonds and its treasure code. -->
+<div class="bk-bg" id="bk-bg"></div>
+
+<header class="bk-top">
+  <button type="button" class="bk-btn" id="bk-up" hidden></button>
+  <span class="bk-where" id="bk-where"></span>
+  <a class="bk-btn bk-leave" id="bk-leave" href="/companion.html" data-i18n="bookLeave">Book Companion</a>
+</header>
+
+<!-- 1. the cover -->
+<section class="bk-view bk-cover" id="bk-cover" hidden>
+  <button type="button" class="bk-cover-book" id="bk-cover-book"><img id="bk-cover-img" alt=""></button>
+  <h1 class="bk-cover-title" id="bk-cover-title"></h1>
+  <p class="bk-cover-tap" id="bk-cover-tap"></p>
+</section>
+
+<!-- 2. the contents -->
+<section class="bk-view bk-contents" id="bk-contents" hidden>
+  <div class="bk-card bk-head">
+    <h1 id="bk-contents-title"></h1>
+    <p id="bk-contents-intro"></p>
+  </div>
+  <ol class="bk-chapters" id="bk-chapters"></ol>
+</section>
+
+<!-- 3. a chapter -->
+<section class="bk-view bk-chapter" id="bk-chapter" hidden>
+  <div class="bk-card bk-head bk-chapter-head">
+    <img class="bk-chapter-img" id="bk-chapter-img" alt="" hidden>
+    <div>
+      <p class="bk-kicker" id="bk-chapter-kicker"></p>
+      <h1 id="bk-chapter-title"></h1>
+      <p id="bk-chapter-intro"></p>
+    </div>
+  </div>
+  <ol class="bk-steps" id="bk-steps"></ol>
+  <div class="bk-nav-ch">
+    <button type="button" class="bk-btn" id="bk-prev-ch"></button>
+    <button type="button" class="bk-btn" id="bk-next-ch"></button>
+  </div>
+</section>
+
+<!-- the chapter's diamonds and code, and Talk to Mare -->
+<footer class="bk-bar" id="bk-bar" hidden>
+  <span class="bk-bar-label" id="bk-bar-label"></span>
+  <span class="bk-gems" id="bk-gems"></span>
+  <button type="button" class="bk-code" id="bk-code" hidden></button>
+  <button type="button" class="bk-talk" id="bk-talk" hidden data-i18n="picturesTalk">Talk to Mare</button>
+</footer>
+
+<!-- the code again, and Talk to Mare -->
+<div class="bk-modal" id="bk-modal" hidden>
+  <div class="bk-modal-card" role="dialog" aria-modal="true">
+    <button type="button" class="bk-close" id="bk-modal-close" aria-label="Close">✕</button>
+    <div id="bk-modal-body"></div>
+  </div>
+</div>
+<div class="bk-talkbox" id="bk-talkbox" hidden>
+  <button type="button" class="bk-close" id="bk-talk-close" aria-label="Close">✕</button>
+  <iframe id="bk-talk-frame" title="Talk to Mare" allow="microphone; autoplay"></iframe>
+</div>
+
+<p class="bk-loading" id="bk-loading">…</p>
+
+<script src="/js/i18n.js"></script>
+<script src="/js/track.js"></script>
+<script src="/js/book.js"></script>
+</body>
+</html>

@@ -2353,3 +2353,30 @@ body.soc-full-open { overflow: hidden; }
 .sp-look > summary { cursor: pointer; font-weight: 700; color: var(--navy); }
 .sp-look[open] > summary { margin-bottom: 8px; }
 .pic-form .quiz-box { border-left: 3px solid var(--gold); padding-left: 10px; }
+
+/* v110: the way into the book flow on the Book Companion page */
+.cp-bookflow-card { display: flex; gap: 18px; align-items: center; text-decoration: none; color: inherit; border: 2px solid var(--gold); transition: transform 0.15s; }
+.cp-bookflow-card:hover { transform: translateY(-2px); }
+.cp-bookflow-cover { width: 110px; height: auto; border-radius: 4px 10px 10px 4px; box-shadow: 0 10px 26px rgba(0,0,0,0.35); flex: none; }
+.cp-bookflow-text { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
+.cp-bookflow-text strong { font-family: 'Fraunces', serif; font-size: 1.4rem; color: var(--navy); }
+@media (max-width: 520px) { .cp-bookflow-card { flex-direction: column; text-align: center; } .cp-bookflow-text { align-items: center; } }
+
+/* v110: Flow = the book: its pages, then a chapter at a time */
+.bf-book, .bf-ch { border: 2px solid rgba(22,48,92,0.25); border-radius: 14px; padding: 10px 14px; margin: 10px 0; background: #fff; }
+.bf-book > summary, .bf-ch > summary { cursor: pointer; font-weight: 700; color: var(--navy); font-size: 1.05rem; }
+.bf-ch > summary small { font-weight: 600; color: #6b7a99; margin-left: 8px; }
+.bf-h { margin: 18px 0 6px; color: var(--navy); }
+.bf-imgs { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 12px; margin: 8px 0 14px; }
+.bf-img { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
+.bf-img img { width: 100%; max-width: 220px; height: 130px; object-fit: cover; border-radius: 10px; background: #1d2b24; }
+.bf-noimg { width: 100%; max-width: 220px; height: 130px; border-radius: 10px; border: 2px dashed rgba(22,48,92,0.25); display: flex; align-items: center; justify-content: center; color: #6b7a99; }
+.bf-text { margin: 8px 0; }
+.bf-text > label { font-weight: 700; color: var(--navy); }
+.bf-text textarea { width: 100%; font: inherit; padding: 7px 9px; border-radius: 8px; border: 1.5px solid rgba(22,48,92,0.2); }
+.bf-ch-top { display: grid; grid-template-columns: minmax(0, 220px) minmax(0, 1fr); gap: 16px; margin: 10px 0; }
+@media (max-width: 700px) { .bf-ch-top { grid-template-columns: 1fr; } }
+.flow-when { display: flex; flex-direction: column; gap: 4px; margin: 6px 0; }
+.flow-when label { font-size: 0.82rem; font-weight: 700; color: #9A7A2E; }
+.flow-when input { font: inherit; font-size: 0.9rem; padding: 6px 8px; border-radius: 8px; border: 1.5px solid rgba(22,48,92,0.2); }
+.bf-ch-btns { display: flex; gap: 8px; flex-wrap: wrap; }

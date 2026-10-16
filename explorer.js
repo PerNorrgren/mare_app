@@ -238,6 +238,108 @@ function register(app, { db, auth, media, email, publicUrl }) {
     res.json({ ok: true });
   });
 
+  // ── v110 — the book flow: cover → contents → chapter page with its
+  // videos/pictures (when to watch each), its diamonds and its code. All
+  // pictures and words of the flow are set in admin (Book Companion → Flow).
+  const BOOK_IMG = { cover: '/images/mare-front-cover.jpg', contents: '/images/mare-forest-no-words.jpg', chapterBg: '/images/mare-forest-no-words.jpg', companion1: '/images/mare-front-cover.jpg', companion2: '' };
+  const BOOK_TEXTS = {
+    coverTitle: { nl: 'Mare en het fluisterbos van woorden', en: 'Mare and the Whispering Woods of Words' },
+    coverTap: { nl: 'Tik op het boek om te beginnen', en: 'Tap the book to begin' },
+    contentsTitle: { nl: 'Inhoud', en: 'Contents' },
+    contentsIntro: { nl: 'Kies het hoofdstuk dat jullie gaan lezen. Je kunt altijd naar een ander hoofdstuk springen.', en: 'Choose the chapter you are going to read. You can jump to another chapter at any time.' },
+    chapterIntro: { nl: 'Lees het hoofdstuk samen. Bij elke video staat wanneer je hem bekijkt. Tik op de lichtjes en beantwoord de vragen: elk goed antwoord is een diamant voor de schatkist.', en: 'Read the chapter together. Each video says when to watch it. Tap the glowing spots and answer the questions: every right answer is a diamond for the treasure chest.' },
+    chestLine: { nl: 'De schatkist is open: bekijk jullie code', en: 'The treasure chest is open: see your code' },
+    diamonds: { nl: 'Diamanten', en: 'Diamonds' },
+  };
+  const BOOK_IMG_OK = (k) => typeof k === 'string' && (KEY_OK.test(k) || /^\/images\/[a-z0-9-]+\.(png|jpe?g|webp)$/.test(k)) ? k : null;
+  async function bookUrl(key) { if (!key) return null; if (key.startsWith('/images/')) return key; try { return await media.getPlaybackUrl(key); } catch { return null; } }
+  function bookCfg() {
+    let o = {}; try { o = JSON.parse((db.getAppConfig() || {}).book_json || '{}') || {}; } catch { o = {}; }
+    const images = {}; for (const k of Object.keys(BOOK_IMG)) images[k] = BOOK_IMG_OK((o.images || {})[k]) || null;
+    const texts = {};
+    for (const k of Object.keys(BOOK_TEXTS)) { const t = (o.texts || {})[k] || {}; texts[k] = { nl: String(t.nl || '').slice(0, 600), en: String(t.en || '').slice(0, 600) }; }
+    const chapters = {};
+    for (const [n, c] of Object.entries(o.chapters || {})) if (/^\d+$/.test(n) && c) chapters[n] = { imageKey: BOOK_IMG_OK(c.imageKey), intro_nl: String(c.intro_nl || '').slice(0, 1500), intro_en: String(c.intro_en || '').slice(0, 1500) };
+    return { images, texts, chapters };
+  }
+  const bookText = (cfg, k, nl) => (nl ? (cfg.texts[k].nl || cfg.texts[k].en) : (cfg.texts[k].en || cfg.texts[k].nl)) || BOOK_TEXTS[k][nl ? 'nl' : 'en'];
+  const bookImg = (cfg, k) => bookUrl(cfg.images[k] || BOOK_IMG[k]);
+  // the family's book: every chapter, open, with its steps and its chest
+  app.get('/api/book', family, async (req, res) => {
+    const cfg = bookCfg();
+    let nl = req.query.lang === 'nl', talk = false;
+    if (req.user.role === 'parent') {
+      const parent = db.getParentById(req.user.id);
+      talk = !!(parent && parent.picture_talk !== 0 && db.getChildrenByParent(parent.id).length);
+      if (!req.query.lang && parent) nl = parent.preferred_locale === 'nl';
+    } else talk = true; // previews show it
+    const chapters = [];
+    for (const p of db.companionPractices()) {
+      const n = p.chapter_no, cc = cfg.chapters[n] || {};
+      const steps = [];
+      let i = 0;
+      for (const s of db.pictureScenes(n, true)) {
+        i++;
+        const spots = db.pictureSpots(s.id);
+        steps.push({ n: i, id: s.id, video: !!s.video_key, thumb: s.video_key ? null : await url(s.image_key), videoUrl: s.video_key ? await url(s.video_key) : null,
+          title: (nl && s.title_nl) || s.title_en || s.title_nl || '', when: (nl && s.when_nl) || s.when_en || s.when_nl || '',
+          quizzes: spots.filter(sp => sp.type === 'quiz' && parseQuiz(sp.quiz_json).answers.length).length });
+      }
+      const firstPic = steps.find(x => x.thumb);
+      chapters.push({ no: n, title: (nl && p.chapter_title_nl) || p.chapter_title_en || '', image: cc.imageKey ? await bookUrl(cc.imageKey) : (firstPic ? firstPic.thumb : null),
+        intro: (nl ? (cc.intro_nl || cc.intro_en) : (cc.intro_en || cc.intro_nl)) || '', steps, treasure: await treasureFor(n, req.user) });
+    }
+    res.set('Cache-Control', 'no-store');
+    res.json({ nl, talk, preview: isPreviewUser(req.user),
+      images: { cover: await bookImg(cfg, 'cover'), contents: await bookImg(cfg, 'contents'), chapterBg: await bookImg(cfg, 'chapterBg') },
+      texts: Object.fromEntries(Object.keys(BOOK_TEXTS).map(k => [k, bookText(cfg, k, nl)])), chapters });
+  });
+  // the Book Companion page's background pictures
+  app.get('/api/book/look', async (req, res) => {
+    const cfg = bookCfg();
+    res.json({ companion: [await bookImg(cfg, 'companion1'), await bookImg(cfg, 'companion2')].filter(Boolean), cover: await bookImg(cfg, 'cover') });
+  });
+  // staff: everything that can be changed in the flow
+  app.get('/api/admin/book', staff, async (req, res) => {
+    const cfg = bookCfg();
+    const images = {};
+    for (const k of Object.keys(BOOK_IMG)) images[k] = { key: cfg.images[k], url: await bookImg(cfg, k), isDefault: !cfg.images[k] };
+    const chapters = {};
+    for (const [n, c] of Object.entries(cfg.chapters)) chapters[n] = { ...c, imageUrl: c.imageKey ? await bookUrl(c.imageKey) : null };
+    res.json({ images, texts: cfg.texts, defaults: BOOK_TEXTS, chapters });
+  });
+  app.put('/api/admin/book', staff, (req, res) => {
+    const b = req.body || {}, cur = bookCfg();
+    if (b.images) for (const k of Object.keys(BOOK_IMG)) if (b.images[k] !== undefined) {
+      if (b.images[k] && !BOOK_IMG_OK(b.images[k])) return res.status(400).json({ error: 'That picture could not be used. Upload it again, then press Save.' });
+      cur.images[k] = b.images[k] || null;
+    }
+    if (b.texts) for (const k of Object.keys(BOOK_TEXTS)) if (b.texts[k]) for (const l of ['nl', 'en']) if (b.texts[k][l] !== undefined) cur.texts[k][l] = String(b.texts[k][l] || '').trim().slice(0, 600);
+    if (b.chapter && db.companionPractice(Number(b.chapter.no))) {
+      const n = String(Number(b.chapter.no)), c = cur.chapters[n] || { imageKey: null, intro_nl: '', intro_en: '' };
+      if (b.chapter.imageKey !== undefined) { if (b.chapter.imageKey && !BOOK_IMG_OK(b.chapter.imageKey)) return res.status(400).json({ error: 'That picture could not be used. Upload it again.' }); c.imageKey = b.chapter.imageKey || null; }
+      if (b.chapter.intro_nl !== undefined) c.intro_nl = String(b.chapter.intro_nl || '').trim().slice(0, 1500);
+      if (b.chapter.intro_en !== undefined) c.intro_en = String(b.chapter.intro_en || '').trim().slice(0, 1500);
+      cur.chapters[n] = c;
+    }
+    db.run(`UPDATE app_config SET book_json = ? WHERE id = 'default'`, [JSON.stringify(cur)]);
+    res.json({ ok: true });
+  });
+  // v110: one chest for every chapter that has questions and no chest yet
+  app.post('/api/admin/treasure/per-chapter', staff, (req, res) => {
+    const { chests } = treasureCfg();
+    const taken = new Set(chests.flatMap(c => c.chapters));
+    const base = chests[0] || {};
+    let added = 0;
+    for (const p of db.companionPractices()) {
+      if (taken.has(p.chapter_no)) continue;
+      chests.push(cleanChest({ name: `Hoofdstuk ${p.chapter_no}`, chapters: [p.chapter_no], mode: base.mode, offerCode: base.offerCode, percent: base.percent, days: base.days, closedKey: base.closedKey, openKey: base.openKey }, chests.length));
+      added++;
+    }
+    db.run(`UPDATE app_config SET treasure_json = ? WHERE id = 'default'`, [JSON.stringify({ chests })]);
+    res.json({ ok: true, added });
+  });
+
   // The child's view: the family's current chapter (or ?chapter=).
   app.get('/api/pictures', family, async (req, res) => {
     let chapterNo = Number(req.query.chapter) || 0;
@@ -312,6 +414,8 @@ function register(app, { db, auth, media, email, publicUrl }) {
     if (b.titleNl !== undefined) f.titleNl = String(b.titleNl).slice(0, 120);
     if (b.contextEn !== undefined) f.contextEn = String(b.contextEn).slice(0, 1500);
     if (b.contextNl !== undefined) f.contextNl = String(b.contextNl).slice(0, 1500);
+    if (b.whenEn !== undefined) f.whenEn = String(b.whenEn).slice(0, 300); // v110: when to watch it (book flow)
+    if (b.whenNl !== undefined) f.whenNl = String(b.whenNl).slice(0, 300);
     if (b.sortOrder !== undefined) f.sortOrder = Math.round(Number(b.sortOrder)) || 0;
     if (b.active !== undefined) f.active = !!b.active;
     db.updatePictureScene(req.params.id, f);

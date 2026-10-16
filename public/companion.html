@@ -38,6 +38,19 @@
 
   <p class="cp-preview" id="cp-preview" hidden data-i18n="companionPreview">Preview for staff: this is what parents see. Sending messages and rating are switched off here.</p>
 
+  <!-- v110: the book flow — read together, chapter by chapter -->
+  <section class="whisper cp-bookflow" id="cp-bookflow">
+    <a class="whisper-card cp-bookflow-card" href="/book.html">
+      <img class="cp-bookflow-cover" id="cp-bookflow-cover" src="/images/mare-front-cover.jpg" alt="">
+      <span class="cp-bookflow-text">
+        <span class="whisper-label" data-i18n="bookCpLabel">Read together</span>
+        <strong data-i18n="bookCpTitle">Open the book</strong>
+        <span class="whisper-body" data-i18n="bookCpBody">Choose a chapter and see which videos to watch while you read. Every right answer is a diamond for the chapter's treasure chest.</span>
+        <span class="btn-primary" data-i18n="bookCpOpen">Open the book →</span>
+      </span>
+    </a>
+  </section>
+
   <!-- 1. The picture book + where you are -->
   <section class="whisper" id="cp-book">
     <div class="whisper-card cp-book-card">
@@ -139,7 +152,14 @@
 <script src="/js/bg-slideshow.js"></script>
 <script src="/js/news-signup.js"></script>
 <script src="/js/companion.js"></script>
-<script>window.MareBgSlideshow.init('bg-slideshow', ['/images/mare-front-cover.jpg', '/images/mare-back-cover.jpg']);</script>
+<script>
+  // v110: the background pictures (and the book cover) are set in admin → Book Companion → Flow
+  fetch('/api/book/look').then(r => r.json()).catch(() => ({})).then(d => {
+    const pics = (d && d.companion && d.companion.length) ? d.companion : ['/images/mare-front-cover.jpg'];
+    window.MareBgSlideshow.init('bg-slideshow', pics);
+    if (d && d.cover) document.getElementById('cp-bookflow-cover').src = d.cover;
+  });
+</script>
 <script src="/js/viewas-bar.js"></script>
 </body>
 </html>

@@ -8,6 +8,7 @@
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const params = new URLSearchParams(location.search);
   const fixedChapter = Number(params.get('chapter')) || 0; // staff preview
+  const bookMode = params.has('book'); // v110: opened from the book flow: one step, then back to the chapter page
   let data = null, idx = 0, audio = null;
   const track = (n, d, v) => { try { window.MareTrack && window.MareTrack.event(n, d, v); } catch { /* never break the page */ } }; // v78
   const found = new Set();
@@ -161,7 +162,7 @@
     if ($('px-gembar')) $('px-gembar').hidden = !tr;
     if (!tr) return;
     try { chestRight = chestPreview() ? new Set() : new Set(JSON.parse(chestStore().getItem(chestKey()) || '[]')); } catch { chestRight = new Set(); }
-    if (chestPreview()) { tr.done = null; try { sessionStorage.removeItem(chestKey()); } catch { /* fine */ } }
+    if (chestPreview() && !bookMode) { tr.done = null; try { sessionStorage.removeItem(chestKey()); } catch { /* fine */ } } // v110: in the book flow a preview keeps its diamonds until the book is opened again
     if (Array.isArray(tr.ids)) chestRight = new Set([...chestRight].filter(id => tr.ids.includes(id))); // v108: only questions that still count
     const el = document.createElement('button');
     el.type = 'button'; el.id = 'px-chest'; el.className = 'px-chest';
@@ -482,10 +483,10 @@
     v.addEventListener('waiting', () => { if (!v.paused) loading(true); });
     ['playing', 'canplay', 'pause', 'seeked'].forEach(ev => v.addEventListener(ev, () => { if (ev !== 'canplay' || v.paused) loading(false); if (ev === 'playing') retries = 0; }));
     v.addEventListener('error', () => { if (isVideo && v.getAttribute('src')) retryScene(); });
-    v.addEventListener('play', () => { hideAsk(); if (v.currentTime < 0.5) track('video_start', `${data.chapter}:${idx + 1}`); delete v.dataset.stoppedBySpot; $('px-bigplay').hidden = true; fmtBtn(); cancelAnimationFrame(raf); loop(); });
+    v.addEventListener('play', () => { hideAsk(); if ($('px-backbig')) $('px-backbig').hidden = true; if (v.currentTime < 0.5) track('video_start', `${data.chapter}:${idx + 1}`); delete v.dataset.stoppedBySpot; $('px-bigplay').hidden = true; fmtBtn(); cancelAnimationFrame(raf); loop(); });
     v.addEventListener('pause', () => { fmtBtn(); tick(); });
     v.addEventListener('seeked', tick);
-    v.addEventListener('ended', () => { track('video_end', `${data.chapter}:${idx + 1}`); fmtBtn(); $('px-bigplay').textContent = '↻'; $('px-bigplay').setAttribute('aria-label', t('picturesWatchAgain')); $('px-bigplay').hidden = false; });
+    v.addEventListener('ended', () => { track('video_end', `${data.chapter}:${idx + 1}`); fmtBtn(); if (bookMode && !$('px-moment')) $('px-backbig').hidden = false; $('px-bigplay').textContent = '↻'; $('px-bigplay').setAttribute('aria-label', t('picturesWatchAgain')); $('px-bigplay').hidden = false; });
     $('px-bigplay').onclick = () => {
       if (v.ended) { pausedFor.clear(); v.currentTime = 0; }
       $('px-bigplay').textContent = '▶';
@@ -610,6 +611,12 @@
     const q = fixedChapter ? `?chapter=${fixedChapter}` : '';
     const lang = window.MareI18n ? window.MareI18n.locale : 'en';
     data = await getJson(`/api/pictures${q}${q ? '&' : '?'}lang=${lang}`);
+    if (bookMode) { // just the step chosen on the chapter page
+      const k = Math.max(0, (Number(params.get('step')) || 1) - 1);
+      data.scenes = data.scenes.slice(k, k + 1);
+      $('px-back').hidden = false;
+      $('px-exit').hidden = true;
+    }
     $('px-chapter').textContent = `${t('companionChapterN', { n: data.chapter })}${data.chapterTitle ? ' · ' + data.chapterTitle : ''}`;
     if (!data.scenes.length) {
       $('px-empty').hidden = false;
@@ -623,7 +630,7 @@
     }
     $('px-empty').hidden = true;
     $('px-talk').hidden = !data.talk;
-    showScene(Math.max(0, (Number(params.get('step')) || 1) - 1)); // v107: ?step=n from the editor's "Preview as a child"
+    showScene(bookMode ? 0 : Math.max(0, (Number(params.get('step')) || 1) - 1)); // v107: ?step=n from the editor's "Preview as a child"
     setupChest(); // v89
     if (!sessionStorage.getItem('px-hinted')) {
       $('px-hint').textContent = t('picturesHint');
@@ -730,6 +737,8 @@
       $('px-start').hidden = false;
       $('px-start-btn').onclick = () => { document.documentElement.requestFullscreen().catch(() => {}); $('px-start').hidden = true; if (isVideo) playVideo(); };
     }
+    { const back = () => { location.href = `/book.html#h${fixedChapter || ''}`; }; // v110
+      if ($('px-back')) $('px-back').onclick = back; if ($('px-backbig')) $('px-backbig').onclick = back; }
     if (new URLSearchParams(location.search).has('chestdemo')) return chestDemo(); // v95
     try { await load(); } catch { return; }
     setInterval(poll, 8000);
