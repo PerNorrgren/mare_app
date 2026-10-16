@@ -964,16 +964,13 @@
       <div class="admin-card">
         <h2 data-i18n="adminPicTitle">Pictures for each chapter</h2>
         <p class="admin-card-sub" data-i18n="adminPicDesc">Add the pictures a child explores while a grown-up reads.</p>
+        <!-- v113: each chapter below has its own Flow/Edit, Add a step and
+             Preview; the old chapter picker and Add stay hidden (the code uses them) -->
         <div class="pic-toolbar">
-          <label for="pic-chapter" data-i18n="adminPicChapter">Chapter</label>
-          <select id="pic-chapter"></select>
-          <button type="button" class="btn-primary btn-small" id="pic-add" data-i18n="adminPicAdd">+ Add a step (picture or video)</button>
-          <a class="btn-ghost btn-small" id="pic-preview" target="_blank" rel="noopener" data-i18n="adminPicPreview">Preview as a child</a>
-          <!-- Mare App 6 (v75): the chapter as a flow (view only) or the editor -->
-          <div class="pic-views" role="tablist">
-            <button type="button" class="pic-view on" data-view="flow" data-no-busy data-i18n="adminFlowView">Flow</button>
-            <button type="button" class="pic-view" data-view="edit" data-no-busy data-i18n="adminEditView">Edit</button>
-          </div>
+          <select id="pic-chapter" hidden></select>
+          <button type="button" id="pic-add" hidden></button>
+          <a id="pic-preview" hidden></a>
+          <a class="btn-primary btn-small" href="/book.html" target="_blank" rel="noopener" data-i18n="adminBfPreview">Open the book as a family sees it</a>
         </div>
         <div id="pic-flow"></div>
         <div id="pic-list" hidden></div>

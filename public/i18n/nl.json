@@ -1982,6 +1982,5 @@
   "bookGemsToGo": "Nog {n} te gaan, dan gaat de schatkist open.",
   "adminBfPoster": "Plaat voor de knop en de achtergrond",
   "adminBfPosterNoneVid": "Geen: het eerste beeld van de video wordt gebruikt.",
-  "adminBfPosterNoneImg": "Geen: de plaat van de stap zelf wordt gebruikt.",
-  "adminBfNoChest": "Dit hoofdstuk heeft vragen maar nog geen schatkist, dus de diamanten tellen nog niet."
+  "adminBfPosterNoneImg": "Geen: de plaat van de stap zelf wordt gebruikt."
 }

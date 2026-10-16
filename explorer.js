@@ -133,6 +133,21 @@ function register(app, { db, auth, media, email, publicUrl }) {
     for (const c of chests) c.chapters = c.chapters.filter(n => (seen.has(n) ? false : (seen.add(n), true)));
     return { chests };
   }
+  // v113: every chapter with a quiz question gets its own chest straight away
+  // (same code settings as the first chest), so its diamonds always count
+  function ensureChests() {
+    const { chests } = treasureCfg();
+    const taken = new Set(chests.flatMap(c => c.chapters));
+    const base = chests[0] || {};
+    let added = 0;
+    for (const p of db.companionPractices()) {
+      if (taken.has(p.chapter_no) || !chapterQuizIds(p.chapter_no).length) continue;
+      chests.push(cleanChest({ name: `Hoofdstuk ${p.chapter_no}`, chapters: [p.chapter_no], mode: base.mode, offerCode: base.offerCode, percent: base.percent, days: base.days, closedKey: base.closedKey, openKey: base.openKey }, chests.length));
+      added++;
+    }
+    if (added) db.run(`UPDATE app_config SET treasure_json = ? WHERE id = 'default'`, [JSON.stringify({ chests })]);
+    return added;
+  }
   const chestOf = (chapterNo) => treasureCfg().chests.find(c => c.chapters.includes(chapterNo)) || null;
   // the quiz spots of a chapter that count (active steps, with answers)
   function chapterQuizIds(chapterNo) {
@@ -306,6 +321,7 @@ function register(app, { db, auth, media, email, publicUrl }) {
   });
   // staff: everything that can be changed in the flow
   app.get('/api/admin/book', staff, async (req, res) => {
+    ensureChests(); // v113: chapters that already have questions get their chest
     const cfg = bookCfg();
     const images = {};
     for (const k of Object.keys(BOOK_IMG)) images[k] = { key: cfg.images[k], url: await bookImg(cfg, k), isDefault: !cfg.images[k] };
@@ -486,12 +502,12 @@ function register(app, { db, auth, media, email, publicUrl }) {
   }
   app.post('/api/admin/pictures/:id/spots', staff, (req, res) => {
     if (!db.pictureScene(req.params.id)) return res.status(404).json({ error: 'Not found' });
-    try { res.json({ ok: true, id: db.savePictureSpot(null, req.params.id, spotFields(req.body || {})) }); }
+    try { const id = db.savePictureSpot(null, req.params.id, spotFields(req.body || {})); ensureChests(); res.json({ ok: true, id }); }
     catch (e) { res.status(400).json({ error: e.message }); }
   });
   app.patch('/api/admin/picture-spots/:id', staff, (req, res) => {
     if (!db.pictureSpot(req.params.id)) return res.status(404).json({ error: 'Not found' });
-    try { db.savePictureSpot(req.params.id, null, spotFields(req.body || {})); res.json({ ok: true }); }
+    try { db.savePictureSpot(req.params.id, null, spotFields(req.body || {})); ensureChests(); res.json({ ok: true }); }
     catch (e) { res.status(400).json({ error: e.message }); }
   });
   app.delete('/api/admin/picture-spots/:id', staff, (req, res) => { db.deletePictureSpot(req.params.id); res.json({ ok: true }); });

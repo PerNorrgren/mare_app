@@ -472,11 +472,26 @@
     });
     renderPictures();
   }
-  function setPicView(view) {
-    document.querySelectorAll('.pic-view').forEach(b => b.classList.toggle('on', b.dataset.view === view));
-    document.getElementById('pic-flow').hidden = view !== 'flow';
-    document.getElementById('pic-list').hidden = view !== 'edit';
-    if (view === 'flow' && picData) renderBookFlow();
+  // v113: Flow/Edit per chapter — Edit puts the step editor inside that chapter
+  let editCh = null;
+  function setPicView(view, ch) {
+    const sel = document.getElementById('pic-chapter');
+    ch = ch || Number(sel.value) || 1;
+    const list = document.getElementById('pic-list'), flow = document.getElementById('pic-flow');
+    if (view === 'edit') {
+      editCh = ch;
+      if (Number(sel.value) !== ch) sel.value = String(ch);
+      const det = flow.querySelector(`.bf-ch[data-no="${ch}"]`);
+      if (det) { det.open = true; det.querySelector('.bf-edit').appendChild(list); }
+      renderPictures();
+      list.hidden = false;
+    } else { editCh = null; flow.after(list); list.hidden = true; }
+    flow.querySelectorAll('.bf-ch').forEach(d => {
+      const on = editCh === Number(d.dataset.no);
+      d.querySelectorAll('.pic-view').forEach(b => b.classList.toggle('on', b.dataset.view === (on ? 'edit' : 'flow')));
+      d.querySelector('.bf-steps').hidden = on;
+    });
+    if (view === 'flow' && picData) renderFlow(ch);
   }
   // ── v110 — Flow = the book as families meet it: the book and its pages
   // (every picture and word can be changed here), then each chapter: its
@@ -493,6 +508,7 @@
   async function renderBookFlow() {
     const box = document.getElementById('pic-flow');
     if (!box || !picData) return;
+    { const pl = document.getElementById('pic-list'); if (pl && box.contains(pl)) box.after(pl); } // v113: keep the editor out of the rebuild
     const keepBookOpen = !!(box.querySelector('.bf-book') && box.querySelector('.bf-book').open);
     try { bfData = await api('/api/admin/book'); } catch (err) { box.innerHTML = `<p class="form-error">${escapeHtml(err.message || t('errorGeneric'))}</p>`; return; }
     const openCh = Number(document.getElementById('pic-chapter').value) || 1;
@@ -508,7 +524,6 @@
     };
     box.innerHTML = `
       <p class="admin-empty-note">${escapeHtml(t('adminBfHint'))}</p>
-      <p><a class="btn-primary btn-small" href="/book.html" target="_blank" rel="noopener">${escapeHtml(t('adminBfPreview'))}</a></p>
       <details class="bf-book"${keepBookOpen ? ' open' : ''}><summary>${escapeHtml(t('adminBfBook'))}</summary>
         <p class="admin-empty-note">${escapeHtml(t('adminBfBookNote'))}</p>
         <div class="bf-imgs">${BF_IMAGES.map(k => img(k, t('adminBfImg_' + k), bfData.images[k].url, bfData.images[k].isDefault)).join('')}</div>
@@ -524,16 +539,20 @@
         const cc = bfData.chapters[c.no] || {};
         return `<details class="bf-ch" data-no="${c.no}"${c.no === openCh ? ' open' : ''}><summary><b>${c.no}.</b> ${escapeHtml(c.title)} <small>${escapeHtml(chStats(c))}</small></summary>
           <div class="bf-ch-body">
+            <div class="bf-ch-bar">
+              <div class="pic-views" role="tablist"><button type="button" class="pic-view on" data-view="flow" data-no-busy>${escapeHtml(t('adminFlowView'))}</button><button type="button" class="pic-view" data-view="edit" data-no-busy>${escapeHtml(t('adminEditView'))}</button></div>
+              <button type="button" class="btn-primary btn-small bf-add" data-no-busy>${escapeHtml(t('adminPicAdd'))}</button>
+              <a class="btn-ghost btn-small" href="/pictures.html?chapter=${c.no}" target="_blank" rel="noopener">${escapeHtml(t('adminPicPreview'))}</a>
+              <a class="btn-ghost btn-small" href="/book.html#h${c.no}" target="_blank" rel="noopener">${escapeHtml(t('adminBfPreviewCh'))}</a>
+              <span class="bf-add-msg" role="status"></span></div>
             <div class="bf-ch-top">${img('chapter', t('adminBfChImg'), cc.imageUrl, !cc.imageKey, ' bf-ch-img')}
               <div class="bf-text bf-intro"><label>${escapeHtml(t('adminBfChIntro'))}</label>
                 <div class="admin-form-row"><div class="field"><small>NL</small><textarea rows="3" data-l="nl" placeholder="${escapeHtml(bfData.texts.chapterIntro.nl || bfData.defaults.chapterIntro.nl)}">${escapeHtml(cc.intro_nl || '')}</textarea></div>
                 <div class="field"><small>EN</small><textarea rows="3" data-l="en" placeholder="${escapeHtml(bfData.texts.chapterIntro.en || bfData.defaults.chapterIntro.en)}">${escapeHtml(cc.intro_en || '')}</textarea></div></div>
                 <span class="staff-row-msg" role="status"></span>
-                ${c.practice ? `<p class="admin-empty-note">📝 ${escapeHtml(t('adminBfPractice', { title: c.practice }))}</p>` : ''}
-                ${(bfData.quizChapters || []).includes(c.no) && !(bfData.chestChapters || []).includes(c.no) ? `<p class="bf-warn">💎 ${escapeHtml(t('adminBfNoChest'))} <button type="button" class="btn-primary btn-small bf-chest" data-no-busy>${escapeHtml(t('adminTrPerChapter'))}</button></p>` : ''}</div></div>
+                ${c.practice ? `<p class="admin-empty-note">📝 ${escapeHtml(t('adminBfPractice', { title: c.practice }))}</p>` : ''}</div></div>
             <div class="bf-steps"></div>
-            <p class="bf-ch-btns"><button type="button" class="btn-ghost btn-small bf-add" data-no-busy>${escapeHtml(t('adminPicAdd'))}</button>
-              <a class="btn-ghost btn-small" href="/book.html#h${c.no}" target="_blank" rel="noopener">${escapeHtml(t('adminBfPreviewCh'))}</a></p>
+            <div class="bf-edit"></div>
           </div></details>`;
       }).join('')}</div>`;
     // the book's pictures and words
@@ -568,10 +587,14 @@
       det.querySelectorAll('.bf-intro textarea').forEach(ta => ta.addEventListener('change', () => {
         bfPut({ chapter: { no, ['intro_' + ta.dataset.l]: ta.value } }, det.querySelector('.bf-intro .staff-row-msg'));
       }));
-      const ch = det.querySelector('.bf-chest');
-      if (ch) ch.addEventListener('click', async () => { ch.disabled = true; try { await api('/api/admin/treasure/per-chapter', { method: 'POST' }); await renderBookFlow(); if (typeof loadTreasure === 'function') loadTreasure(); } catch (err) { alert(err.message || t('errorGeneric')); ch.disabled = false; } });
-      det.querySelector('.bf-add').addEventListener('click', () => { document.getElementById('pic-chapter').value = String(no); renderPictures(); document.getElementById('pic-add').click(); });
+      det.querySelector('.bf-add').addEventListener('click', () => {
+        document.getElementById('pic-chapter').value = String(no);
+        const m = document.getElementById('pic-add-msg'); if (m) det.querySelector('.bf-add-msg').appendChild(m);
+        document.getElementById('pic-add').click();
+      });
+      det.querySelectorAll('.pic-view').forEach(b => b.addEventListener('click', () => setPicView(b.dataset.view, no)));
     });
+    if (editCh) setPicView('edit', editCh);
   }
   function renderFlow(ch, box) {
     box = box || document.querySelector(`#pic-flow .bf-ch[data-no="${ch}"][open] .bf-steps`);
@@ -645,8 +668,7 @@
     }));
     box.querySelectorAll('.flow-edit').forEach(b => b.addEventListener('click', () => {
       const sel = document.getElementById('pic-chapter');
-      if (Number(sel.value) !== ch) { sel.value = String(ch); renderPictures(); }
-      setPicView('edit');
+      setPicView('edit', ch);
       const card = document.querySelector(`.pic-card[data-scene="${b.dataset.scene}"]`);
       if (card) { card.scrollIntoView({ behavior: 'smooth', block: 'start' }); card.classList.add('flash'); setTimeout(() => card.classList.remove('flash'), 1600); }
     }));
@@ -679,7 +701,6 @@
   if (document.getElementById('flow-modal')) {
     document.getElementById('flow-modal-close').addEventListener('click', flowClose);
     document.getElementById('flow-modal').addEventListener('click', (e) => { if (e.target.id === 'flow-modal') flowClose(); });
-    document.querySelectorAll('.pic-view').forEach(b => b.addEventListener('click', () => setPicView(b.dataset.view)));
   }
   async function mediaUrl(key) {
     if (!key) return null;
@@ -773,7 +794,7 @@
     if (!el || !document.body.contains(el) || !el._isDirty() || document.querySelector('.pic-choice')) return;
     if (e.target.closest && e.target.closest('.pic-choice')) return;
     const card = e.target.closest && e.target.closest('.pic-card');
-    const leaving = card ? card !== el : !!(e.target.closest && e.target.closest('#pic-add, #pic-chapter, .pic-view, .admin-tab, [data-tab], #pic-preview'));
+    const leaving = card ? card !== el : !!(e.target.closest && e.target.closest('#pic-add, #pic-chapter, .pic-view, .bf-add, .bf-ch > summary, .admin-tab, [data-tab], #pic-preview'));
     if (!leaving) return;
     e.preventDefault(); e.stopPropagation();
     picChoice({
@@ -1331,7 +1352,7 @@
       const addFile = document.createElement('input');
       addFile.type = 'file'; addFile.accept = 'image/*,video/mp4,.mp4'; addFile.hidden = true;
       addBtn.after(addFile);
-      const addMsg = document.createElement('span'); addMsg.className = 'pic-up-msg'; addMsg.setAttribute('role', 'status');
+      const addMsg = document.createElement('span'); addMsg.className = 'pic-up-msg'; addMsg.id = 'pic-add-msg'; addMsg.setAttribute('role', 'status');
       addFile.after(addMsg);
       addBtn.addEventListener('click', () => { addMsg.textContent = ''; addFile.value = ''; addFile.click(); });
       addFile.addEventListener('change', async () => {
@@ -1346,6 +1367,7 @@
           await picPutScene(id, file);
           addMsg.textContent = '';
           await loadPictures(ch);
+          setPicView('edit', ch); // v113: show the new step in its chapter's editor
           const card = document.querySelector(`.pic-card[data-scene="${id}"]`);
           if (card) card.scrollIntoView({ behavior: 'smooth', block: 'start' });
         } catch (err) {

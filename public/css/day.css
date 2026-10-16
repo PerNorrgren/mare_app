@@ -2386,3 +2386,9 @@ body.soc-full-open { overflow: hidden; }
 .flow-poster label { font-size: 0.82rem; font-weight: 700; color: #9A7A2E; }
 .flow-poster img { width: 120px; height: 72px; object-fit: cover; border-radius: 8px; }
 .bf-warn { background: #FFF3CF; border: 1.5px solid var(--gold); border-radius: 10px; padding: 8px 10px; font-weight: 600; color: var(--navy); }
+
+/* v113: each chapter's own bar: Flow/Edit, Add a step, Preview, chapter page */
+.bf-ch-bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 6px 0 12px; margin-bottom: 10px; border-bottom: 1px solid rgba(22,48,92,0.12); }
+.bf-ch-bar .pic-views { margin-left: 0; }
+.bf-edit #pic-list { margin-top: 8px; }
+.pic-toolbar .pic-up-msg:empty { display: none; }

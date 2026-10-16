@@ -1982,6 +1982,5 @@
   "bookGemsToGo": "{n} more to go, then the treasure chest opens.",
   "adminBfPoster": "Picture for its button and the background",
   "adminBfPosterNoneVid": "None: the video's first frame is used.",
-  "adminBfPosterNoneImg": "None: the step's own picture is used.",
-  "adminBfNoChest": "This chapter has questions but no treasure chest yet, so its diamonds don't count."
+  "adminBfPosterNoneImg": "None: the step's own picture is used."
 }
