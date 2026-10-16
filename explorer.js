@@ -285,9 +285,13 @@ function register(app, { db, auth, media, email, publicUrl }) {
           title: (nl && s.title_nl) || s.title_en || s.title_nl || '', when: (nl && s.when_nl) || s.when_en || s.when_nl || '',
           quizzes: spots.filter(sp => sp.type === 'quiz' && parseQuiz(sp.quiz_json).answers.length).length });
       }
-      const firstPic = steps.find(x => x.thumb);
+      const firstPic = steps.find(x => x.thumb), firstVid = steps.find(x => x.video);
+      // v111: the chapter's practice from the Book Companion (Book content) shows on the chapter page too
+      const pTitle = (nl && p.title_nl) || p.title_en || '', pBody = (nl && p.body_nl) || p.body_en || '';
       chapters.push({ no: n, title: (nl && p.chapter_title_nl) || p.chapter_title_en || '', image: cc.imageKey ? await bookUrl(cc.imageKey) : (firstPic ? firstPic.thumb : null),
-        intro: (nl ? (cc.intro_nl || cc.intro_en) : (cc.intro_en || cc.intro_nl)) || '', steps, treasure: await treasureFor(n, req.user) });
+        imageVideo: !cc.imageKey && !firstPic && firstVid ? firstVid.videoUrl : null, // no picture: the first video's opening frame
+        intro: (nl ? (cc.intro_nl || cc.intro_en) : (cc.intro_en || cc.intro_nl)) || '', steps, treasure: await treasureFor(n, req.user),
+        practice: pBody.trim() ? { title: pTitle, body: pBody } : null });
     }
     res.set('Cache-Control', 'no-store');
     res.json({ nl, talk, preview: isPreviewUser(req.user),
@@ -394,7 +398,7 @@ function register(app, { db, auth, media, email, publicUrl }) {
     const scenes = db.pictureScenes(null);
     const out = [];
     for (const s of scenes) out.push({ ...s, imageUrl: await url(s.image_key), videoUrl: s.video_key ? await url(s.video_key) : null, spots: db.pictureSpots(s.id) });
-    res.json({ scenes: out, chapters: db.companionPractices().map(p => ({ no: p.chapter_no, title: p.chapter_title_en })) });
+    res.json({ scenes: out, chapters: db.companionPractices().map(p => ({ no: p.chapter_no, title: p.chapter_title_en, practice: (p.body_nl || p.body_en) ? (p.title_nl || p.title_en || '') : '' })) });
   });
   app.post('/api/admin/pictures', staff, (req, res) => {
     const n = Math.round(Number(req.body && req.body.chapter));

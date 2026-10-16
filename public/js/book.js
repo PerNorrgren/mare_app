@@ -50,7 +50,7 @@
     $('bk-chapters').innerHTML = book.chapters.map(c => {
       const g = gemsOf(c.treasure);
       return `<li><a class="bk-ch-card" href="#h${c.no}">
-        ${c.image ? `<img src="${esc(c.image)}" alt="" loading="lazy">` : `<span class="bk-ch-no">${c.no}</span>`}
+        ${c.image ? `<img src="${esc(c.image)}" alt="" loading="lazy">` : c.imageVideo ? `<video class="bk-ch-vid" src="${esc(c.imageVideo)}#t=1" preload="metadata" muted playsinline></video>` : `<span class="bk-ch-no">${c.no}</span>`}
         <span class="bk-ch-text"><small>${esc(t('companionChapterN', { n: c.no }))}</small><strong>${esc(c.title)}</strong>
           <em>${c.steps.length ? esc(t('bookStepsN', { n: c.steps.length })) : esc(t('bookNoStepsShort'))}</em>
           ${c.treasure ? `<span class="bk-ch-gems"><i>${gem(0)}</i> ${g.n}/${g.total}${g.done ? ' · 🗝️' : ''}</span>` : ''}</span>
@@ -65,6 +65,7 @@
     $('bk-up').hidden = false; $('bk-up').textContent = t('bookBackContents'); $('bk-up').onclick = () => { location.hash = '#inhoud'; };
     $('bk-where').textContent = book.texts.coverTitle;
     $('bk-chapter-img').hidden = !c.image; if (c.image) $('bk-chapter-img').src = c.image;
+    $('bk-chapter-vid').hidden = !!c.image || !c.imageVideo; if (!c.image && c.imageVideo) $('bk-chapter-vid').src = `${c.imageVideo}#t=1`; // v111
     $('bk-chapter-kicker').textContent = t('companionChapterN', { n: c.no });
     $('bk-chapter-title').textContent = c.title;
     $('bk-chapter-intro').textContent = c.intro || book.texts.chapterIntro;
@@ -79,6 +80,16 @@
       + (g.done ? `<li><button type="button" class="bk-step bk-chest-line" id="bk-chest-line"><span class="bk-thumb bk-thumb-chest"><img src="${esc(c.treasure.open || '/images/mare-spot-treasure-chest.png')}" alt=""></span>
           <span class="bk-step-text"><strong>${esc(book.texts.chestLine)}</strong><span class="bk-when">🗝️ ${esc(g.done.code)}</span></span><span class="bk-go" aria-hidden="true">›</span></button></li>` : '');
     if ($('bk-chest-line')) $('bk-chest-line').onclick = () => showCode(c, g.done);
+    // v111: the chapter's practice (from the Book Companion) as its own card
+    $('bk-practice').hidden = !c.practice;
+    if (c.practice) {
+      const lines = String(c.practice.body).split(/\n+/).map(x => x.trim()).filter(Boolean);
+      let html = '', list = [];
+      const flush = () => { if (list.length) { html += `<ol>${list.map(x => `<li>${esc(x)}</li>`).join('')}</ol>`; list = []; } };
+      lines.forEach(x => { const m = /^\d+[.)]\s*(.*)$/.exec(x); if (m) list.push(m[1]); else { flush(); html += `<p>${esc(x)}</p>`; } });
+      flush();
+      $('bk-practice').innerHTML = `<p class="bk-kicker">${esc(t('bookPractice'))}</p><h2>${esc(c.practice.title)}</h2>${html}`;
+    }
     // previous / next chapter
     const prev = book.chapters[i - 1], next = book.chapters[i + 1];
     $('bk-prev-ch').hidden = !prev; $('bk-next-ch').hidden = !next;

@@ -1970,5 +1970,7 @@
   "adminBfChIntro": "Openingswoorden van deze hoofdstukpagina",
   "adminBfWhen": "Wanneer bekijken (staat op de hoofdstukpagina)",
   "adminBfWhenPh": "bijv. Als Mare het briefje vindt",
-  "adminBfChDefault": "Geen eigen plaat: de eerste plaat van het hoofdstuk wordt gebruikt."
+  "adminBfChDefault": "Geen eigen plaat: de eerste plaat van het hoofdstuk wordt gebruikt.",
+  "bookPractice": "Oefening bij dit hoofdstuk",
+  "adminBfPractice": "Op de hoofdstukpagina zien gezinnen onder de video's ook de oefening van dit hoofdstuk: \"{title}\". Aanpassen doe je bij Boekinhoud."
 }

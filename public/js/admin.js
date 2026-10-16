@@ -528,7 +528,8 @@
               <div class="bf-text bf-intro"><label>${escapeHtml(t('adminBfChIntro'))}</label>
                 <div class="admin-form-row"><div class="field"><small>NL</small><textarea rows="3" data-l="nl" placeholder="${escapeHtml(bfData.texts.chapterIntro.nl || bfData.defaults.chapterIntro.nl)}">${escapeHtml(cc.intro_nl || '')}</textarea></div>
                 <div class="field"><small>EN</small><textarea rows="3" data-l="en" placeholder="${escapeHtml(bfData.texts.chapterIntro.en || bfData.defaults.chapterIntro.en)}">${escapeHtml(cc.intro_en || '')}</textarea></div></div>
-                <span class="staff-row-msg" role="status"></span></div></div>
+                <span class="staff-row-msg" role="status"></span>
+                ${c.practice ? `<p class="admin-empty-note">📝 ${escapeHtml(t('adminBfPractice', { title: c.practice }))}</p>` : ''}</div></div>
             <div class="bf-steps"></div>
             <p class="bf-ch-btns"><button type="button" class="btn-ghost btn-small bf-add" data-no-busy>${escapeHtml(t('adminPicAdd'))}</button>
               <a class="btn-ghost btn-small" href="/book.html#h${c.no}" target="_blank" rel="noopener">${escapeHtml(t('adminBfPreviewCh'))}</a></p>

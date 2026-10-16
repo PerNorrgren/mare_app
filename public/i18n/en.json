@@ -1970,5 +1970,7 @@
   "adminBfChIntro": "Opening words of this chapter page",
   "adminBfWhen": "When to watch (shown on the chapter page)",
   "adminBfWhenPh": "e.g. After Mare finds the note",
-  "adminBfChDefault": "No picture of its own: the chapter's first picture is used."
+  "adminBfChDefault": "No picture of its own: the chapter's first picture is used.",
+  "bookPractice": "Practice for this chapter",
+  "adminBfPractice": "On the chapter page, under the videos, families also see this chapter's practice: \"{title}\". Change it under Book content."
 }
