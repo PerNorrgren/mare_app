@@ -474,7 +474,7 @@ function register(app, { db, auth, media, email, publicUrl }) {
     if (b.r !== undefined) f.r = clamp(b.r, 0.02, 0.5); // v76: masks can be wide
     if (b.look !== undefined) { const l = parseLook(JSON.stringify(b.look || {})); f.look_json = JSON.stringify(l); }
     if (b.type !== undefined) f.type = TYPES.includes(b.type) ? b.type : 'popup';
-    for (const [k, max] of [['title_en', 120], ['title_nl', 120], ['text_en', 1500], ['text_nl', 1500], ['video_url', 300], ['hint_en', 200], ['hint_nl', 200]]) {
+    for (const [k, max] of [['title_en', 300], ['title_nl', 300], /* v114: questions can be a full sentence (was 120, cut silently) */ ['text_en', 1500], ['text_nl', 1500], ['video_url', 300], ['hint_en', 200], ['hint_nl', 200]]) {
       if (b[k] !== undefined) f[k] = String(b[k] || '').slice(0, max);
     }
     // v74 — timing on a video (seconds; empty = from the start / to the end)
