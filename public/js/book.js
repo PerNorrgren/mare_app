@@ -30,11 +30,10 @@
     document.body.dataset.view = view;
     window.scrollTo(0, 0);
   }
-  function background(url) { $('bk-bg').style.backgroundImage = url ? `url("${url}")` : ''; }
 
   function renderCover() {
     show('bk-cover'); background(book.images.contents);
-    $('bk-up').hidden = true; $('bk-where').textContent = ''; $('bk-bar').hidden = true;
+    $('bk-up').hidden = true; $('bk-where').textContent = '';
     $('bk-cover-img').src = book.images.cover || '';
     $('bk-cover-title').textContent = book.texts.coverTitle;
     $('bk-cover-tap').textContent = book.texts.coverTap;
@@ -44,7 +43,7 @@
   function renderContents() {
     show('bk-contents'); background(book.images.contents);
     $('bk-up').hidden = false; $('bk-up').textContent = t('bookBackCover'); $('bk-up').onclick = () => { location.hash = ''; };
-    $('bk-where').textContent = book.texts.coverTitle; $('bk-bar').hidden = true;
+    $('bk-where').textContent = book.texts.coverTitle;
     $('bk-contents-title').textContent = book.texts.contentsTitle;
     $('bk-contents-intro').textContent = book.texts.contentsIntro;
     $('bk-chapters').innerHTML = book.chapters.map(c => {
@@ -57,29 +56,69 @@
       </a></li>`;
     }).join('');
   }
-  function renderChapter(no) {
+  // the big picture on top: an image, or a video's first frame
+  const picHtml = (img, vid) => (img ? `<img src="${esc(img)}" alt="">` : vid ? `<video src="${esc(vid)}#t=1" preload="metadata" muted playsinline></video>` : '');
+  function background(url, vid) {
+    $('bk-bg').style.backgroundImage = url ? `url("${url}")` : '';
+    $('bk-bg').innerHTML = !url && vid ? `<video src="${esc(vid)}#t=1" preload="metadata" muted playsinline></video>` : '';
+  }
+  let chSel = 0; // 0 = the chapter itself, n = step n
+  function renderChapter(no, pick) {
     const i = book.chapters.findIndex(c => c.no === no);
     const c = book.chapters[i];
     if (!c) { location.hash = '#inhoud'; return; }
-    show('bk-chapter'); background(book.images.chapterBg);
+    show('bk-chapter');
     $('bk-up').hidden = false; $('bk-up').textContent = t('bookBackContents'); $('bk-up').onclick = () => { location.hash = '#inhoud'; };
     $('bk-where').textContent = book.texts.coverTitle;
-    $('bk-chapter-img').hidden = !c.image; if (c.image) $('bk-chapter-img').src = c.image;
-    $('bk-chapter-vid').hidden = !!c.image || !c.imageVideo; if (!c.image && c.imageVideo) $('bk-chapter-vid').src = `${c.imageVideo}#t=1`; // v111
-    $('bk-chapter-kicker').textContent = t('companionChapterN', { n: c.no });
-    $('bk-chapter-title').textContent = c.title;
-    $('bk-chapter-intro').textContent = c.intro || book.texts.chapterIntro;
     const lang = window.MareI18n ? window.MareI18n.locale : 'nl';
+    const open = (s) => { location.href = `/pictures.html?chapter=${c.no}&step=${s.n}&book=1&lang=${lang}`; };
+    chSel = pick != null ? pick : 0;
     const g = gemsOf(c.treasure);
-    $('bk-steps').innerHTML = (c.steps.length ? c.steps.map(s => `<li><a class="bk-step" href="/pictures.html?chapter=${c.no}&step=${s.n}&book=1&lang=${lang}">
-        <span class="bk-thumb">${s.video ? `<video src="${esc(s.videoUrl || '')}#t=1" preload="metadata" muted playsinline></video><span class="bk-play">▶</span>` : `<img src="${esc(s.thumb || '')}" alt="" loading="lazy">`}</span>
-        <span class="bk-step-text"><small>${esc(t('bookStepN', { n: s.n }))} · ${esc(t(s.video ? 'bookVideo' : 'bookPicture'))}${s.quizzes ? ` · ❓ ${esc(t('bookQuizN', { n: s.quizzes }))}` : ''}</small>
-          ${s.title ? `<strong>${esc(s.title)}</strong>` : ''}
-          ${s.when ? `<span class="bk-when">📖 ${esc(s.when)}</span>` : ''}</span>
-        <span class="bk-go" aria-hidden="true">›</span></a></li>`).join('') : `<li class="bk-none">${esc(t('bookNoSteps'))}</li>`)
-      + (g.done ? `<li><button type="button" class="bk-step bk-chest-line" id="bk-chest-line"><span class="bk-thumb bk-thumb-chest"><img src="${esc(c.treasure.open || '/images/mare-spot-treasure-chest.png')}" alt=""></span>
-          <span class="bk-step-text"><strong>${esc(book.texts.chestLine)}</strong><span class="bk-when">🗝️ ${esc(g.done.code)}</span></span><span class="bk-go" aria-hidden="true">›</span></button></li>` : '');
-    if ($('bk-chest-line')) $('bk-chest-line').onclick = () => showCode(c, g.done);
+    const stage = () => {
+      const s = c.steps.find(x => x.n === chSel);
+      if (!s) { // the chapter itself
+        $('bk-stage-pic').innerHTML = picHtml(c.image, c.imageVideo);
+        $('bk-stage-kicker').textContent = t('companionChapterN', { n: c.no }) + (c.treasure ? `  ·  💎 ${g.n}/${g.total}` : '');
+        $('bk-stage-title').textContent = c.title;
+        $('bk-stage-when').hidden = true;
+        $('bk-stage-body').textContent = c.intro || book.texts.chapterIntro;
+        $('bk-stage-go').hidden = !c.steps.length;
+        $('bk-stage-go').textContent = t('bookStart');
+        $('bk-stage-go').onclick = () => open(c.steps[0]);
+        background(c.image || book.images.chapterBg, null);
+      } else {
+        $('bk-stage-pic').innerHTML = picHtml(s.thumb, s.video ? s.videoUrl : null) + `<span class="bk-stage-play" aria-hidden="true">▶</span>`;
+        $('bk-stage-kicker').textContent = `${t('bookStepN', { n: s.n })} · ${t(s.video ? 'bookVideo' : 'bookPicture')}${s.quizzes ? ` · ❓ ${t('bookQuizN', { n: s.quizzes })}` : ''}`;
+        $('bk-stage-title').textContent = s.title || c.title;
+        $('bk-stage-when').hidden = !s.when; $('bk-stage-when').textContent = s.when ? `📖 ${s.when}` : '';
+        $('bk-stage-body').textContent = '';
+        $('bk-stage-go').hidden = false;
+        $('bk-stage-go').textContent = t(s.video ? 'bookWatch' : 'bookLook');
+        $('bk-stage-go').onclick = () => open(s);
+        background(s.thumb, s.thumb ? null : s.videoUrl);
+      }
+      $('bk-stage-pic').onclick = s ? () => open(s) : null;
+      $('bk-stage-pic').classList.toggle('bk-click', !!s);
+      document.querySelectorAll('#bk-steps .bk-chip').forEach(b => b.classList.toggle('on', Number(b.dataset.n) === chSel));
+    };
+    // small step buttons: the chapter first, then each step (a second tap opens it)
+    $('bk-steps').innerHTML = c.steps.length ? [`<li><button type="button" class="bk-chip" data-n="0"><span class="bk-chip-pic">${picHtml(c.image, c.imageVideo) || `<b>${c.no}</b>`}</span><span>${esc(t('bookChapterChip'))}</span></button></li>`]
+      .concat(c.steps.map(s => `<li><button type="button" class="bk-chip" data-n="${s.n}"><span class="bk-chip-pic">${picHtml(s.thumb, s.video ? s.videoUrl : null)}${s.video ? '<i>▶</i>' : ''}</span>
+        <span>${esc(t('bookStepN', { n: s.n }))}${s.quizzes ? ` · ❓${s.quizzes}` : ''}</span></button></li>`)).join('') : `<li class="bk-none">${esc(t('bookNoSteps'))}</li>`;
+    $('bk-steps').querySelectorAll('.bk-chip').forEach(b => b.addEventListener('click', () => {
+      const n = Number(b.dataset.n);
+      if (n && n === chSel) { open(c.steps.find(x => x.n === n)); return; }
+      chSel = n; stage(); track('book_step_pick', `${c.no}:${n}`);
+    }));
+    stage();
+    // under the last step: the chapter's diamonds, and its code once the chest is open
+    $('bk-gemcard').hidden = !c.treasure;
+    if (c.treasure) {
+      $('bk-gemcard').innerHTML = `<div class="bk-gem-line"><strong>${esc(book.texts.diamonds)}: ${esc(t('bookGemsOf', { n: g.n, total: g.total }))}</strong><span class="bk-gems">${gemRow(g.n, g.total)}</span></div>
+        ${g.done ? `<button type="button" class="bk-code-line" id="bk-code-line"><img src="${esc(c.treasure.open || '/images/mare-spot-treasure-chest.png')}" alt=""><span><b>${esc(book.texts.chestLine)}</b><span class="bk-code-pill">🗝️ ${esc(g.done.code)}</span></span></button>`
+          : `<p class="bk-gem-hint">${esc(t(g.n ? 'bookGemsToGo' : 'bookGemsStart', { n: g.total - g.n }))}</p>`}`;
+      if ($('bk-code-line')) $('bk-code-line').onclick = () => showCode(c, g.done);
+    }
     // v111: the chapter's practice (from the Book Companion) as its own card
     $('bk-practice').hidden = !c.practice;
     if (c.practice) {
@@ -95,17 +134,11 @@
     $('bk-prev-ch').hidden = !prev; $('bk-next-ch').hidden = !next;
     if (prev) { $('bk-prev-ch').textContent = t('bookPrevCh'); $('bk-prev-ch').onclick = () => { location.hash = `#h${prev.no}`; }; }
     if (next) { $('bk-next-ch').textContent = t('bookNextCh'); $('bk-next-ch').onclick = () => { location.hash = `#h${next.no}`; }; }
-    // the bar: diamonds, code, Talk to Mare
-    const hasChest = !!c.treasure;
-    $('bk-bar').hidden = !hasChest && !book.talk;
-    $('bk-bar-label').textContent = hasChest ? `${book.texts.diamonds} ${g.n}/${g.total}` : '';
-    $('bk-gems').innerHTML = hasChest ? gemRow(g.n, g.total) : '';
-    $('bk-code').hidden = !g.done;
-    if (g.done) { $('bk-code').innerHTML = `🗝️ <b>${esc(g.done.code)}</b>`; $('bk-code').onclick = () => showCode(c, g.done); }
     $('bk-talk').hidden = !(book.talk && c.steps.length);
     $('bk-talk').onclick = () => {
       track('book_talk', String(c.no));
-      $('bk-talk-frame').src = `/talk.html?embed=1&scene=${encodeURIComponent(c.steps[0].id)}&lang=${lang}`;
+      const s = c.steps.find(x => x.n === chSel) || c.steps[0];
+      $('bk-talk-frame').src = `/talk.html?embed=1&scene=${encodeURIComponent(s.id)}&lang=${lang}`;
       $('bk-talkbox').hidden = false;
     };
     track('book_chapter', String(c.no));
@@ -123,8 +156,8 @@
   function route() {
     if (!book) return;
     const h = location.hash;
-    const m = /^#h(\d+)$/.exec(h);
-    if (m) renderChapter(Number(m[1]));
+    const m = /^#h(\d+)(?:-(\d+))?$/.exec(h);
+    if (m) renderChapter(Number(m[1]), m[2] ? Number(m[2]) : null);
     else if (h === '#inhoud') renderContents();
     else renderCover();
   }
@@ -136,7 +169,6 @@
     if (r.status === 401 || r.status === 403) { location.href = '/login.html'; return; }
     book = await r.json();
     $('bk-loading').hidden = true;
-    if (book.preview) $('bk-leave').href = '/admin.html';
     $('bk-cover-book').onclick = () => { track('book_open', 'cover'); location.hash = '#inhoud'; };
     $('bk-modal-close').onclick = () => { $('bk-modal').hidden = true; };
     $('bk-modal').addEventListener('click', (e) => { if (e.target.id === 'bk-modal') $('bk-modal').hidden = true; });

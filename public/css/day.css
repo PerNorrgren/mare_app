@@ -2380,3 +2380,9 @@ body.soc-full-open { overflow: hidden; }
 .flow-when label { font-size: 0.82rem; font-weight: 700; color: #9A7A2E; }
 .flow-when input { font: inherit; font-size: 0.9rem; padding: 6px 8px; border-radius: 8px; border: 1.5px solid rgba(22,48,92,0.2); }
 .bf-ch-btns { display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* v112: a step's own picture (button + background); chapter without a chest */
+.flow-poster { display: flex; flex-direction: column; gap: 4px; margin: 6px 0; align-items: flex-start; }
+.flow-poster label { font-size: 0.82rem; font-weight: 700; color: #9A7A2E; }
+.flow-poster img { width: 120px; height: 72px; object-fit: cover; border-radius: 8px; }
+.bf-warn { background: #FFF3CF; border: 1.5px solid var(--gold); border-radius: 10px; padding: 8px 10px; font-weight: 600; color: var(--navy); }

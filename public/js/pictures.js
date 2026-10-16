@@ -737,7 +737,7 @@
       $('px-start').hidden = false;
       $('px-start-btn').onclick = () => { document.documentElement.requestFullscreen().catch(() => {}); $('px-start').hidden = true; if (isVideo) playVideo(); };
     }
-    { const back = () => { location.href = `/book.html#h${fixedChapter || ''}`; }; // v110
+    { const back = () => { location.href = `/book.html#h${fixedChapter || ''}${params.get('step') ? '-' + params.get('step') : ''}`; }; // v110 (v112: back to that step)
       if ($('px-back')) $('px-back').onclick = back; if ($('px-backbig')) $('px-backbig').onclick = back; }
     if (new URLSearchParams(location.search).has('chestdemo')) return chestDemo(); // v95
     try { await load(); } catch { return; }

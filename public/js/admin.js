@@ -529,7 +529,8 @@
                 <div class="admin-form-row"><div class="field"><small>NL</small><textarea rows="3" data-l="nl" placeholder="${escapeHtml(bfData.texts.chapterIntro.nl || bfData.defaults.chapterIntro.nl)}">${escapeHtml(cc.intro_nl || '')}</textarea></div>
                 <div class="field"><small>EN</small><textarea rows="3" data-l="en" placeholder="${escapeHtml(bfData.texts.chapterIntro.en || bfData.defaults.chapterIntro.en)}">${escapeHtml(cc.intro_en || '')}</textarea></div></div>
                 <span class="staff-row-msg" role="status"></span>
-                ${c.practice ? `<p class="admin-empty-note">📝 ${escapeHtml(t('adminBfPractice', { title: c.practice }))}</p>` : ''}</div></div>
+                ${c.practice ? `<p class="admin-empty-note">📝 ${escapeHtml(t('adminBfPractice', { title: c.practice }))}</p>` : ''}
+                ${(bfData.quizChapters || []).includes(c.no) && !(bfData.chestChapters || []).includes(c.no) ? `<p class="bf-warn">💎 ${escapeHtml(t('adminBfNoChest'))} <button type="button" class="btn-primary btn-small bf-chest" data-no-busy>${escapeHtml(t('adminTrPerChapter'))}</button></p>` : ''}</div></div>
             <div class="bf-steps"></div>
             <p class="bf-ch-btns"><button type="button" class="btn-ghost btn-small bf-add" data-no-busy>${escapeHtml(t('adminPicAdd'))}</button>
               <a class="btn-ghost btn-small" href="/book.html#h${c.no}" target="_blank" rel="noopener">${escapeHtml(t('adminBfPreviewCh'))}</a></p>
@@ -567,6 +568,8 @@
       det.querySelectorAll('.bf-intro textarea').forEach(ta => ta.addEventListener('change', () => {
         bfPut({ chapter: { no, ['intro_' + ta.dataset.l]: ta.value } }, det.querySelector('.bf-intro .staff-row-msg'));
       }));
+      const ch = det.querySelector('.bf-chest');
+      if (ch) ch.addEventListener('click', async () => { ch.disabled = true; try { await api('/api/admin/treasure/per-chapter', { method: 'POST' }); await renderBookFlow(); if (typeof loadTreasure === 'function') loadTreasure(); } catch (err) { alert(err.message || t('errorGeneric')); ch.disabled = false; } });
       det.querySelector('.bf-add').addEventListener('click', () => { document.getElementById('pic-chapter').value = String(no); renderPictures(); document.getElementById('pic-add').click(); });
     });
   }
@@ -576,8 +579,7 @@
     const scenes = chapterSteps(ch);
     const chapter = picData.chapters.find(c => c.no === ch);
     if (!scenes.length) { box.innerHTML = `<p class="admin-empty-note">${escapeHtml(t('adminFlowNone'))}</p>`; return; }
-    let html = `<p class="admin-empty-note">${escapeHtml(t('adminFlowHint'))}</p>
-      <div class="flow-head">${escapeHtml(t('companionChapterN', { n: ch }))}${chapter ? ' · ' + escapeHtml(chapter.title) : ''}</div><div class="flow">`;
+    let html = `<p class="admin-empty-note">${escapeHtml(t('adminFlowHint'))}</p><div class="flow">`; // v112: the chapter's name is already above
     scenes.forEach((s, i) => {
       const isVid = !!s.videoUrl;
       const spots = s.spots.filter(sp => sp.type !== 'mask').sort((a, b) => isVid ? ((a.t_start || 0) - (b.t_start || 0)) : 0);
@@ -598,6 +600,10 @@
               <input type="text" data-l="nl" maxlength="300" placeholder="NL · ${escapeHtml(t('adminBfWhenPh'))}" value="${escapeHtml(s.when_nl || '')}">
               <input type="text" data-l="en" maxlength="300" placeholder="EN" value="${escapeHtml(s.when_en || '')}">
               <span class="staff-row-msg" role="status"></span></div>
+            <div class="flow-poster" data-scene="${s.id}"><label>🖼 ${escapeHtml(t('adminBfPoster'))}</label>
+              ${bfData && bfData.posters && bfData.posters[s.id] ? `<img src="${escapeHtml(bfData.posters[s.id])}" alt="">` : `<small class="admin-empty-note">${escapeHtml(t(isVid ? 'adminBfPosterNoneVid' : 'adminBfPosterNoneImg'))}</small>`}
+              <span><label class="btn-ghost btn-small">${escapeHtml(t('adminSpotPicUpload'))}<input type="file" accept="image/*" hidden></label>${bfData && bfData.posters && bfData.posters[s.id] ? ` <a href="#" class="flow-poster-rm">${escapeHtml(t('adminSpotRemove'))}</a>` : ''}</span>
+              <span class="staff-row-msg" role="status"></span></div>
             ${masks ? `<div class="flow-masks">🌫️ ${escapeHtml(t('adminFlowMasks', { n: masks }))}</div>` : ''}
             <button type="button" class="btn-ghost btn-small flow-edit" data-scene="${s.id}" data-no-busy>✏️ ${escapeHtml(t('adminFlowEdit'))}</button>
           </div>
@@ -613,6 +619,22 @@
     box.querySelectorAll('.flow-thumb').forEach(b => b.addEventListener('click', () => flowPreviewStep(b.dataset.scene)));
     box.querySelectorAll('.flow-mv').forEach(b => b.addEventListener('click', () => moveStep(ch, b.dataset.scene, Number(b.dataset.dir))));
     box.querySelectorAll('.flow-spot').forEach(b => b.addEventListener('click', () => flowPreviewSpot(b.dataset.scene, b.dataset.spot)));
+    // v112: a step's own picture for its button on the chapter page and the page's background
+    box.querySelectorAll('.flow-poster').forEach(el => {
+      const id = el.dataset.scene, msg = el.querySelector('.staff-row-msg');
+      const set = async (key) => {
+        try {
+          await api(`/api/admin/pictures/${id}`, { method: 'PATCH', body: JSON.stringify({ posterKey: key }) });
+          bfData = await api('/api/admin/book'); renderFlow(ch, box);
+        } catch (err) { bfSay(msg, false, err.message || t('errorGeneric')); }
+      };
+      el.querySelector('input[type=file]').addEventListener('change', async (e) => {
+        const file = e.target.files[0]; if (!file) return;
+        bfSay(msg, true, t('adminUploading'));
+        try { await set(await picUpload(file, 'book')); } catch (err) { bfSay(msg, false, err.message || t('errorGeneric')); }
+      });
+      const rm = el.querySelector('.flow-poster-rm'); if (rm) rm.addEventListener('click', (e) => { e.preventDefault(); set(null); });
+    });
     box.querySelectorAll('.flow-when input').forEach(inp => inp.addEventListener('change', async () => {
       const w = inp.closest('.flow-when'), sc = picData.scenes.find(x => x.id === w.dataset.scene);
       try {

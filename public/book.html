@@ -38,32 +38,31 @@
   <ol class="bk-chapters" id="bk-chapters"></ol>
 </section>
 
-<!-- 3. a chapter -->
+<!-- 3. a chapter (v112): a big picture on top — the chapter first, then the
+     step chosen below (its own picture, or the video's first frame) — small
+     step buttons, then the chapter's diamonds and code, then the practice. -->
 <section class="bk-view bk-chapter" id="bk-chapter" hidden>
-  <div class="bk-card bk-head bk-chapter-head">
-    <img class="bk-chapter-img" id="bk-chapter-img" alt="" hidden>
-    <video class="bk-chapter-img" id="bk-chapter-vid" preload="metadata" muted playsinline hidden></video>
-    <div>
-      <p class="bk-kicker" id="bk-chapter-kicker"></p>
-      <h1 id="bk-chapter-title"></h1>
-      <p id="bk-chapter-intro"></p>
+  <div class="bk-card bk-stage">
+    <div class="bk-stage-pic" id="bk-stage-pic"></div>
+    <div class="bk-stage-text">
+      <p class="bk-kicker" id="bk-stage-kicker"></p>
+      <h1 id="bk-stage-title"></h1>
+      <p class="bk-stage-when" id="bk-stage-when" hidden></p>
+      <p id="bk-stage-body"></p>
+      <div class="bk-stage-actions">
+        <button type="button" class="bk-go-btn" id="bk-stage-go" hidden></button>
+        <button type="button" class="bk-talk" id="bk-talk" hidden data-i18n="picturesTalk">Talk to Mare</button>
+      </div>
     </div>
   </div>
-  <ol class="bk-steps" id="bk-steps"></ol>
+  <ol class="bk-chips" id="bk-steps"></ol>
+  <div class="bk-card bk-gemcard" id="bk-gemcard" hidden></div>
   <div class="bk-card bk-practice" id="bk-practice" hidden></div>
   <div class="bk-nav-ch">
     <button type="button" class="bk-btn" id="bk-prev-ch"></button>
     <button type="button" class="bk-btn" id="bk-next-ch"></button>
   </div>
 </section>
-
-<!-- the chapter's diamonds and code, and Talk to Mare -->
-<footer class="bk-bar" id="bk-bar" hidden>
-  <span class="bk-bar-label" id="bk-bar-label"></span>
-  <span class="bk-gems" id="bk-gems"></span>
-  <button type="button" class="bk-code" id="bk-code" hidden></button>
-  <button type="button" class="bk-talk" id="bk-talk" hidden data-i18n="picturesTalk">Talk to Mare</button>
-</footer>
 
 <!-- the code again, and Talk to Mare -->
 <div class="bk-modal" id="bk-modal" hidden>

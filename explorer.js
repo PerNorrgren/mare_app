@@ -281,7 +281,8 @@ function register(app, { db, auth, media, email, publicUrl }) {
       for (const s of db.pictureScenes(n, true)) {
         i++;
         const spots = db.pictureSpots(s.id);
-        steps.push({ n: i, id: s.id, video: !!s.video_key, thumb: s.video_key ? null : await url(s.image_key), videoUrl: s.video_key ? await url(s.video_key) : null,
+        const poster = s.poster_key ? await url(s.poster_key) : null; // v112: its own picture, else the picture itself / the video's first frame
+        steps.push({ n: i, id: s.id, video: !!s.video_key, thumb: poster || (s.video_key ? null : await url(s.image_key)), videoUrl: s.video_key ? await url(s.video_key) : null,
           title: (nl && s.title_nl) || s.title_en || s.title_nl || '', when: (nl && s.when_nl) || s.when_en || s.when_nl || '',
           quizzes: spots.filter(sp => sp.type === 'quiz' && parseQuiz(sp.quiz_json).answers.length).length });
       }
@@ -310,7 +311,10 @@ function register(app, { db, auth, media, email, publicUrl }) {
     for (const k of Object.keys(BOOK_IMG)) images[k] = { key: cfg.images[k], url: await bookImg(cfg, k), isDefault: !cfg.images[k] };
     const chapters = {};
     for (const [n, c] of Object.entries(cfg.chapters)) chapters[n] = { ...c, imageUrl: c.imageKey ? await bookUrl(c.imageKey) : null };
-    res.json({ images, texts: cfg.texts, defaults: BOOK_TEXTS, chapters });
+    const scenes = {}; // v112: each step's own picture
+    for (const sc of db.pictureScenes(null)) if (sc.poster_key) scenes[sc.id] = await url(sc.poster_key);
+    res.json({ images, texts: cfg.texts, defaults: BOOK_TEXTS, chapters, posters: scenes, chestChapters: treasureCfg().chests.flatMap(c => c.chapters),
+      quizChapters: db.companionPractices().filter(p => chapterQuizIds(p.chapter_no).length).map(p => p.chapter_no) });
   });
   app.put('/api/admin/book', staff, (req, res) => {
     const b = req.body || {}, cur = bookCfg();
@@ -420,6 +424,7 @@ function register(app, { db, auth, media, email, publicUrl }) {
     if (b.contextNl !== undefined) f.contextNl = String(b.contextNl).slice(0, 1500);
     if (b.whenEn !== undefined) f.whenEn = String(b.whenEn).slice(0, 300); // v110: when to watch it (book flow)
     if (b.whenNl !== undefined) f.whenNl = String(b.whenNl).slice(0, 300);
+    if (b.posterKey !== undefined) { if (b.posterKey && !KEY_OK.test(b.posterKey)) return res.status(400).json({ error: 'Bad key' }); f.posterKey = b.posterKey || null; } // v112
     if (b.sortOrder !== undefined) f.sortOrder = Math.round(Number(b.sortOrder)) || 0;
     if (b.active !== undefined) f.active = !!b.active;
     db.updatePictureScene(req.params.id, f);

@@ -1972,5 +1972,16 @@
   "adminBfWhenPh": "e.g. After Mare finds the note",
   "adminBfChDefault": "No picture of its own: the chapter's first picture is used.",
   "bookPractice": "Practice for this chapter",
-  "adminBfPractice": "On the chapter page, under the videos, families also see this chapter's practice: \"{title}\". Change it under Book content."
+  "adminBfPractice": "On the chapter page, under the videos, families also see this chapter's practice: \"{title}\". Change it under Book content.",
+  "bookStart": "▶ Start with step 1",
+  "bookWatch": "▶ Watch",
+  "bookLook": "▶ Look",
+  "bookChapterChip": "The chapter",
+  "bookGemsOf": "{n} of {total}",
+  "bookGemsStart": "Answer the questions in the videos: each right answer is a diamond. All {n} together open the treasure chest.",
+  "bookGemsToGo": "{n} more to go, then the treasure chest opens.",
+  "adminBfPoster": "Picture for its button and the background",
+  "adminBfPosterNoneVid": "None: the video's first frame is used.",
+  "adminBfPosterNoneImg": "None: the step's own picture is used.",
+  "adminBfNoChest": "This chapter has questions but no treasure chest yet, so its diamonds don't count."
 }

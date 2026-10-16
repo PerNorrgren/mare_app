@@ -1972,5 +1972,16 @@
   "adminBfWhenPh": "bijv. Als Mare het briefje vindt",
   "adminBfChDefault": "Geen eigen plaat: de eerste plaat van het hoofdstuk wordt gebruikt.",
   "bookPractice": "Oefening bij dit hoofdstuk",
-  "adminBfPractice": "Op de hoofdstukpagina zien gezinnen onder de video's ook de oefening van dit hoofdstuk: \"{title}\". Aanpassen doe je bij Boekinhoud."
+  "adminBfPractice": "Op de hoofdstukpagina zien gezinnen onder de video's ook de oefening van dit hoofdstuk: \"{title}\". Aanpassen doe je bij Boekinhoud.",
+  "bookStart": "▶ Begin bij stap 1",
+  "bookWatch": "▶ Bekijk",
+  "bookLook": "▶ Kijk",
+  "bookChapterChip": "Het hoofdstuk",
+  "bookGemsOf": "{n} van {total}",
+  "bookGemsStart": "Beantwoord de vragen in de video's: elk goed antwoord is een diamant. Met alle {n} samen gaat de schatkist open.",
+  "bookGemsToGo": "Nog {n} te gaan, dan gaat de schatkist open.",
+  "adminBfPoster": "Plaat voor de knop en de achtergrond",
+  "adminBfPosterNoneVid": "Geen: het eerste beeld van de video wordt gebruikt.",
+  "adminBfPosterNoneImg": "Geen: de plaat van de stap zelf wordt gebruikt.",
+  "adminBfNoChest": "Dit hoofdstuk heeft vragen maar nog geen schatkist, dus de diamanten tellen nog niet."
 }

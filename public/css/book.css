@@ -4,7 +4,7 @@
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 html { background: var(--forest); }
 html, body { margin: 0; min-height: 100%; font-family: 'Quicksand', sans-serif; color: var(--ink); }
-body { padding: calc(64px + env(safe-area-inset-top, 0px)) 16px calc(110px + env(safe-area-inset-bottom, 0px)); }
+body { padding: calc(64px + env(safe-area-inset-top, 0px)) 16px calc(40px + env(safe-area-inset-bottom, 0px)); }
 body[data-view="bk-cover"] { padding-bottom: 24px; }
 .bk-bg { position: fixed; inset: 0; z-index: -1; background: #0B1712 center / cover no-repeat; }
 .bk-bg::after { content: ''; position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 30%, rgba(11,23,18,0.35), rgba(11,23,18,0.88)); }
@@ -35,7 +35,7 @@ body[data-view="bk-cover"] { padding-bottom: 24px; }
 .bk-kicker { color: #9A7A2E !important; font-weight: 700 !important; letter-spacing: 0.06em; text-transform: uppercase; font-size: 0.8rem; margin-bottom: 4px !important; }
 
 /* 2. contents */
-.bk-chapters { list-style: none; margin: 16px 0 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; }
+.bk-chapters { list-style: none; margin: 16px 0 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; }
 .bk-ch-card { display: flex; align-items: center; gap: 12px; padding: 10px; background: rgba(255,251,241,0.94); border-radius: 16px; text-decoration: none; color: var(--ink); box-shadow: 0 8px 22px rgba(0,0,0,0.35); border: 2px solid transparent; transition: transform 0.15s, border-color 0.15s; min-height: 82px; }
 .bk-ch-card:hover, .bk-ch-card:focus-visible { transform: translateY(-2px); border-color: var(--gold); }
 .bk-ch-card img, .bk-ch-no { width: 64px; height: 64px; border-radius: 12px; object-fit: cover; flex: none; }
@@ -104,3 +104,39 @@ body[data-view="bk-cover"] { padding-bottom: 24px; }
 .bk-practice ol { margin: 0 0 10px; padding-left: 22px; line-height: 1.6; font-weight: 600; }
 .bk-ch-vid { width: 64px; height: 64px; border-radius: 12px; object-fit: cover; flex: none; background: #1d2b24; pointer-events: none; }
 video.bk-chapter-img { background: #1d2b24; pointer-events: none; }
+
+/* v112: smaller chapter buttons on the contents */
+.bk-ch-card { min-height: 64px; padding: 8px; gap: 10px; }
+.bk-ch-card img, .bk-ch-no, .bk-ch-vid { width: 52px; height: 52px; }
+.bk-ch-text strong { font-size: 0.98rem; }
+/* the background can be a video's first frame */
+.bk-bg video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+/* v112: the chapter page — a big picture on top, small step buttons under it */
+.bk-stage { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 18px; align-items: center; padding: 14px; }
+@media (max-width: 680px) { .bk-stage { grid-template-columns: 1fr; } }
+.bk-stage-pic { position: relative; aspect-ratio: 16 / 10; border-radius: 14px; overflow: hidden; background: #1d2b24; }
+.bk-stage-pic img, .bk-stage-pic video { width: 100%; height: 100%; object-fit: cover; display: block; pointer-events: none; }
+.bk-stage-pic.bk-click { cursor: pointer; }
+.bk-stage-play { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 64px; height: 64px; border-radius: 50%; background: rgba(226,190,110,0.95); color: var(--navy); display: flex; align-items: center; justify-content: center; font-size: 1.5rem; box-shadow: 0 6px 18px rgba(0,0,0,0.45); }
+.bk-stage-text h1 { margin: 0 0 6px; color: var(--navy); font: 700 clamp(1.3rem, 3.6vw, 1.8rem) 'Fraunces', serif; }
+.bk-stage-text p { margin: 0 0 8px; line-height: 1.5; font-weight: 600; }
+.bk-stage-when { color: var(--navy); }
+.bk-stage-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.bk-go-btn { border: 0; cursor: pointer; background: var(--navy); color: var(--parch); font: 700 1rem 'Quicksand', sans-serif; padding: 10px 20px; border-radius: 999px; }
+.bk-chips { list-style: none; margin: 12px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; }
+.bk-chip { display: flex; flex-direction: column; align-items: center; gap: 4px; width: 104px; padding: 6px; border: 2px solid transparent; border-radius: 14px; background: rgba(255,251,241,0.92); cursor: pointer; font: 700 0.8rem 'Quicksand', sans-serif; color: var(--navy); box-shadow: 0 6px 16px rgba(0,0,0,0.3); }
+.bk-chip.on { border-color: var(--gold); background: #FFF3CF; transform: translateY(-2px); }
+.bk-chip-pic { position: relative; width: 88px; height: 56px; border-radius: 9px; overflow: hidden; background: #1d2b24; display: flex; align-items: center; justify-content: center; }
+.bk-chip-pic img, .bk-chip-pic video { width: 100%; height: 100%; object-fit: cover; pointer-events: none; }
+.bk-chip-pic b { color: var(--gold); font: 700 1.4rem 'Fraunces', serif; }
+.bk-chip-pic i { position: absolute; font-style: normal; width: 24px; height: 24px; border-radius: 50%; background: rgba(226,190,110,0.95); color: var(--navy); font-size: 0.7rem; display: flex; align-items: center; justify-content: center; }
+/* the chapter's diamonds and code, under the steps */
+.bk-gemcard { margin-top: 14px; padding: 14px 18px; }
+.bk-gem-line { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; color: var(--navy); }
+.bk-gemcard .bk-gems i { opacity: 0.25; }
+.bk-gemcard .bk-gems i.on { opacity: 1; }
+.bk-gem-hint { margin: 8px 0 0; font-weight: 600; }
+.bk-code-line { margin-top: 10px; width: 100%; display: flex; align-items: center; gap: 12px; text-align: left; border: 2px solid var(--gold); border-radius: 14px; padding: 8px 12px; background: linear-gradient(90deg, #FFF3CF, var(--parch)); cursor: pointer; font: inherit; color: var(--navy); }
+.bk-code-line img { width: 64px; height: auto; filter: drop-shadow(0 0 10px rgba(255,224,140,0.8)); }
+.bk-code-line > span { display: flex; flex-direction: column; gap: 4px; }
+.bk-code-pill { align-self: flex-start; background: var(--gold); border-radius: 999px; padding: 3px 12px; font-weight: 700; letter-spacing: 0.05em; }
