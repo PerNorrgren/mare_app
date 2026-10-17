@@ -512,9 +512,11 @@
     const keepBookOpen = !!(box.querySelector('.bf-book') && box.querySelector('.bf-book').open);
     try { bfData = await api('/api/admin/book'); } catch (err) { box.innerHTML = `<p class="form-error">${escapeHtml(err.message || t('errorGeneric'))}</p>`; return; }
     const openCh = Number(document.getElementById('pic-chapter').value) || 1;
-    const img = (k, label, url, isDefault, extraClass) => `<div class="bf-img${extraClass || ''}" data-k="${k}"><strong>${escapeHtml(label)}</strong>
-      ${url ? `<img src="${escapeHtml(url)}" alt="">` : `<span class="bf-noimg">${escapeHtml(t('adminBfNoImg'))}</span>`}
-      <small class="admin-empty-note">${escapeHtml(t(isDefault ? (k === 'chapter' ? 'adminBfChDefault' : 'adminBfDefault') : 'adminBfOwn'))}</small>
+    // v116: every picture has a Dutch (NL) and an English (EN) version — pictures often have words on them.
+    // Without an English one, English families see the Dutch one (and the other way round).
+    const img = (k, label, url, isDefault, extraClass, lang) => `<div class="bf-img${extraClass || ''}" data-k="${k}" data-l="${lang || 'nl'}"><strong><span class="bf-lbl">${escapeHtml(label)}</span> <span class="bf-lang">${lang === 'en' ? 'EN' : 'NL'}</span></strong>
+      ${url ? `<img src="${escapeHtml(url)}" alt="">` : `<span class="bf-noimg">${escapeHtml(t(lang === 'en' ? 'adminBfNoEn' : 'adminBfNoImg'))}</span>`}
+      <small class="admin-empty-note">${escapeHtml(t(lang === 'en' ? (isDefault ? 'adminBfEnSame' : 'adminBfEnOwn') : isDefault ? (k === 'chapter' ? 'adminBfChDefault' : 'adminBfDefault') : 'adminBfOwn'))}</small>
       <span><label class="btn-ghost btn-small">${escapeHtml(t('adminSpotPicUpload'))}<input type="file" accept="image/*" hidden></label>${isDefault ? '' : ` <a href="#" class="bf-reset">${escapeHtml(t('adminBfReset'))}</a>`}</span>
       <span class="staff-row-msg" role="status"></span></div>`;
     const chStats = (c) => {
@@ -526,7 +528,7 @@
       <p class="admin-empty-note">${escapeHtml(t('adminBfHint'))}</p>
       <details class="bf-book"${keepBookOpen ? ' open' : ''}><summary>${escapeHtml(t('adminBfBook'))}</summary>
         <p class="admin-empty-note">${escapeHtml(t('adminBfBookNote'))}</p>
-        <div class="bf-imgs">${BF_IMAGES.map(k => img(k, t('adminBfImg_' + k), bfData.images[k].url, bfData.images[k].isDefault)).join('')}</div>
+        <div class="bf-imgs">${BF_IMAGES.map(k => `<div class="bf-pair">${img(k, t('adminBfImg_' + k), bfData.images[k].url, bfData.images[k].isDefault, '', 'nl')}${img(k, t('adminBfImg_' + k), bfData.images[k].en && bfData.images[k].en.url, !(bfData.images[k].en && bfData.images[k].en.key), '', 'en')}</div>`).join('')}</div>
         <h4>${escapeHtml(t('adminBfWords'))}</h4>
         <div class="bf-texts">${BF_TEXTS.map(k => `<div class="bf-text" data-k="${k}"><label>${escapeHtml(t('adminBfText_' + k))}</label>
           <div class="admin-form-row"><div class="field"><small>NL</small><textarea rows="2" data-l="nl" placeholder="${escapeHtml(bfData.defaults[k].nl)}">${escapeHtml(bfData.texts[k].nl)}</textarea></div>
@@ -545,7 +547,7 @@
               <a class="btn-ghost btn-small" href="/pictures.html?chapter=${c.no}" target="_blank" rel="noopener">${escapeHtml(t('adminPicPreview'))}</a>
               <a class="btn-ghost btn-small" href="/book.html#h${c.no}" target="_blank" rel="noopener">${escapeHtml(t('adminBfPreviewCh'))}</a>
               <span class="bf-add-msg" role="status"></span></div>
-            <div class="bf-ch-top">${img('chapter', t('adminBfChImg'), cc.imageUrl, !cc.imageKey, ' bf-ch-img')}
+            <div class="bf-ch-top"><div class="bf-pair">${img('chapter', t('adminBfChImg'), cc.imageUrl, !cc.imageKey, ' bf-ch-img', 'nl')}${img('chapter', t('adminBfChImg'), cc.imageUrlEn, !cc.imageKeyEn, ' bf-ch-img', 'en')}</div>
               <div class="bf-text bf-intro"><label>${escapeHtml(t('adminBfChIntro'))}</label>
                 <div class="admin-form-row"><div class="field"><small>NL</small><textarea rows="3" data-l="nl" placeholder="${escapeHtml(bfData.texts.chapterIntro.nl || bfData.defaults.chapterIntro.nl)}">${escapeHtml(cc.intro_nl || '')}</textarea></div>
                 <div class="field"><small>EN</small><textarea rows="3" data-l="en" placeholder="${escapeHtml(bfData.texts.chapterIntro.en || bfData.defaults.chapterIntro.en)}">${escapeHtml(cc.intro_en || '')}</textarea></div></div>
@@ -561,10 +563,10 @@
       el.querySelector('input[type=file]').addEventListener('change', async (e) => {
         const file = e.target.files[0]; if (!file) return;
         bfSay(msg, true, t('adminUploading'));
-        try { const key = await picUpload(file, 'book'); if (await bfPut({ images: { [k]: key } }, msg)) renderBookFlow(); }
+        try { const key = await picUpload(file, 'book'); if (await bfPut({ [el.dataset.l === 'en' ? 'imagesEn' : 'images']: { [k]: key } }, msg)) renderBookFlow(); }
         catch (err) { bfSay(msg, false, err.message || t('errorGeneric')); }
       });
-      const rs = el.querySelector('.bf-reset'); if (rs) rs.addEventListener('click', async (e) => { e.preventDefault(); if (await bfPut({ images: { [k]: null } }, msg)) renderBookFlow(); });
+      const rs = el.querySelector('.bf-reset'); if (rs) rs.addEventListener('click', async (e) => { e.preventDefault(); if (await bfPut({ [el.dataset.l === 'en' ? 'imagesEn' : 'images']: { [k]: null } }, msg)) renderBookFlow(); });
     });
     box.querySelectorAll('.bf-book .bf-text textarea').forEach(ta => ta.addEventListener('change', () => {
       const wrap = ta.closest('.bf-text');
@@ -576,14 +578,16 @@
       const draw = () => { if (det.open) { renderFlow(no, det.querySelector('.bf-steps')); } };
       det.addEventListener('toggle', () => { if (det.open) { document.getElementById('pic-chapter').value = String(no); draw(); } });
       draw();
-      const imgEl = det.querySelector('.bf-ch-img'), imsg = imgEl.querySelector('.staff-row-msg');
-      imgEl.querySelector('input[type=file]').addEventListener('change', async (e) => {
-        const file = e.target.files[0]; if (!file) return;
-        bfSay(imsg, true, t('adminUploading'));
-        try { const key = await picUpload(file, 'book'); if (await bfPut({ chapter: { no, imageKey: key } }, imsg)) renderBookFlow(); }
-        catch (err) { bfSay(imsg, false, err.message || t('errorGeneric')); }
+      det.querySelectorAll('.bf-ch-img').forEach(imgEl => {
+        const imsg = imgEl.querySelector('.staff-row-msg'), field = imgEl.dataset.l === 'en' ? 'imageKeyEn' : 'imageKey';
+        imgEl.querySelector('input[type=file]').addEventListener('change', async (e) => {
+          const file = e.target.files[0]; if (!file) return;
+          bfSay(imsg, true, t('adminUploading'));
+          try { const key = await picUpload(file, 'book'); if (await bfPut({ chapter: { no, [field]: key } }, imsg)) renderBookFlow(); }
+          catch (err) { bfSay(imsg, false, err.message || t('errorGeneric')); }
+        });
+        const rs = imgEl.querySelector('.bf-reset'); if (rs) rs.addEventListener('click', async (e) => { e.preventDefault(); if (await bfPut({ chapter: { no, [field]: null } }, imsg)) renderBookFlow(); });
       });
-      const rs = imgEl.querySelector('.bf-reset'); if (rs) rs.addEventListener('click', async (e) => { e.preventDefault(); if (await bfPut({ chapter: { no, imageKey: null } }, imsg)) renderBookFlow(); });
       det.querySelectorAll('.bf-intro textarea').forEach(ta => ta.addEventListener('change', () => {
         bfPut({ chapter: { no, ['intro_' + ta.dataset.l]: ta.value } }, det.querySelector('.bf-intro .staff-row-msg'));
       }));
@@ -623,10 +627,11 @@
               <input type="text" data-l="nl" maxlength="300" placeholder="NL · ${escapeHtml(t('adminBfWhenPh'))}" value="${escapeHtml(s.when_nl || '')}">
               <input type="text" data-l="en" maxlength="300" placeholder="EN" value="${escapeHtml(s.when_en || '')}">
               <span class="staff-row-msg" role="status"></span></div>
-            <div class="flow-poster" data-scene="${s.id}"><label>🖼 ${escapeHtml(t('adminBfPoster'))}</label>
-              ${bfData && bfData.posters && bfData.posters[s.id] ? `<img src="${escapeHtml(bfData.posters[s.id])}" alt="">` : `<small class="admin-empty-note">${escapeHtml(t(isVid ? 'adminBfPosterNoneVid' : 'adminBfPosterNoneImg'))}</small>`}
-              <span><label class="btn-ghost btn-small">${escapeHtml(t('adminSpotPicUpload'))}<input type="file" accept="image/*" hidden></label>${bfData && bfData.posters && bfData.posters[s.id] ? ` <a href="#" class="flow-poster-rm">${escapeHtml(t('adminSpotRemove'))}</a>` : ''}</span>
-              <span class="staff-row-msg" role="status"></span></div>
+            <div class="flow-posters"><label>🖼 ${escapeHtml(t('adminBfPoster'))}</label>${['nl', 'en'].map(l => { const u = bfData && bfData[l === 'en' ? 'postersEn' : 'posters'] && bfData[l === 'en' ? 'postersEn' : 'posters'][s.id];
+              return `<div class="flow-poster" data-scene="${s.id}" data-l="${l}"><span class="bf-lang">${l.toUpperCase()}</span>
+              ${u ? `<img src="${escapeHtml(u)}" alt="">` : `<small class="admin-empty-note">${escapeHtml(t(l === 'en' ? 'adminBfPosterNoneEn' : isVid ? 'adminBfPosterNoneVid' : 'adminBfPosterNoneImg'))}</small>`}
+              <span><label class="btn-ghost btn-small">${escapeHtml(t('adminSpotPicUpload'))}<input type="file" accept="image/*" hidden></label>${u ? ` <a href="#" class="flow-poster-rm">${escapeHtml(t('adminSpotRemove'))}</a>` : ''}</span>
+              <span class="staff-row-msg" role="status"></span></div>`; }).join('')}</div>
             ${masks ? `<div class="flow-masks">🌫️ ${escapeHtml(t('adminFlowMasks', { n: masks }))}</div>` : ''}
             <button type="button" class="btn-ghost btn-small flow-edit" data-scene="${s.id}" data-no-busy>✏️ ${escapeHtml(t('adminFlowEdit'))}</button>
           </div>
@@ -647,7 +652,7 @@
       const id = el.dataset.scene, msg = el.querySelector('.staff-row-msg');
       const set = async (key) => {
         try {
-          await api(`/api/admin/pictures/${id}`, { method: 'PATCH', body: JSON.stringify({ posterKey: key }) });
+          await api(`/api/admin/pictures/${id}`, { method: 'PATCH', body: JSON.stringify({ [el.dataset.l === 'en' ? 'posterKeyEn' : 'posterKey']: key }) });
           bfData = await api('/api/admin/book'); renderFlow(ch, box);
         } catch (err) { bfSay(msg, false, err.message || t('errorGeneric')); }
       };

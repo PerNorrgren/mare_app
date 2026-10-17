@@ -1982,5 +1982,9 @@
   "bookGemsToGo": "Nog {n} te gaan, dan gaat de schatkist open.",
   "adminBfPoster": "Plaat voor de knop en de achtergrond",
   "adminBfPosterNoneVid": "Geen: het eerste beeld van de video wordt gebruikt.",
-  "adminBfPosterNoneImg": "Geen: de plaat van de stap zelf wordt gebruikt."
+  "adminBfPosterNoneImg": "Geen: de plaat van de stap zelf wordt gebruikt.",
+  "adminBfNoEn": "Geen Engelse plaat",
+  "adminBfEnSame": "Engelstalige gezinnen zien de Nederlandse (NL) plaat. Upload een Engelse als er woorden op de plaat staan.",
+  "adminBfEnOwn": "Engelstalige gezinnen zien deze.",
+  "adminBfPosterNoneEn": "Geen: Engelstalige gezinnen zien de NL-plaat."
 }

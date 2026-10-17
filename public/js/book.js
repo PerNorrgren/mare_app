@@ -13,11 +13,14 @@
   let book = null;
 
   // diamonds: the same store the picture explorer uses (per chest)
-  const store = () => (book && book.preview ? sessionStorage : localStorage);
+  // v115: previews keep their diamonds in this browser too (under their own
+  // key), so every tab and every way back to the chapter page sees them
+  const store = () => localStorage;
+  const chestKeyOf = (id) => `px-chest-${book && book.preview ? 'preview-' : ''}${id}`;
   function gemsOf(tr) {
     if (!tr) return { n: 0, total: 0 };
     let have = [];
-    try { have = JSON.parse(store().getItem(`px-chest-${tr.id}`) || '[]'); } catch { have = []; }
+    try { have = JSON.parse(store().getItem(chestKeyOf(tr.id)) || '[]'); } catch { have = []; }
     const n = tr.done ? tr.total : have.filter(id => (tr.ids || []).includes(id)).length;
     return { n: Math.min(n, tr.total), total: tr.total, done: tr.done || (book.preview && n >= tr.total && tr.total ? { code: 'VOORBEELD', preview: true } : null) };
   }
@@ -38,7 +41,7 @@
     $('bk-cover-title').textContent = book.texts.coverTitle;
     $('bk-cover-tap').textContent = book.texts.coverTap;
     // a preview starts with empty chests every time the book is opened
-    if (book.preview) { try { Object.keys(sessionStorage).filter(k => k.startsWith('px-chest-')).forEach(k => sessionStorage.removeItem(k)); } catch { /* fine */ } }
+    if (book.preview) { try { Object.keys(localStorage).filter(k => k.startsWith('px-chest-preview-')).forEach(k => localStorage.removeItem(k)); } catch { /* fine */ } }
   }
   function renderContents() {
     show('bk-contents'); background(book.images.contents);
@@ -174,6 +177,10 @@
     $('bk-modal').addEventListener('click', (e) => { if (e.target.id === 'bk-modal') $('bk-modal').hidden = true; });
     $('bk-talk-close').onclick = () => { $('bk-talkbox').hidden = true; $('bk-talk-frame').src = 'about:blank'; };
     window.addEventListener('hashchange', route);
+    // v115: coming back with the browser's back button (or to this tab) shows the diamonds as they are now
+    window.addEventListener('pageshow', (e) => { if (e.persisted) route(); });
+    window.addEventListener('storage', (e) => { if (e.key && e.key.startsWith('px-chest-') && !/^#?$|^#inhoud$/.test(location.hash)) route(); });
+    document.addEventListener('visibilitychange', () => { if (!document.hidden && /^#h\d/.test(location.hash)) route(); });
     route();
   }
   start().catch(() => { $('bk-loading').textContent = t('errorGeneric'); });

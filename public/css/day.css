@@ -2392,3 +2392,16 @@ body.soc-full-open { overflow: hidden; }
 .bf-ch-bar .pic-views { margin-left: 0; }
 .bf-edit #pic-list { margin-top: 8px; }
 .pic-toolbar .pic-up-msg:empty { display: none; }
+
+/* v116: every book picture has an NL and an EN version, side by side */
+.bf-imgs { grid-template-columns: repeat(auto-fill, minmax(400px, 1fr)); gap: 18px; }
+.bf-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; align-items: start; padding: 10px; border: 1px solid rgba(22,48,92,0.12); border-radius: 12px; }
+.bf-pair > .bf-img { min-width: 0; }
+.bf-pair > .bf-img[data-l=en] .bf-lbl { visibility: hidden; }
+.bf-ch-top { grid-template-columns: minmax(0, 440px) minmax(0, 1fr); }
+@media (max-width: 900px) { .bf-ch-top { grid-template-columns: 1fr; } .bf-imgs { grid-template-columns: 1fr; } }
+.bf-lang { display: inline-block; font-size: 0.72rem; font-weight: 800; letter-spacing: .05em; padding: 1px 7px; border-radius: 999px; background: var(--navy); color: #fff; vertical-align: middle; }
+.flow-posters { display: flex; flex-wrap: wrap; gap: 4px 14px; margin: 6px 0; }
+.flow-posters > label { flex-basis: 100%; font-size: 0.82rem; font-weight: 700; color: #9A7A2E; }
+.flow-posters .flow-poster { margin: 0; }
+.flow-posters .flow-poster img { width: 96px; height: 60px; }

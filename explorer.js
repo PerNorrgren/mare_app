@@ -271,14 +271,18 @@ function register(app, { db, auth, media, email, publicUrl }) {
   function bookCfg() {
     let o = {}; try { o = JSON.parse((db.getAppConfig() || {}).book_json || '{}') || {}; } catch { o = {}; }
     const images = {}; for (const k of Object.keys(BOOK_IMG)) images[k] = BOOK_IMG_OK((o.images || {})[k]) || null;
+    // v116: pictures with words on them have an English version too (images = Dutch, imagesEn = English)
+    const imagesEn = {}; for (const k of Object.keys(BOOK_IMG)) imagesEn[k] = BOOK_IMG_OK((o.imagesEn || {})[k]) || null;
     const texts = {};
     for (const k of Object.keys(BOOK_TEXTS)) { const t = (o.texts || {})[k] || {}; texts[k] = { nl: String(t.nl || '').slice(0, 600), en: String(t.en || '').slice(0, 600) }; }
     const chapters = {};
-    for (const [n, c] of Object.entries(o.chapters || {})) if (/^\d+$/.test(n) && c) chapters[n] = { imageKey: BOOK_IMG_OK(c.imageKey), intro_nl: String(c.intro_nl || '').slice(0, 1500), intro_en: String(c.intro_en || '').slice(0, 1500) };
-    return { images, texts, chapters };
+    for (const [n, c] of Object.entries(o.chapters || {})) if (/^\d+$/.test(n) && c) chapters[n] = { imageKey: BOOK_IMG_OK(c.imageKey), imageKeyEn: BOOK_IMG_OK(c.imageKeyEn), intro_nl: String(c.intro_nl || '').slice(0, 1500), intro_en: String(c.intro_en || '').slice(0, 1500) };
+    return { images, imagesEn, texts, chapters };
   }
   const bookText = (cfg, k, nl) => (nl ? (cfg.texts[k].nl || cfg.texts[k].en) : (cfg.texts[k].en || cfg.texts[k].nl)) || BOOK_TEXTS[k][nl ? 'nl' : 'en'];
-  const bookImg = (cfg, k) => bookUrl(cfg.images[k] || BOOK_IMG[k]);
+  // the family's language first, then the other language, then the built-in picture
+  const bookImg = (cfg, k, nl = true) => bookUrl((nl ? (cfg.images[k] || cfg.imagesEn[k]) : (cfg.imagesEn[k] || cfg.images[k])) || BOOK_IMG[k]);
+  const langKey = (nlKey, enKey, nl) => (nl ? (nlKey || enKey) : (enKey || nlKey)) || null;
   // the family's book: every chapter, open, with its steps and its chest
   app.get('/api/book', family, async (req, res) => {
     const cfg = bookCfg();
@@ -296,7 +300,7 @@ function register(app, { db, auth, media, email, publicUrl }) {
       for (const s of db.pictureScenes(n, true)) {
         i++;
         const spots = db.pictureSpots(s.id);
-        const poster = s.poster_key ? await url(s.poster_key) : null; // v112: its own picture, else the picture itself / the video's first frame
+        const pk = langKey(s.poster_key, s.poster_key_en, nl), poster = pk ? await url(pk) : null; // v112: its own picture, else the picture itself / the video's first frame
         steps.push({ n: i, id: s.id, video: !!s.video_key, thumb: poster || (s.video_key ? null : await url(s.image_key)), videoUrl: s.video_key ? await url(s.video_key) : null,
           title: (nl && s.title_nl) || s.title_en || s.title_nl || '', when: (nl && s.when_nl) || s.when_en || s.when_nl || '',
           quizzes: spots.filter(sp => sp.type === 'quiz' && parseQuiz(sp.quiz_json).answers.length).length });
@@ -304,32 +308,37 @@ function register(app, { db, auth, media, email, publicUrl }) {
       const firstPic = steps.find(x => x.thumb), firstVid = steps.find(x => x.video);
       // v111: the chapter's practice from the Book Companion (Book content) shows on the chapter page too
       const pTitle = (nl && p.title_nl) || p.title_en || '', pBody = (nl && p.body_nl) || p.body_en || '';
-      chapters.push({ no: n, title: (nl && p.chapter_title_nl) || p.chapter_title_en || '', image: cc.imageKey ? await bookUrl(cc.imageKey) : (firstPic ? firstPic.thumb : null),
-        imageVideo: !cc.imageKey && !firstPic && firstVid ? firstVid.videoUrl : null, // no picture: the first video's opening frame
+      const ck = langKey(cc.imageKey, cc.imageKeyEn, nl);
+      chapters.push({ no: n, title: (nl && p.chapter_title_nl) || p.chapter_title_en || '', image: ck ? await bookUrl(ck) : (firstPic ? firstPic.thumb : null),
+        imageVideo: !ck && !firstPic && firstVid ? firstVid.videoUrl : null, // no picture: the first video's opening frame
         intro: (nl ? (cc.intro_nl || cc.intro_en) : (cc.intro_en || cc.intro_nl)) || '', steps, treasure: await treasureFor(n, req.user),
         practice: pBody.trim() ? { title: pTitle, body: pBody } : null });
     }
     res.set('Cache-Control', 'no-store');
     res.json({ nl, talk, preview: isPreviewUser(req.user),
-      images: { cover: await bookImg(cfg, 'cover'), contents: await bookImg(cfg, 'contents'), chapterBg: await bookImg(cfg, 'chapterBg') },
+      images: { cover: await bookImg(cfg, 'cover', nl), contents: await bookImg(cfg, 'contents', nl), chapterBg: await bookImg(cfg, 'chapterBg', nl) },
       texts: Object.fromEntries(Object.keys(BOOK_TEXTS).map(k => [k, bookText(cfg, k, nl)])), chapters });
   });
   // the Book Companion page's background pictures
   app.get('/api/book/look', async (req, res) => {
-    const cfg = bookCfg();
-    res.json({ companion: [await bookImg(cfg, 'companion1'), await bookImg(cfg, 'companion2')].filter(Boolean), cover: await bookImg(cfg, 'cover') });
+    const cfg = bookCfg(), nl = req.query.lang !== 'en';
+    res.json({ companion: [await bookImg(cfg, 'companion1', nl), await bookImg(cfg, 'companion2', nl)].filter(Boolean), cover: await bookImg(cfg, 'cover', nl) });
   });
   // staff: everything that can be changed in the flow
   app.get('/api/admin/book', staff, async (req, res) => {
     ensureChests(); // v113: chapters that already have questions get their chest
     const cfg = bookCfg();
     const images = {};
-    for (const k of Object.keys(BOOK_IMG)) images[k] = { key: cfg.images[k], url: await bookImg(cfg, k), isDefault: !cfg.images[k] };
+    for (const k of Object.keys(BOOK_IMG)) images[k] = { key: cfg.images[k], url: await bookUrl(cfg.images[k] || BOOK_IMG[k]), isDefault: !cfg.images[k],
+      en: { key: cfg.imagesEn[k], url: cfg.imagesEn[k] ? await bookUrl(cfg.imagesEn[k]) : null } };
     const chapters = {};
-    for (const [n, c] of Object.entries(cfg.chapters)) chapters[n] = { ...c, imageUrl: c.imageKey ? await bookUrl(c.imageKey) : null };
-    const scenes = {}; // v112: each step's own picture
-    for (const sc of db.pictureScenes(null)) if (sc.poster_key) scenes[sc.id] = await url(sc.poster_key);
-    res.json({ images, texts: cfg.texts, defaults: BOOK_TEXTS, chapters, posters: scenes, chestChapters: treasureCfg().chests.flatMap(c => c.chapters),
+    for (const [n, c] of Object.entries(cfg.chapters)) chapters[n] = { ...c, imageUrl: c.imageKey ? await bookUrl(c.imageKey) : null, imageUrlEn: c.imageKeyEn ? await bookUrl(c.imageKeyEn) : null };
+    const scenes = {}, scenesEn = {}; // v112: each step's own picture (v116: and its English version)
+    for (const sc of db.pictureScenes(null)) {
+      if (sc.poster_key) scenes[sc.id] = await url(sc.poster_key);
+      if (sc.poster_key_en) scenesEn[sc.id] = await url(sc.poster_key_en);
+    }
+    res.json({ images, texts: cfg.texts, defaults: BOOK_TEXTS, chapters, posters: scenes, postersEn: scenesEn, chestChapters: treasureCfg().chests.flatMap(c => c.chapters),
       quizChapters: db.companionPractices().filter(p => chapterQuizIds(p.chapter_no).length).map(p => p.chapter_no) });
   });
   app.put('/api/admin/book', staff, (req, res) => {
@@ -338,10 +347,15 @@ function register(app, { db, auth, media, email, publicUrl }) {
       if (b.images[k] && !BOOK_IMG_OK(b.images[k])) return res.status(400).json({ error: 'That picture could not be used. Upload it again, then press Save.' });
       cur.images[k] = b.images[k] || null;
     }
+    if (b.imagesEn) for (const k of Object.keys(BOOK_IMG)) if (b.imagesEn[k] !== undefined) {
+      if (b.imagesEn[k] && !BOOK_IMG_OK(b.imagesEn[k])) return res.status(400).json({ error: 'That picture could not be used. Upload it again, then press Save.' });
+      cur.imagesEn[k] = b.imagesEn[k] || null;
+    }
     if (b.texts) for (const k of Object.keys(BOOK_TEXTS)) if (b.texts[k]) for (const l of ['nl', 'en']) if (b.texts[k][l] !== undefined) cur.texts[k][l] = String(b.texts[k][l] || '').trim().slice(0, 600);
     if (b.chapter && db.companionPractice(Number(b.chapter.no))) {
       const n = String(Number(b.chapter.no)), c = cur.chapters[n] || { imageKey: null, intro_nl: '', intro_en: '' };
       if (b.chapter.imageKey !== undefined) { if (b.chapter.imageKey && !BOOK_IMG_OK(b.chapter.imageKey)) return res.status(400).json({ error: 'That picture could not be used. Upload it again.' }); c.imageKey = b.chapter.imageKey || null; }
+      if (b.chapter.imageKeyEn !== undefined) { if (b.chapter.imageKeyEn && !BOOK_IMG_OK(b.chapter.imageKeyEn)) return res.status(400).json({ error: 'That picture could not be used. Upload it again.' }); c.imageKeyEn = b.chapter.imageKeyEn || null; }
       if (b.chapter.intro_nl !== undefined) c.intro_nl = String(b.chapter.intro_nl || '').trim().slice(0, 1500);
       if (b.chapter.intro_en !== undefined) c.intro_en = String(b.chapter.intro_en || '').trim().slice(0, 1500);
       cur.chapters[n] = c;
@@ -441,6 +455,7 @@ function register(app, { db, auth, media, email, publicUrl }) {
     if (b.whenEn !== undefined) f.whenEn = String(b.whenEn).slice(0, 300); // v110: when to watch it (book flow)
     if (b.whenNl !== undefined) f.whenNl = String(b.whenNl).slice(0, 300);
     if (b.posterKey !== undefined) { if (b.posterKey && !KEY_OK.test(b.posterKey)) return res.status(400).json({ error: 'Bad key' }); f.posterKey = b.posterKey || null; } // v112
+    if (b.posterKeyEn !== undefined) { if (b.posterKeyEn && !KEY_OK.test(b.posterKeyEn)) return res.status(400).json({ error: 'Bad key' }); f.posterKeyEn = b.posterKeyEn || null; } // v116
     if (b.sortOrder !== undefined) f.sortOrder = Math.round(Number(b.sortOrder)) || 0;
     if (b.active !== undefined) f.active = !!b.active;
     db.updatePictureScene(req.params.id, f);

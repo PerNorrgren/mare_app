@@ -151,18 +151,19 @@
   const GEM_COLOURS = ['#ff9ad5', '#9fdcff', '#c7a6ff', '#ffe08a', '#a6f0d0'];
   const gemSvg = (i) => `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12l4 6-10 12L2 9z" fill="${GEM_COLOURS[i % GEM_COLOURS.length]}"/><path d="M2 9h20M6 3l3 6 3-6 3 6 3-6M9 9l3 12 3-12" fill="none" stroke="rgba(255,255,255,0.75)" stroke-width="0.9" stroke-linejoin="round"/><path d="M7 4.5l1.6 3" stroke="#fff" stroke-width="1.2" stroke-linecap="round"/></svg>`;
   let chestRight = new Set();
-  const chestStore = () => (data && data.treasure && data.treasure.preview ? sessionStorage : localStorage);
-  const chestKey = () => `px-chest-${(data.treasure && data.treasure.id) || data.chapter}`; // v108: one per chest (a chest can span chapters)
+  const chestStore = () => localStorage; // v115: previews too, under their own key (shared with the book page)
+  const chestKey = () => `px-chest-${data.treasure && data.treasure.preview ? 'preview-' : ''}${(data.treasure && data.treasure.id) || data.chapter}`; // v108: one per chest (a chest can span chapters)
   // v106: previews (staff, "view as child", teachers) start with an empty chest every time
   const chestPreview = () => !!(data && data.treasure && data.treasure.preview);
-  function chestSave() { if (chestPreview()) return; try { chestStore().setItem(chestKey(), JSON.stringify([...chestRight])); } catch { /* private mode */ } }
+  function chestSave() { if (chestPreview() && !bookMode) return; // v114: in the book flow a preview keeps its diamonds too
+    try { chestStore().setItem(chestKey(), JSON.stringify([...chestRight])); } catch { /* private mode */ } }
   function setupChest() {
     const old = $('px-chest'); if (old) old.remove();
     const tr = data && data.treasure;
     if ($('px-gembar')) $('px-gembar').hidden = !tr;
     if (!tr) return;
-    try { chestRight = chestPreview() ? new Set() : new Set(JSON.parse(chestStore().getItem(chestKey()) || '[]')); } catch { chestRight = new Set(); }
-    if (chestPreview() && !bookMode) { tr.done = null; try { sessionStorage.removeItem(chestKey()); } catch { /* fine */ } } // v110: in the book flow a preview keeps its diamonds until the book is opened again
+    try { chestRight = (chestPreview() && !bookMode) ? new Set() : new Set(JSON.parse(chestStore().getItem(chestKey()) || '[]')); } catch { chestRight = new Set(); }
+    if (chestPreview() && !bookMode) { tr.done = null; try { localStorage.removeItem(chestKey()); } catch { /* fine */ } } // v110: in the book flow a preview keeps its diamonds until the book is opened again
     if (Array.isArray(tr.ids)) chestRight = new Set([...chestRight].filter(id => tr.ids.includes(id))); // v108: only questions that still count
     const el = document.createElement('button');
     el.type = 'button'; el.id = 'px-chest'; el.className = 'px-chest';
@@ -272,7 +273,7 @@
   async function chestMoment(spotId) {
     const tr = data && data.treasure;
     if (!chestWants(spotId)) return false;
-    chestRight.add(spotId); chestSave();
+    chestRight.add(spotId); chestSave(); renderChest(); // v114: the row shows it straight away
     const total = tr.total, n = Math.min(chestRight.size, total), last = chestRight.size >= total;
     closeMoment(true);
     const box = document.createElement('div');

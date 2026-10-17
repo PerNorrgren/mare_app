@@ -154,7 +154,8 @@
 <script src="/js/companion.js"></script>
 <script>
   // v110: the background pictures (and the book cover) are set in admin → Book Companion → Flow
-  fetch('/api/book/look').then(r => r.json()).catch(() => ({})).then(d => {
+  // v116: pictures with words come in the page's language
+  Promise.resolve(window.MareI18n && window.MareI18n.ready).catch(() => {}).then(() => fetch('/api/book/look?lang=' + ((window.MareI18n && window.MareI18n.locale) || 'nl'))).then(r => r.json()).catch(() => ({})).then(d => {
     const pics = (d && d.companion && d.companion.length) ? d.companion : ['/images/mare-front-cover.jpg'];
     window.MareBgSlideshow.init('bg-slideshow', pics);
     if (d && d.cover) document.getElementById('cp-bookflow-cover').src = d.cover;
