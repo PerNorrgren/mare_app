@@ -1986,5 +1986,9 @@
   "adminBfNoEn": "Geen Engelse plaat",
   "adminBfEnSame": "Engelstalige gezinnen zien de Nederlandse (NL) plaat. Upload een Engelse als er woorden op de plaat staan.",
   "adminBfEnOwn": "Engelstalige gezinnen zien deze.",
-  "adminBfPosterNoneEn": "Geen: Engelstalige gezinnen zien de NL-plaat."
+  "adminBfPosterNoneEn": "Geen: Engelstalige gezinnen zien de NL-plaat.",
+  "adminSpotHintNoteQuiz": "Wordt bij de vraag getoond als de video stopt. Laat het leeg voor de automatische woorden (in grijs): die gebruiken altijd de plek van de vraag in het hoofdstuk, bijvoorbeeld 'vraag 3 van 4' of 'de laatste vraag', ook als vragen verplaatst, toegevoegd of verwijderd worden. In je eigen woorden kun je {n} en {total} gebruiken voor die getallen.",
+  "adminSpotHintAutoEn": "Automatisch: Tap here to answer question … of …",
+  "adminSpotHintAutoNl": "Automatisch: Tik hier om vraag … van … te beantwoorden.",
+  "adminSpotHintUseAuto": "Gebruik de automatische woorden"
 }

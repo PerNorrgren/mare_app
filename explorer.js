@@ -74,6 +74,7 @@ function register(app, { db, auth, media, email, publicUrl }) {
   async function publicScenes(chapterNo, nl) {
     const scenes = db.pictureScenes(chapterNo, true);
     const out = [];
+    const nums = quizNumbers(chapterNo); // v117
     for (const s of scenes) {
       const spots = [];
       for (const p of db.pictureSpots(s.id)) {
@@ -90,7 +91,7 @@ function register(app, { db, auth, media, email, publicUrl }) {
           tEnd: p.t_end == null ? null : p.t_end,
           pause: !!p.pause_on_show,
           // v96 — the instruction shown while the video waits for this spot
-          hint: p.pause_on_show ? ((nl && p.hint_nl) || p.hint_en || p.hint_nl || '') : '',
+          hint: p.pause_on_show ? (p.type === 'quiz' ? quizHint((nl && p.hint_nl) || p.hint_en || p.hint_nl || '', nums[p.id], nl) : ((nl && p.hint_nl) || p.hint_en || p.hint_nl || '')) : '',
           quiz: p.type === 'quiz' ? await publicQuiz(p.quiz_json, nl) : null,
           look: await (async () => { const l = parseLook(p.look_json); return { ...l, icon: undefined, iconUrl: l.icon ? await url(l.icon) : null }; })(),
         });
@@ -158,6 +159,36 @@ function register(app, { db, auth, media, email, publicUrl }) {
     return ids;
   }
   const chestQuizIds = (chest) => chest.chapters.flatMap(n => chapterQuizIds(n));
+  // v117 — each question's number in the order the child meets them (steps in
+  // order; on a video, by the time it shows), counted over the chest's
+  // chapters. Worked out fresh every time, so moving, adding or deleting a
+  // question never leaves an old number behind.
+  function quizNumbers(chapterNo) {
+    const chest = chestOf(chapterNo);
+    const order = [];
+    for (const n of (chest ? chest.chapters : [chapterNo])) {
+      for (const sc of db.pictureScenes(n, true)) {
+        const qs = db.pictureSpots(sc.id).filter(p => p.type === 'quiz' && parseQuiz(p.quiz_json).answers.length);
+        if (sc.video_key) qs.sort((a, b) => (a.t_start || 0) - (b.t_start || 0));
+        order.push(...qs.map(p => p.id));
+      }
+    }
+    const out = {}; order.forEach((id, i) => { out[id] = { n: i + 1, total: order.length }; });
+    return out;
+  }
+  // the words while the video waits at a question: the editor's own (with {n} and {total}
+  // filled in), or, when left empty, the automatic words with the question's number
+  const QUIZ_HINT = {
+    nl: { one: 'Tik hier om vraag {n} van {total} te beantwoorden.', last: 'Tik hier voor de laatste vraag!', only: 'Tik hier om de vraag te beantwoorden.' },
+    en: { one: 'Tap here to answer question {n} of {total}.', last: 'Tap here for the last question!', only: 'Tap here to answer the question.' },
+  };
+  function quizHint(own, num, nl) {
+    const fill = (txt) => String(txt).replace(/\{n\}/g, num ? num.n : '').replace(/\{total\}/g, num ? num.total : '');
+    if (own) return fill(own);
+    if (!num) return '';
+    const w = QUIZ_HINT[nl ? 'nl' : 'en'];
+    return fill(num.total === 1 ? w.only : num.n === num.total ? w.last : w.one);
+  }
   // the chest's code: the chosen Offers code while it is active, else a personal code
   function chestOffer(chest) {
     if (chest.mode !== 'offer' || !chest.offerCode) return null;
@@ -431,7 +462,9 @@ function register(app, { db, auth, media, email, publicUrl }) {
   app.get('/api/admin/pictures', staff, async (req, res) => {
     const scenes = db.pictureScenes(null);
     const out = [];
-    for (const s of scenes) out.push({ ...s, imageUrl: await url(s.image_key), videoUrl: s.video_key ? await url(s.video_key) : null, spots: db.pictureSpots(s.id) });
+    const nums = {}; for (const c of db.companionPractices()) Object.assign(nums, quizNumbers(c.chapter_no)); // v117
+    for (const s of scenes) out.push({ ...s, imageUrl: await url(s.image_key), videoUrl: s.video_key ? await url(s.video_key) : null,
+      spots: db.pictureSpots(s.id).map(p => p.type === 'quiz' ? { ...p, quizNo: nums[p.id] || null, autoHint_nl: quizHint('', nums[p.id], true), autoHint_en: quizHint('', nums[p.id], false) } : p) });
     res.json({ scenes: out, chapters: db.companionPractices().map(p => ({ no: p.chapter_no, title: p.chapter_title_en, practice: (p.body_nl || p.body_en) ? (p.title_nl || p.title_en || '') : '' })) });
   });
   app.post('/api/admin/pictures', staff, (req, res) => {

@@ -1986,5 +1986,9 @@
   "adminBfNoEn": "No English picture",
   "adminBfEnSame": "English families see the Dutch (NL) picture. Upload an English one if the picture has words on it.",
   "adminBfEnOwn": "English families see this one.",
-  "adminBfPosterNoneEn": "None: English families see the NL picture."
+  "adminBfPosterNoneEn": "None: English families see the NL picture.",
+  "adminSpotHintNoteQuiz": "Shown to the child next to the question when the video stops. Leave it empty for the automatic words (shown in grey), which always use the question's place in the chapter, for example 'question 3 of 4' or 'the last question', even after questions are moved, added or deleted. Your own words can use {n} and {total} for those numbers.",
+  "adminSpotHintAutoEn": "Automatic: Tap here to answer question … of …",
+  "adminSpotHintAutoNl": "Automatic: Tik hier om vraag … van … te beantwoorden.",
+  "adminSpotHintUseAuto": "Use the automatic words"
 }

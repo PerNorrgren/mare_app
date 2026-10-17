@@ -452,6 +452,13 @@
   }
   const flowT = (s) => { s = Math.max(0, Number(s) || 0); const m = Math.floor(s / 60); return `${m}:${String(Math.floor(s - m * 60)).padStart(2, '0')}`; };
   // the chapter's steps in their order (as the child meets them)
+  // v117: what the child reads while the video waits (a question's automatic words when left empty)
+  function spotHint(sp) {
+    const own = sp.hint_nl || sp.hint_en || '';
+    if (sp.type !== 'quiz') return own;
+    if (!own) return sp.autoHint_nl || '';
+    return own.replace(/\{n\}/g, sp.quizNo ? sp.quizNo.n : '').replace(/\{total\}/g, sp.quizNo ? sp.quizNo.total : '');
+  }
   function chapterSteps(ch) {
     return picData.scenes.filter(s => s.chapter_no === ch).sort((a, b) => (a.sort_order - b.sort_order) || String(a.created_at).localeCompare(String(b.created_at)));
   }
@@ -639,7 +646,7 @@
             <button type="button" class="flow-spot" data-scene="${s.id}" data-spot="${sp.id}" data-no-busy>
               <span class="flow-ico">${FLOW_ICON[sp.type] || '•'}</span>
               <span class="flow-name">${escapeHtml(sp.title_en || t('adminSpotType_' + sp.type))}</span>
-              ${isVid ? `<span class="flow-time">${flowT(sp.t_start)}${sp.pause_on_show ? ` · <b class="flow-stops">${escapeHtml(t('adminFlowStops'))}</b>${(sp.hint_nl || sp.hint_en) ? ` <span class="flow-hasHint" title="${escapeHtml(sp.hint_nl || sp.hint_en)}">💬</span>` : ''}` : ''}</span>` : ''}
+              ${isVid ? `<span class="flow-time">${flowT(sp.t_start)}${sp.pause_on_show ? ` · <b class="flow-stops">${escapeHtml(t('adminFlowStops'))}</b>${spotHint(sp) ? ` <span class="flow-hasHint" title="${escapeHtml(spotHint(sp))}">💬</span>` : ''}` : ''}</span>` : ''}
             </button>`).join('') : `<span class="admin-empty-note">${escapeHtml(t('adminFlowNoSpots'))}</span>`}</div>
         </div>`;
     });
@@ -723,7 +730,7 @@
     const tag = `<div class="flow-tag">${FLOW_ICON[sp.type] || ''} ${escapeHtml(t('adminSpotType_' + sp.type))}${s.videoUrl ? ` · ${flowT(sp.t_start)}–${sp.t_end == null ? escapeHtml(t('adminVidEnd')) : flowT(sp.t_end)}` : ''}</div>`;
     let html = tag + (sp.title_en ? `<h3>${escapeHtml(sp.title_en)}</h3>` : '');
     // v96 — what the child reads while the video waits for this spot
-    if (s.videoUrl && Number(sp.pause_on_show) && (sp.hint_nl || sp.hint_en)) html = tag + `<p class="flow-hint">💬 ${escapeHtml(sp.hint_nl || sp.hint_en)}</p>` + (sp.title_en ? `<h3>${escapeHtml(sp.title_en)}</h3>` : '');
+    if (s.videoUrl && Number(sp.pause_on_show) && spotHint(sp)) html = tag + `<p class="flow-hint">💬 ${escapeHtml(spotHint(sp))}</p>` + (sp.title_en ? `<h3>${escapeHtml(sp.title_en)}</h3>` : '');
     if (sp.type === 'video') {
       if (video) html += `<video src="${escapeHtml(video)}" controls autoplay playsinline></video>`;
       else if (sp.video_url) html += `<p><a href="${escapeHtml(sp.video_url)}" target="_blank" rel="noopener">${escapeHtml(sp.video_url)}</a></p>`;
@@ -1014,7 +1021,9 @@
       askEd = document.createElement('div');
       askEd.className = 'pic-ask-ed';
       askEd.style.left = (hit.x * 100) + '%'; askEd.style.top = (hit.y * 100) + '%';
-      const hint = ((window.MareI18n && window.MareI18n.locale) === 'nl' ? (hit.hint_nl || hit.hint_en) : (hit.hint_en || hit.hint_nl)) || '';
+      const isNl = (window.MareI18n && window.MareI18n.locale) === 'nl';
+      const own = (isNl ? (hit.hint_nl || hit.hint_en) : (hit.hint_en || hit.hint_nl)) || '';
+      const hint = hit.type === 'quiz' ? (own ? own.replace(/\{n\}/g, hit.quizNo ? hit.quizNo.n : '').replace(/\{total\}/g, hit.quizNo ? hit.quizNo.total : '') : (isNl ? hit.autoHint_nl : hit.autoHint_en) || '') : own; // v117
       askEd.innerHTML = `<span>⏸ ${escapeHtml(hint || t('adminVidStoppedNoHint'))}</span><button type="button" class="btn-primary btn-small" data-no-busy>${escapeHtml(t('adminVidTryTap'))}</button>`;
       askEd.querySelector('button').addEventListener('click', (e) => { e.stopPropagation(); hideAskEd(); flowPreviewSpot(scene.id, hit.id, canvas.parentElement, null, { onDone: () => video.play() }); });
       askEd.addEventListener('click', (e) => e.stopPropagation());
@@ -1144,9 +1153,10 @@
         </div>
         ${type === 'mask' ? '' : `<label class="vid-pause"><input type="checkbox" class="sp-pause"${sp.pause_on_show ? ' checked' : ''}> ${escapeHtml(t('adminVidPause'))}</label>
         <div class="sp-hint-box"${sp.pause_on_show ? '' : ' hidden'}>
-          <p class="admin-empty-note">${escapeHtml(t('adminSpotHintNote'))}</p>
-          <div class="admin-form-row"><div class="field"><label>${escapeHtml(t('adminSpotHint'))} EN</label><input type="text" class="sp-hint-en" maxlength="200" value="${escapeHtml(sp.hint_en || '')}" placeholder="${escapeHtml(t('adminSpotHintPhEn'))}"></div>
-            <div class="field"><label>${escapeHtml(t('adminSpotHint'))} NL</label><input type="text" class="sp-hint-nl" maxlength="200" value="${escapeHtml(sp.hint_nl || '')}" placeholder="${escapeHtml(t('adminSpotHintPhNl'))}"></div></div>
+          <p class="admin-empty-note">${escapeHtml(t(type === 'quiz' ? 'adminSpotHintNoteQuiz' : 'adminSpotHintNote'))}</p>
+          <div class="admin-form-row"><div class="field"><label>${escapeHtml(t('adminSpotHint'))} EN</label><input type="text" class="sp-hint-en" maxlength="200" value="${escapeHtml(sp.hint_en || '')}" placeholder="${escapeHtml(type === 'quiz' ? (sp.autoHint_en || t('adminSpotHintAutoEn')) : t('adminSpotHintPhEn'))}"></div>
+            <div class="field"><label>${escapeHtml(t('adminSpotHint'))} NL</label><input type="text" class="sp-hint-nl" maxlength="200" value="${escapeHtml(sp.hint_nl || '')}" placeholder="${escapeHtml(type === 'quiz' ? (sp.autoHint_nl || t('adminSpotHintAutoNl')) : t('adminSpotHintPhNl'))}"></div></div>
+          ${type === 'quiz' ? `<p class="sp-hint-auto"${(sp.hint_en || sp.hint_nl) ? '' : ' hidden'}><a href="#" class="sp-hint-reset">↺ ${escapeHtml(t('adminSpotHintUseAuto'))}</a></p>` : ''}
         </div>`}` : ''}
         <details class="sp-look"${type === 'mask' ? ' open' : ''}><summary>${escapeHtml(t('adminSpotLookSection'))}</summary>
         ${(() => { const lk = lookOf(sp); return `<div class="admin-form-row look-row">
@@ -1239,6 +1249,11 @@
         if (rm) rm.addEventListener('click', async (e) => { e.preventDefault(); row.dataset.imageKey = ''; await saveQuizNow(); });
       });
       // v96 — the instruction only matters when the video stops for this spot
+      // v117: back to the automatic words (they follow the question's place in the chapter)
+      if (q('.sp-hint-reset')) {
+        q('.sp-hint-reset').addEventListener('click', (e) => { e.preventDefault(); q('.sp-hint-en').value = ''; q('.sp-hint-nl').value = ''; q('.sp-hint-en').dispatchEvent(new Event('input', { bubbles: true })); q('.sp-hint-auto').hidden = true; });
+        ['.sp-hint-en', '.sp-hint-nl'].forEach(c => q(c).addEventListener('input', () => { q('.sp-hint-auto').hidden = !(q('.sp-hint-en').value || q('.sp-hint-nl').value); }));
+      }
       if (q('.sp-pause') && q('.sp-hint-box')) q('.sp-pause').addEventListener('change', () => {
         q('.sp-hint-box').hidden = !q('.sp-pause').checked;
         if (q('.sp-pause').checked && !q('.sp-hint-en').value && !q('.sp-hint-nl').value) q('.sp-hint-nl').focus();
